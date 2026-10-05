@@ -53,11 +53,14 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .barlbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:700}
 .bar.tyre i{background:#f2c400}
 .barlbl.dmg{color:#ff6b62}
-#boxPanel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 70px);left:50%;transform:translateX(-50%);padding:10px 12px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto;font-size:13px}
-#boxPanel b{font-size:16px;font-style:italic}
-#boxPanel span{color:var(--muted);font-weight:600}
-#boxPanel .cmp{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
-#boxPanel .cmp button{height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-weight:700;font-size:13px;cursor:pointer}
+#boxPanel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);padding:6px 8px 6px 12px;border-radius:12px;display:flex;align-items:center;gap:10px;pointer-events:auto;font-size:13px}
+#boxPanel b{font-size:15px;font-style:italic;color:var(--accent)}
+#boxPanel .cmp{display:flex;gap:6px}
+#boxPanel .cmp button{height:38px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+#boxPanel .cmp button[data-c="2"]{box-shadow:inset 0 -3px 0 #e3262f}
+#boxPanel .cmp button[data-c="0"]{box-shadow:inset 0 -3px 0 #f2c400}
+#boxPanel .cmp button[data-c="1"]{box-shadow:inset 0 -3px 0 #f0f0f0}
+#boxPanel .cmp button[data-c="3"]{box-shadow:inset 0 -3px 0 #2a7de1}
 #boxPanel .cmp button.sel{background:var(--accent);color:var(--ink);border-color:transparent}
 #bBox.on{background:var(--accent);color:var(--ink)}
 #topbtns{position:absolute;right:calc(env(safe-area-inset-right,0px) + 12px);top:calc(env(safe-area-inset-top,0px) + 192px);display:flex;flex-direction:column;gap:8px}
@@ -92,7 +95,7 @@ body.touch #gear{font-size:30px;width:26px}
 body.touch .spd{min-width:62px}
 body.touch .spd b{font-size:26px}
 body.touch .spd small{font-size:10px}
-body.touch .bars{width:80px;gap:3px}
+body.touch .bars{width:104px;gap:3px}
 body.touch .bar{height:6px}
 body.touch .barlbl{font-size:9px}
 body.touch #touch{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:0 calc(env(safe-area-inset-right,0px) + 10px) 0 calc(env(safe-area-inset-left,0px) + 10px)}
@@ -102,9 +105,10 @@ body.touch #tErs{grid-column:1;grid-row:1;justify-self:center;width:52px;height:
 body.touch #tBrake{grid-column:1;grid-row:2;width:70px;height:70px;font-size:14px}
 body.touch #tGas{grid-column:2;grid-row:1/span 2;width:86px;height:86px}
 body.touch #msg{font-size:22px;top:36%}
-body.touch #boxPanel{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 148px);padding:6px 8px;gap:4px;font-size:11px}
-body.touch #boxPanel b{font-size:13px}
-body.touch #boxPanel .cmp button{height:30px;padding:0 10px;font-size:12px}
+body.touch #boxPanel{top:calc(env(safe-area-inset-top,0px) + 46px);left:auto;right:calc(env(safe-area-inset-right,0px) + 108px);transform:none;padding:5px 6px 5px 10px;gap:6px}
+body.touch #boxPanel b{font-size:12px}
+body.touch #boxPanel .cmp{gap:5px}
+body.touch #boxPanel .cmp button{height:36px;padding:0 9px;font-size:12px}
 body.touch #lights{top:24%;gap:8px;padding:8px 12px}
 body.touch #lights i{width:26px;height:26px}
 #rotate{display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 120px);left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;white-space:nowrap}
@@ -195,8 +199,8 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <button class="ibtn glass" id="bBox" aria-label="Pedir parada en boxes">Box</button>
   </div>
   <div id="boxPanel" class="glass hidden">
-    <b>Box esta vuelta</b><span>Elegí gomas (1 · 2 · 3):</span>
-    <div class="cmp"><button data-c="2">Blandas</button><button data-c="0">Medias</button><button data-c="1">Duras</button><button data-c="3">Lluvia</button><button data-c="-1">Cancelar</button></div>
+    <b>BOX</b>
+    <div class="cmp"><button data-c="2">Blandas (1)</button><button data-c="0">Medias (2)</button><button data-c="1">Duras (3)</button><button data-c="3">Lluvia</button><button data-c="-1" aria-label="Cancelar parada">✕</button></div>
   </div>
   <div id="dash" class="glass">
     <div id="gear">N</div>
@@ -209,6 +213,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
       <div class="barlbl"><span id="tyLbl">GOMAS</span><span id="tyTxt">100%</span></div>
       <div class="bar tyre"><i id="tyre"></i></div>
       <div class="barlbl dmg hidden" id="dmgRow"><span>DAÑO</span><span id="dmgTxt">0%</span></div>
+      <div class="barlbl dmg hidden" id="dmgFx"><span id="dmgV"></span><span id="dmgG"></span></div>
     </div>
   </div>
   <div id="lights" class="glass hidden"><i></i><i></i><i></i><i></i><i></i></div>
@@ -1546,8 +1551,8 @@ function addDamage(c,amt){if(amt<0.02||c.finished)return;const was=c.dmg;c.dmg=M
  for(let k=0;k<Math.min(30,Math.round(amt*70));k++)FX.emit(0,c.pos.x+rnd(-1,1),c.pos.y+rnd(0.2,0.8),c.pos.z+rnd(-1,1),rnd(-5,5),rnd(1,4),rnd(-5,5),Math.random()<0.5?'#1b1c20':c.team.c1,rnd(0.12,0.22),0.1,rnd(0.5,0.9),1,9);}
 // 0 en pista, 1 entrando con limitador, 2 parado cambiando gomas y arreglando, 3 saliendo
 function pitUpdate(c,dt){const L=track.L,x=lapPos(c);
- if(c.pit===0){if(c.pitReq&&state==='race'&&!c.finished&&sess.laps-c.lastLaps>1&&x>L-PIT.in&&x<L-PIT.box-30){c.pit=1;if(c.isPlayer){$('boxPanel').classList.add('hidden');showMsg('Entrando a boxes',1500);}}}
- else if(c.pit===1){if(x>=L-PIT.box||x<PIT.out){c.pit=2;c.v=0;c.stopT=PIT.stop+c.dmg*4+rnd(-0.2,0.4);c.stopTot=c.stopT;}}
+ if(c.pit===0){if(c.pitReq&&state==='race'&&!c.finished&&sess.laps-c.lastLaps>1&&x>L-PIT.in&&x<L-PIT.box-30){c.pit=1;if(c.isPlayer)showMsg('Entrando a boxes',1500);}}
+ else if(c.pit===1){if(x>=L-PIT.box||x<PIT.out){c.pit=2;c.v=0;c.stopT=PIT.stop+c.dmg*4+rnd(-0.2,0.4);c.stopTot=c.stopT;if(c.isPlayer)$('boxPanel').classList.add('hidden');}}
  else if(c.pit===2){c.v=0;c.stopT-=dt;if(c.stopT<=0){c.tw=0;c.twWarn=false;c.dmg=0;setCompound(c,c.pitCi);c.pitReq=false;c.stops++;c.pit=3;if(c.isPlayer)showMsg('Parada '+c.stopTot.toFixed(1)+' s · '+TYRE.name[c.pitCi],1800);}}
  else if(c.pit===3){if(x>PIT.out&&x<L/2){c.pit=0;if(c.isPlayer)showMsg('Salida de boxes',1100);}}}
 function aiStep(c,dt){
@@ -1733,7 +1738,7 @@ function updateHUD(dt){
  c.rpm=rpm;$('rpm').style.width=clamp((rpm-4000)/8500*100,0,100)+'%';$('rpmTxt').textContent=Math.round(rpm/100)*100;
  $('ers').style.width=(c.ers*100)+'%';$('ersTxt').textContent=Math.round(c.ers*100)+'%';$('ersBar').classList.toggle('on',c.ersOn);
  {const w=Math.max(0,1-c.tw);$('tyre').style.width=(w*100)+'%';$('tyre').style.background=c.tw>0.8?'#ff3b30':COMPOUNDS[c.m.ci];$('tyLbl').textContent=TYRE.name[c.m.ci];$('tyTxt').textContent=Math.round(w*100)+'%';
-  $('dmgRow').classList.toggle('hidden',c.dmg<0.05);$('dmgTxt').textContent=Math.round(c.dmg*100)+'%';$('bBox').classList.toggle('on',c.pitReq||c.pit>0);}
+  $('dmgRow').classList.toggle('hidden',c.dmg<0.05);$('dmgFx').classList.toggle('hidden',c.dmg<0.05);$('dmgTxt').textContent=Math.round(c.dmg*100)+'%';$('dmgV').textContent='−'+Math.round(93*0.12*c.dmg*3.6)+' km/h';$('dmgG').textContent='−'+Math.round(18*c.dmg)+'% agarre';$('bBox').classList.toggle('on',c.pitReq||c.pit>0);}
  if(sess.type==='quali'){const qb=qualiBoard();$('hPos').textContent=c.best<Infinity?'P'+(qb.findIndex(q=>q.isPlayer)+1):'--';$('hPosN').textContent='de '+qb.length;
   $('hLap').textContent=c.lapsSeen<0?'Salida':clamp(c.lastLaps+1,1,QLAPS)+'/'+QLAPS;
   $('hTime').textContent=c.timing&&!c.finished?fmt(raceT()-c.lapStart):'--';$('hTime').classList.toggle('bad',c.lapBad&&!c.finished);$('hBest').textContent=fmt(c.best);
