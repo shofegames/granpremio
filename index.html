@@ -644,6 +644,10 @@ function treeGeos(){if(TG)return TG;TG={};
     if(s<S){const b=s*3,n2=b+3;idx.push(b,n2,b+1,n2,n2+1,b+1,b+1,n2+1,b+2,n2+1,n2+2,b+2);}}
    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();F.push(g);}
   TG.palmL=mergeAll(F);}
+ // versiones simples para los arboles lejanos: pocas caras y una sola capa (se ven igual desde lejos)
+ TG.broadLo=mergeAll(blobGeo([[0,6.5,0,2.8],[1.7,5.6,0.5,2.1],[-1.6,5.8,-0.4,2.2],[0.2,7.9,-0.2,2.0],[-0.3,5.3,1.6,1.9]],0).map(g=>shadeY(g,3.6,9.6,0.42)));
+ TG.cypLo=mergeAll(blobGeo([[0,5.2,0,1.25,3.6],[0,8.4,0,0.8,2.2]],0).map(g=>shadeY(g,1.2,10.8,0.5)));
+ {const L=[];for(let i=0;i<4;i++){const r=3.0-i*0.65,h=3.6-i*0.3,y=2.4+i*2.3;const c=new THREE.ConeGeometry(r,h,7,1,true);c.translate(0,y+h/2,0);L.push(shadeY(c,y,y+h,0.45));}TG.pineLo=mergeAll(L);}
  // arbusto
  TG.bush=mergeAll(blobGeo([[0,0.55,0,0.85],[0.7,0.45,0.2,0.65],[-0.6,0.42,-0.3,0.7]],1).map(g=>shadeY(g,-0.2,1.4,0.45)));
  // mata de pasto: dos planos cruzados
@@ -669,8 +673,15 @@ function chunked(base,mat,items,cell,opts){const cells=new Map();for(const it of
  for(const L of cells.values()){const g=new THREE.BufferGeometry();for(const k in base.attributes)g.setAttribute(k,base.attributes[k]);if(base.index)g.setIndex(base.index);for(const gr of base.groups)g.addGroup(gr.start,gr.count,gr.materialIndex);
   let cx=0,cz=0;for(const it of L){cx+=it.m.elements[12];cz+=it.m.elements[14];}cx/=L.length;cz/=L.length;let r=0;for(const it of L)r=Math.max(r,Math.hypot(it.m.elements[12]-cx,it.m.elements[14]-cz));
   g.boundingSphere=new THREE.Sphere(new V3(cx,by,cz),r+br*1.7);g.userData.shared=true;
-  const im=new THREE.InstancedMesh(g,mat,L.length);L.forEach((it,i)=>{im.setMatrixAt(i,it.m);if(it.c)im.setColorAt(i,it.c);});im.castShadow=!!opts.cast;im.receiveShadow=!!opts.recv;if(opts.depth)im.customDepthMaterial=MX.leafDepth;out.push(im);}
+  const im=new THREE.InstancedMesh(g,mat,L.length);L.forEach((it,i)=>{im.setMatrixAt(i,it.m);if(it.c)im.setColorAt(i,it.c);});im.castShadow=!!opts.cast;im.receiveShadow=!!opts.recv;if(opts.depth)im.customDepthMaterial=MX.leafDepth;out.push(im);
+  // lejos se cambia por la version simple (sin sombra) o se oculta
+  if(opts.lod){let lo=null;const lg=opts.lod.geo;if(lg){const g2=new THREE.BufferGeometry();for(const k in lg.attributes)g2.setAttribute(k,lg.attributes[k]);if(lg.index)g2.setIndex(lg.index);g2.boundingSphere=g.boundingSphere.clone();g2.userData.shared=true;
+    lo=new THREE.InstancedMesh(g2,opts.lod.mat,L.length);L.forEach((it,i)=>{lo.setMatrixAt(i,it.m);if(it.c)lo.setColorAt(i,it.c);});lo.visible=false;out.push(lo);}
+   LODS.push({hi:im,lo,x:cx,z:cz,r:g.boundingSphere.radius});}}
  return out;}
+// nivel de detalle de la vegetacion segun la distancia a la camara
+let LODS=[];const LOD_NEAR=170,LOD_FAR=1400;
+function updateLOD(){const cp=camera.position;for(const e of LODS){const d=Math.hypot(e.x-cp.x,e.z-cp.z)-e.r,near=d<LOD_NEAR;if(e.hi.visible!==near)e.hi.visible=near;if(e.lo){const v=!near&&d<LOD_FAR;if(e.lo.visible!==v)e.lo.visible=v;}}}
 function ribbonIf(ok,offA,offB,yA,yB,vLen,mat){
  const {P,NL,N,ds}=track;const pos=[],uv=[],idx=[];let n=0;
  for(let i=0;i<N;i++){const j=(i+1)%N;if(!ok(i)||!ok(j))continue;
@@ -1018,7 +1029,7 @@ function clearOf(obj,pts,minD){for(const [x,z] of pts){const v=new V3(x,0,z).app
 function buildWorld(ci){
  if(world){scene.remove(world);disposeObj(world);}
  for(const k in flagMatCache){flagMatCache[k].map.dispose();flagMatCache[k].dispose();delete flagMatCache[k];}
- world=new THREE.Group();scene.add(world);
+ world=new THREE.Group();scene.add(world);LODS=[];
  curCirc=ci;const circ=CIRCUITS[ci];track=computeTrack(circ);const T=track;const {P,NL,N,ds}=T;const Q=QUAL[sel.q];const FL=FLORA[circ.flora||circ.sky];const LS=clamp(track.L/2300,1,2.8)*(circ.flora==='forest'?1.25:1);TGRID=buildGrid();
  applySky(circ.sky);obstacles=[];const waterZ=circ.river?T.minZ-150:-1e9;
  if(T.elev){buildTerrain(T);world.add(TERR.mesh);
@@ -1088,17 +1099,18 @@ function buildWorld(ci){
    if(minDistTrack(x,z)<WALL+8)continue;if(blocked(x,z,4))continue;
    const sp=pick();spots[sp].push([x,z]);k++;
    if(Math.random()<0.35&&k<nT){const a=rnd(0,7),r=rnd(4,8);const x2=x+Math.cos(a)*r,z2=z+Math.sin(a)*r;if(minDistTrack(x2,z2)>WALL+8&&!blocked(x2,z2,4)){spots[sp].push([x2,z2]);k++;}}}
-  const geo={broad:['broadT','broadS',[MX.leaf,MX.leafA]],pine:['pineT','pineL',MX.leaf],cyp:['cypT','cypS',[MX.leaf,MX.leafA]],palm:['palmT','palmL',MX.frond]};
-  for(const sp in spots){const L=spots[sp];if(!L.length)continue;const [tg,lg,lm]=geo[sp];const cols=FL.cols[sp];const IT=[],IL=[];
+  const geo={broad:['broadT','broadS',[MX.leaf,MX.leafA],'broadLo',MX.leaf],pine:['pineT','pineL',MX.leaf,'pineLo',MX.leaf],cyp:['cypT','cypS',[MX.leaf,MX.leafA],'cypLo',MX.leaf],palm:['palmT','palmL',MX.frond,'palmL',MX.frond]};
+  for(const sp in spots){const L=spots[sp];if(!L.length)continue;const [tg,lg,lm,lo,lom]=geo[sp];const cols=FL.cols[sp];const IT=[],IL=[];
    L.forEach(([x,z])=>{const s=rnd(0.75,1.35)*(sp==='palm'?1.1:1);q.setFromAxisAngle(up,rnd(0,6.28));sc.set(s,s*rnd(0.88,1.18),s);const mm=new THREE.Matrix4().compose(new V3(x,terrainH(x,z),z),q,sc);
     IL.push({m:mm,c:new THREE.Color(cols[(Math.random()*cols.length)|0]).convertSRGBToLinear().multiplyScalar(rnd(0.85,1.12))});IT.push({m:mm,c:new THREE.Color(1,1,1).multiplyScalar(rnd(0.75,1.1))});});
-   world.add(...chunked(TGs[tg],MX.bark,IT,260,{cast:true}),...chunked(TGs[lg],lm,IL,260,{cast:true,recv:true,depth:Array.isArray(lm)}));}}
+   // troncos lejanos: solo las palmeras los muestran (los demas quedan tapados por la copa)
+   world.add(...chunked(TGs[tg],MX.bark,IT,200,{cast:true,lod:sp==='palm'?{geo:TGs[tg],mat:MX.bark}:{}}),...chunked(TGs[lg],lm,IL,200,{cast:true,recv:true,depth:Array.isArray(lm),lod:{geo:TGs[lo],mat:lom}}));}}
  // arbustos
  {const nB=Math.round(Q.trees*0.35*LS);const im=new THREE.InstancedMesh(TGs.bush,MX.leaf,nB);let k=0,tries=0;
   while(k<nB&&tries<nB*8){tries++;const i=(Math.random()*N)|0,s=Math.random()<0.5?1:-1,lat=s*(WALL+rnd(2.5,30));const x=P[i].x+NL[i].x*lat,z=P[i].z+NL[i].z*lat;
    if(minDistTrack(x,z)<WALL+2)continue;if(blocked(x,z,1))continue;const sz=rnd(0.7,1.6);q.setFromAxisAngle(up,rnd(0,6.28));sc.set(sz,sz*rnd(0.7,1.1),sz);m4.compose(new V3(x,terrainH(x,z),z),q,sc);im.setMatrixAt(k,m4);
    im.setColorAt(k,col.set(FL.bush[(Math.random()*FL.bush.length)|0]).convertSRGBToLinear().multiplyScalar(rnd(0.8,1.15)));k++;}
-  im.count=k;world.add(...chunked(TGs.bushS,[MX.leaf,MX.leafA],instItems(im),260,{cast:true,recv:true,depth:true}));}
+  im.count=k;world.add(...chunked(TGs.bushS,[MX.leaf,MX.leafA],instItems(im),200,{cast:true,recv:true,depth:true,lod:{}}));}
  // marcas de frenada
  {const sk=new Uint8Array(N);for(let i=0;i<N;i++){const a=T.kAbs[(i-1+N)%N],b=T.kAbs[i],c=T.kAbs[(i+1)%N];if(b>=a&&b>=c&&b>0.011){for(let d=Math.round(12/ds);d<=Math.round(85/ds);d++)sk[(i-d+N)%N]=1;}}
   world.add(ribbonIf(i=>sk[i],q=>T.line[q]+1.3,q=>T.line[q]-1.3,0.057,0.057,11,MX.skid));}
@@ -1335,10 +1347,11 @@ function makeCar(team,num,name){
  const m2=new THREE.MeshPhysicalMaterial({color:lin(team.c2),metalness:0.3,roughness:0.3,clearcoat:1,clearcoatRoughness:0.08});
  const mUi=new THREE.MeshStandardMaterial({color:lin(team.ui),metalness:0.2,roughness:0.35});
  const add=(geo,mat,shadow)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=!!shadow;m.receiveShadow=true;body.add(m);return m;};
- add(C.livery,mLiv,true);add(C.carbon,MATS.carbon,true);add(C.c2,m2,true);add(C.c1,m1,true);add(C.ui,mUi);add(C.dark,MATS.visor);
+ // piezas grandes que se ven siempre; el resto se oculta en los rivales lejanos
+ const keep=new Set([add(C.livery,mLiv,true),add(C.carbon,MATS.carbon,true),add(C.c2,m2,true),add(C.c1,m1,true)]);add(C.ui,mUi);add(C.dark,MATS.visor);
  add(C.mglass,MATS.mirror);add(C.inner,MATS.inner);
  add(C.arms,new THREE.MeshStandardMaterial({color:lin(team.c1).multiplyScalar(0.55),roughness:0.8,envMapIntensity:0.4}));add(C.gloves,MATS.glove);
- const helmet=[add(C.helmet,m2,true),add(C.ring,mUi),add(C.visor,MATS.visor)];
+ const helmet=[add(C.helmet,m2,true),add(C.ring,mUi),add(C.visor,MATS.visor)];keep.add(helmet[0]);
  add(C.spon,decalMat('sp'+team.name,()=>textTex(team.sponsor,team.txt,512,128,team.c1)));
  {const ad=ADS[(TEAMS.indexOf(team)*3+2)%ADS.length];add(C.spon2,decalMat('s2'+team.name,()=>textTex(ad[0],team.txt,512,128)));}
  add(C.num,decalMat('n'+team.name+num,()=>textTex(String(num),team.txt,256,256)));
@@ -1348,7 +1361,7 @@ function makeCar(team,num,name){
  const ci=(num*7)%3;const faces=[],spokes=[],blurs=[],covers=[];
  const wheels=[],fronts=[];
  const wheel=(x,z,R,w,front)=>{const s=Math.sign(x);const pv=new THREE.Group();pv.position.set(x,R,z);root.add(pv);const sp=new THREE.Group();pv.add(sp);
-  const t=new THREE.Mesh(front?C.tF:C.tR,MATS.tire);t.castShadow=true;sp.add(t);
+  const t=new THREE.Mesh(front?C.tF:C.tR,MATS.tire);t.castShadow=true;sp.add(t);keep.add(t);
   sp.add(new THREE.Mesh(front?C.bF:C.bR,MATS.rimIn));
   const ox=s*w/2;const out=(geo,mat,dx)=>{const m=new THREE.Mesh(geo,mat);m.rotation.y=s*PI/2;m.position.x=ox+s*(dx||0);sp.add(m);return m;};
   faces.push(out(front?C.sF:C.sR,wheelFace(ci,false),0.001));
@@ -1362,7 +1375,8 @@ function makeCar(team,num,name){
  // ancho total 1,9 m y 3,4 m entre ejes (reglamento 2026)
  for(const s of [-1,1]){wheel(s*0.81,1.85,0.3525,0.28,true);wheel(s*0.7625,-1.55,0.355,0.375,false);}
  const blob=new THREE.Mesh(new THREE.PlaneGeometry(2.6,6.0),MATS.blob);blob.rotation.x=-PI/2;blob.position.y=0.03;root.add(blob);
- return {root,body,wheels,fronts,lightM,brakeM,faces,spokes,blurs,covers,team,helmet,ci,blur:false};
+ for(const cv of covers)keep.add(cv);keep.add(blob);const detail=[];root.traverse(o=>{if(o.isMesh&&!keep.has(o))detail.push(o);});
+ return {root,body,wheels,fronts,lightM,brakeM,faces,spokes,blurs,covers,team,helmet,ci,blur:false,detail,far:false};
 }
 
 
@@ -1518,6 +1532,8 @@ function qualiBoard(){const L=sess.qtimes.map(q=>Object.assign({},q,{isPlayer:fa
 function qualiPos(){return qualiBoard().findIndex(q=>q.isPlayer)+1;}
 function updateCarVisual(c,dt){
  const m=c.m;m.root.position.copy(c.pos);
+ // rivales a mas de 55 m: solo carroceria, casco, gomas y tapas (los detalles chicos no se distinguen)
+ if(!c.isPlayer){const far=m.root.position.distanceToSquared(camera.position)>3025;if(far!==m.far){m.far=far;for(const o of m.detail)o.visible=!far;}}
  m.root.rotation.y=c.head+(c.isPlayer?c.steer*clamp(c.v/60,0,1)*0.06:0);
  {const ti=track.T[c.idx];m.root.rotation.x=-Math.atan(track.SL[c.idx]*(Math.sin(c.head)*ti.x+Math.cos(c.head)*ti.z));}
  for(const w of m.wheels)w.rotation.x+=c.v*dt/0.354;
@@ -1756,7 +1772,7 @@ function tick(rdt){
   p.needsUpdate=true;flagGeo.computeVertexNormals();
   WIND.value=simT;FX.update(dt);T_WAVES.offset.set((simT*0.004)%1,(simT*0.0025)%1);
  }
- if(track)updateCamera(paused?0:dt);
+ if(track){updateCamera(paused?0:dt);updateLOD();}
  sky.position.copy(camera.position);
  updateAudio();
  post.render();
