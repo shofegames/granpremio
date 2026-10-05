@@ -65,8 +65,36 @@ body.touch #touch{display:flex}
 .tbtn.big{width:96px;height:96px}
 .tbtn.sm{width:62px;height:62px;font-size:13px}
 .tbtn.act{background:var(--accent);color:var(--ink);border-color:transparent}
-body.touch #dash{transform:translateX(-50%) scale(.72);transform-origin:bottom center}
 body.touch #tower{display:none}
+/* celular: todo mas chico y ordenado para la pantalla baja en horizontal
+   arriba: posicion y tiempos a la izquierda, botones y mapa a la derecha; abajo: doblar a la izquierda, tablero al medio, pedales a la derecha */
+body.touch .tl{top:calc(env(safe-area-inset-top,0px) + 8px);left:calc(env(safe-area-inset-left,0px) + 8px);gap:5px}
+body.touch .posbox{padding:4px 10px 5px 9px;border-radius:10px 3px 3px 10px}
+body.touch .posbox b{font-size:26px}
+body.touch .posbox small{font-size:10px}
+body.touch .timebox{padding:5px 10px;column-gap:10px;border-radius:3px 10px 10px 3px}
+body.touch .timebox span{font-size:10px}
+body.touch .timebox em{font-size:13px}
+body.touch #map{top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 8px);width:92px;height:92px;border-radius:10px}
+body.touch #topbtns{top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 108px);flex-direction:row;gap:6px}
+body.touch .ibtn{min-width:0;height:32px;padding:0 10px;font-size:12px;border-radius:9px}
+body.touch #dash{transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);gap:10px;padding:6px 12px;border-radius:12px}
+body.touch #gear{font-size:30px;width:26px}
+body.touch .spd{min-width:62px}
+body.touch .spd b{font-size:26px}
+body.touch .spd small{font-size:10px}
+body.touch .bars{width:80px;gap:3px}
+body.touch .bar{height:6px}
+body.touch .barlbl{font-size:9px}
+body.touch #touch{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:0 calc(env(safe-area-inset-right,0px) + 10px) 0 calc(env(safe-area-inset-left,0px) + 10px)}
+body.touch .tbtn.big{width:78px;height:78px}
+body.touch #touch .grp:last-child{display:grid;grid-template-columns:auto auto;gap:8px 10px;align-items:end}
+body.touch #tErs{grid-column:1;grid-row:1;justify-self:center;width:52px;height:52px;font-size:12px}
+body.touch #tBrake{grid-column:1;grid-row:2;width:70px;height:70px;font-size:14px}
+body.touch #tGas{grid-column:2;grid-row:1/span 2;width:86px;height:86px}
+body.touch #msg{font-size:22px;top:36%}
+body.touch #lights{top:24%;gap:8px;padding:8px 12px}
+body.touch #lights i{width:26px;height:26px}
 #rotate{display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 120px);left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;white-space:nowrap}
 @media (orientation:portrait){body.touch #rotate{display:block}}
 @media (max-width:760px){#tower{display:none}#map{width:118px;height:118px}.posbox b{font-size:32px}.timebox em{font-size:15px}#topbtns{top:calc(env(safe-area-inset-top,0px) + 140px)}#msg{font-size:26px}#lights i{width:28px;height:28px}}
