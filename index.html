@@ -172,8 +172,26 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .copy{margin:20px 0 0;font-size:12px;color:var(--muted);opacity:.75}
 #hTime.bad{color:#ff6b62;text-decoration:line-through}
 .bigpos{font-size:64px;font-weight:900;font-style:italic;line-height:1;color:var(--accent)}
+/* boton chiquito del codigo (abajo a la derecha del menu) y su teclado */
+.codebtn{position:absolute;left:calc(min(580px,100%) - 54px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);width:36px;height:36px;border-radius:50%;color:var(--muted);font-weight:900;font-size:16px;cursor:pointer;opacity:.7;touch-action:manipulation}
+.codebtn:hover{opacity:1}
+.codebtn.on{background:var(--accent);color:var(--ink);border-color:transparent;opacity:1}
+.codeon{color:var(--accent);font-weight:700}
+.pad{width:min(340px,92vw);text-align:center}
+.slots{display:flex;gap:10px;justify-content:center;margin:18px 0 8px}
+.slots i{width:50px;height:60px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;font-style:normal}
+.slots i.f{border-color:var(--accent)}
+.modal p.padmsg{min-height:22px;margin:0;font-weight:700}
+.modal p.padmsg.bad{color:#ff6b62}
+.modal p.padmsg.ok{color:#3ddc84}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.keypad button{height:56px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-weight:900;font-size:24px;cursor:pointer;touch-action:manipulation}
+.keypad button:active{background:rgba(255,255,255,.18)}
+.keypad button.ok{background:var(--accent);color:var(--ink);border:0;font-size:18px}
+.pad.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
 @media (max-width:760px){#menu{background:rgba(6,7,11,.9)}.mp{padding-left:calc(env(safe-area-inset-left,0px) + 18px);padding-right:18px}}
-@media (prefers-reduced-motion: reduce){#msg{transition:none}}
+@media (prefers-reduced-motion: reduce){#msg{transition:none}.pad.shake{animation:none}}
 </style>
 </head>
 <body>
@@ -251,6 +269,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <h3>Graficos</h3>
     <div class="seg" id="segQ"><button data-v="0">Alta (mas fluido)</button><button data-v="1">Ultra (maximo detalle)</button></div>
     <button class="go" id="go">Largar</button>
+    <p class="hint codeon hidden" id="codeOn">Código 1312 activo para la próxima carrera: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.</p>
     <button class="btn wide hidden" id="cont">Continuar campeonato</button>
     <p class="hint warn hidden" id="saveWarn">El campeonato guardado estaba dañado o modificado a mano, así que se descartó.</p>
     <div class="keys" id="keysHelp">
@@ -260,6 +279,17 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     </div>
     <p class="hint" id="limitsHelp">Límites de pista: si salís con las 4 ruedas (pasto o grava), esa vuelta se anula y no cuenta como tiempo.</p>
     <p class="copy">© 2026 shofegames · Gran Premio 3D</p>
+  </div>
+  <button class="codebtn glass" id="codeBtn" aria-label="Poner un código">#</button>
+</div>
+
+<div id="codePad" class="overlay modalwrap hidden">
+  <div class="modal glass pad" role="dialog" aria-label="Código">
+    <h2>Código</h2>
+    <div class="slots" id="codeSlots"><i></i><i></i><i></i><i></i></div>
+    <p class="padmsg" id="codeMsg"></p>
+    <div class="keypad" id="keypad"></div>
+    <button class="btn wide" id="codeClose">Cerrar</button>
   </div>
 </div>
 
@@ -1683,10 +1713,10 @@ const TYRE={life:[6,9,4,7],grip:[0,-0.03,0.04,0],name:['MEDIAS','DURAS','BLANDAS
 const PIT={limit:22,stop:2.4};
 function lapPos(c){const {N,ds}=track;const p=c.isPlayer?c.prog:c.s;return ((p%N)+N)%N*ds;}
 function tyreGrip(c){return (1+TYRE.grip[c.m.ci])*(1-0.28*Math.pow(clamp(c.tw,0,1.15),1.6));}
-function wearTyres(c,dt,f){c.tw=Math.min(1.15,c.tw+Math.abs(c.v)*dt/(track.L*TYRE.life[c.m.ci])*f);
+function wearTyres(c,dt,f){if(c.cheat)return;c.tw=Math.min(1.15,c.tw+Math.abs(c.v)*dt/(track.L*TYRE.life[c.m.ci])*f);
  if(c.isPlayer&&c.tw>0.85&&!c.twWarn){c.twWarn=true;showMsg('Gomas gastadas · apretá B para boxes',2400);}}
 function setCompound(c,ci){c.m.ci=ci;const fm=wheelFace(ci,c.m.blur);for(const f of c.m.faces)f.material=fm;}
-function addDamage(c,amt){if(amt<0.02||c.finished)return;const was=c.dmg;c.dmg=Math.min(1,c.dmg+amt);
+function addDamage(c,amt){if(amt<0.02||c.finished||c.cheat)return;const was=c.dmg;c.dmg=Math.min(1,c.dmg+amt);
  if(c.isPlayer){if(c.dmg>=0.6&&was<0.6)showMsg('Daño fuerte · entrá a boxes',2400);else if(amt>=0.08)showMsg('Daño '+Math.round(c.dmg*100)+'%',1400);}
  for(let k=0;k<Math.min(30,Math.round(amt*70));k++)FX.emit(0,c.pos.x+rnd(-1,1),c.pos.y+rnd(0.2,0.8),c.pos.z+rnd(-1,1),rnd(-5,5),rnd(1,4),rnd(-5,5),Math.random()<0.5?'#1b1c20':c.team.c1,rnd(0.12,0.22),0.1,rnd(0.5,0.9),1,9);}
 // metros desde la linea (negativo = antes de llegar)
@@ -1783,14 +1813,15 @@ function playerStep(dt){
  c.ersOn=inp.ers&&thr>0&&c.ers>0.01&&live&&!c.pit;
  const vmax=((surf==='asf'||surf==='kerb'?93:surf==='pasto'?45:28)+(c.ersOn?7:0))*(1-0.12*c.dmg);
  let acc=0;
- if(thr>0)acc+=15.5*(1-Math.pow(Math.max(c.v,0)/vmax,2))*(c.spinT>0?0.7:1)*(RAIN?0.85:1)+(c.ersOn?5:0);
+ // con el codigo 1312 acelera mucho mas fuerte
+ if(thr>0)acc+=15.5*(c.cheat?1.8:1)*(1-Math.pow(Math.max(c.v,0)/vmax,2))*(c.spinT>0?0.7:1)*(RAIN?0.85:1)+(c.ersOn?5:0);
  else acc-=1.5+c.v*Math.abs(c.v)*0.0011;
  if(brk>0){if(c.v>0.5)acc-=brk*(12+0.36*c.v)*(0.6+0.4*grip);else if(live)acc-=7;else acc-=4;}
  if(surf==='grava')acc-=c.v*0.6;else if(surf==='pasto')acc-=c.v*0.15;
  c.braking=brk>0&&c.v>0.5;
  {const ti=track.T[c.idx],al=Math.sin(c.head)*ti.x+Math.cos(c.head)*ti.z;acc-=9.81*0.85*track.SL[c.idx]*al;if(track.VC[c.idx]>0.0025&&c.v>45)shake=Math.max(shake,Math.min(0.45,track.VC[c.idx]*c.v*c.v*0.0025));}
  c.v+=acc*dt;if(thr===0&&brk===0&&Math.abs(c.v)<0.4)c.v=0;if(!live&&c.v<0)c.v=0;c.v=clamp(c.v,-8,105);c.acc=acc;
- if(c.ersOn)c.ers-=dt*0.22;if(brk>0&&c.v>5)c.ers+=dt*0.16;c.ers=clamp(c.ers+dt*0.012,0,1);
+ if(c.ersOn)c.ers-=dt*0.22;if(brk>0&&c.v>5)c.ers+=dt*0.16;c.ers=c.cheat?1:clamp(c.ers+dt*0.012,0,1);
  const sp=Math.abs(c.v);const maxYaw=Math.min(1.7,42*grip/Math.max(sp,1))*clamp(sp/5,0,1);
  c.head+=c.steer*maxYaw*dt*(c.v<0?-1:1);
  c.pos.x+=Math.sin(c.head)*c.v*dt;c.pos.z+=Math.cos(c.head)*c.v*dt;
@@ -1912,8 +1943,8 @@ function updateHUD(dt){
  const tr=input().thr&&(state==='race'||state==='countdown')?1:0;c.revN=lerp(c.revN||0,tr,Math.min(1,dt*(tr?5:3)));
  let rpm;if(c.v<0.5){$('gear').textContent=c.v<-0.5?'R':'N';rpm=4000+c.revN*7800;}else{$('gear').textContent=g+1;const lo=g?tops[g-1]:0,hi=Math.min(tops[g],c.ersOn?100:93.5);rpm=5800+6700*clamp((c.v-lo)/(hi-lo),0,1);}
  c.rpm=rpm;$('rpm').style.width=clamp((rpm-4000)/8500*100,0,100)+'%';$('rpmTxt').textContent=Math.round(rpm/100)*100;
- $('ers').style.width=(c.ers*100)+'%';$('ersTxt').textContent=Math.round(c.ers*100)+'%';$('ersBar').classList.toggle('on',c.ersOn);
- {const w=Math.max(0,1-c.tw);$('tyre').style.width=(w*100)+'%';$('tyre').style.background=c.tw>0.8?'#ff3b30':COMPOUNDS[c.m.ci];$('tyLbl').textContent=TYRE.name[c.m.ci];$('tyTxt').textContent=Math.round(w*100)+'%';
+ $('ers').style.width=(c.ers*100)+'%';$("ersTxt").textContent=c.cheat?"∞":Math.round(c.ers*100)+"%";$('ersBar').classList.toggle('on',c.ersOn);
+ {const w=Math.max(0,1-c.tw);$('tyre').style.width=(w*100)+'%';$('tyre').style.background=c.tw>0.8?'#ff3b30':COMPOUNDS[c.m.ci];$('tyLbl').textContent=TYRE.name[c.m.ci];$("tyTxt").textContent=c.cheat?"∞":Math.round(w*100)+"%";
   $('dmgRow').classList.toggle('hidden',c.dmg<0.05);$('dmgFx').classList.toggle('hidden',c.dmg<0.05);$('dmgTxt').textContent=Math.round(c.dmg*100)+'%';$('dmgV').textContent='−'+Math.round(93*0.12*c.dmg*3.6)+' km/h';$('dmgG').textContent='−'+Math.round(18*c.dmg)+'% agarre';$('bBox').classList.toggle('on',c.pitReq||c.pit>0);}
  if(sess.type==='quali'){const qb=qualiBoard();$('hPos').textContent=c.best<Infinity?'P'+(qb.findIndex(q=>q.isPlayer)+1):'--';$('hPosN').textContent='de '+qb.length;
   $('hLap').textContent=c.lapsSeen<0?'Salida':clamp(c.lastLaps+1,1,QLAPS)+'/'+QLAPS;
@@ -1948,19 +1979,20 @@ function updateAudio(){if(!actx)return;const t=actx.currentTime;const on=!muted&
 /* ---------------- flujo ---------------- */
 function setAccent(){document.documentElement.style.setProperty('--accent',TEAMS[sel.team].ui);}
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-function goMenu(){state='menu';WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
+function goMenu(){state="menu";setCode(false);WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
  $('menu').classList.remove('hidden');$('hud').classList.add('hidden');$('pause').classList.add('hidden');$('results').classList.add('hidden');$('lights').classList.add('hidden');
  sel.circuit=curCirc;setAccent();RAIN=sel.weather===1;applyWeather();refreshMenu();buildRace();}
 function startRace(){
  initAudio();if(actx&&actx.state==='suspended')actx.resume();
  // clima de esta sesion (en "Variable" se sortea cada vez: 40% de lluvia)
  RAIN=sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
- buildRace();$('menu').classList.add('hidden');$('results').classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
+ buildRace();player.cheat=CODE.on;$("menu").classList.add("hidden");$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
  finishShown=false;wrongT=0;towerT=0;$('hSes').textContent=SNAME[sess.type]+(CH?' · F'+(CH.round+1):'')+(RAIN?' · Lluvia':'');
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(sess.type==='quali'){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg('Clasificación · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
- $('pEnd').classList.toggle('hidden',sess.type!=='quali');$('boxPanel').classList.add('hidden');
+ if(player.cheat)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg("Código 1312 activo",1600);},1900);
+$&
  $('c').focus();
 }
 // cambia de circuito solo si hace falta (con pantalla de carga)
@@ -2014,6 +2046,8 @@ function sessionResults(){
 function setBtns(B){const w=$('rBtns');w.innerHTML='';for(const [t,fn,pri] of B){const b=document.createElement('button');b.className='btn'+(pri?' pri':'');b.textContent=t;b.onclick=fn;w.appendChild(b);}}
 function showResults(){
  if(finishShown)return;finishShown=true;
+ // el codigo dura una sola carrera: si lo queres de nuevo hay que volver a ponerlo
+ setCode(false);
  const res=sessionResults();sess.res=res;const pos=res.findIndex(r=>r.isPlayer)+1;const ty=sess.type,me=res[pos-1];
  $('rPos').textContent='P'+pos;
  $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');
@@ -2144,8 +2178,30 @@ function circInfo(c){if(!c._L){const tk=computeTrack(c);let t=0;for(let i=0;i<tk
  const km=(c._L/1000).toFixed(1).replace('.',',');const cat=c._L<3000?'corta':c._L<4500?'media':c._L<6000?'larga':'muy larga';const lt=c._lap,mm=Math.floor(lt/60),ss=Math.round(lt%60);
  return km+' km ('+cat+') \u00b7 vuelta ~'+mm+':'+String(ss).padStart(2,'0')+' \u00b7 '+sel.laps+' vueltas ~'+Math.round(lt*sel.laps/60)+' min';}
 
+/* ---------------- codigo secreto ---------------- */
+// 1312: gomas que no se gastan, auto que no se rompe, ERS infinito y mucha mas aceleracion; dura solo la proxima carrera
+const CODE={on:false,buf:'',t:0};
+function setCode(on){CODE.on=on;$('codeBtn').classList.toggle('on',on);$('codeOn').classList.toggle('hidden',!on);}
+function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textContent=CODE.buf[i]||'';s.classList.toggle('f',i<CODE.buf.length);});
+ if(msg!==undefined){const m=$('codeMsg');m.textContent=msg;m.className='padmsg'+(cls?' '+cls:'');}}
+function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');$('codePad').classList.remove('hidden');}
+function codeClose(){clearTimeout(CODE.t);$('codePad').classList.add('hidden');}
+function codeKey(k){if(k==='del'){clearTimeout(CODE.t);CODE.buf=CODE.buf.slice(0,-1);codeSync('Poné el código de 4 números');return;}
+ if(k==='ok'){clearTimeout(CODE.t);codeCheck();return;}
+ if(CODE.buf.length>=4)return;CODE.buf+=k;codeSync(CODE.buf.length===1?'Poné el código de 4 números':undefined);if(CODE.buf.length===4){clearTimeout(CODE.t);CODE.t=setTimeout(codeCheck,180);}}
+function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');return;}
+ if(CODE.buf==='1312'){setCode(true);codeSync('¡Activado! Vale para la próxima carrera','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ CODE.buf='';codeSync('Código incorrecto','bad');const p=$('codePad').querySelector('.pad');p.classList.remove('shake');void p.offsetWidth;p.classList.add('shake');}
+for(const k of ['1','2','3','4','5','6','7','8','9','del','0','ok']){const b=document.createElement('button');b.textContent=k==='del'?'⌫':k==='ok'?'OK':k;if(k==='ok')b.className='ok';
+ if(k==='del')b.setAttribute('aria-label','Borrar');b.onclick=()=>codeKey(k);$('keypad').appendChild(b);}
+$('codeBtn').onclick=codeOpen;$('codeClose').onclick=codeClose;
+$('codePad').addEventListener('pointerdown',e=>{if(e.target===$('codePad'))codeClose();});
+
 /* ---------------- eventos ---------------- */
-addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;keys[e.code]=true;
+addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
+ // con el teclado del codigo abierto, los numeros van al codigo
+ if(!$('codePad').classList.contains('hidden')){const d=/^(Digit|Numpad)([0-9])$/.exec(e.code);if(d)codeKey(d[2]);else if(e.code==='Backspace')codeKey('del');else if(e.code==='Enter'||e.code==='NumpadEnter')codeKey('ok');else if(e.code==='Escape')codeClose();e.preventDefault();return;}
+ keys[e.code]=true;
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)&&state!=='menu')e.preventDefault();
  if(e.repeat)return;
  if(e.code==='KeyC'&&state!=='menu')nextCam();
