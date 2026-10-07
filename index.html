@@ -5,7 +5,7 @@
 <!-- seguridad: solo se cargan scripts de cdnjs, estilos y fuentes de Google Fonts; nada mas puede entrar ni salir -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://sbcvsgqzdhwhpxkspyvf.supabase.co wss://sbcvsgqzdhwhpxkspyvf.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Gran Premio 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +21,8 @@ body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text)
 .hidden{display:none!important}
 .glass{background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(12px) saturate(140%);-webkit-backdrop-filter:blur(12px) saturate(140%)}
 button{font-family:inherit}
+/* tocar dos veces un boton no hace zoom */
+button,input,select,label{touch-action:manipulation}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* HUD */
@@ -90,7 +92,8 @@ body.touch .timebox em{font-size:13px}
 body.touch #map{top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 8px);width:92px;height:92px;border-radius:10px}
 body.touch #topbtns{top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 108px);flex-direction:row;gap:6px}
 body.touch .ibtn{min-width:0;height:32px;padding:0 10px;font-size:12px;border-radius:9px}
-body.touch #dash{transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);gap:10px;padding:6px 12px;border-radius:12px}
+/* en el celu el tablero va mas chico para no tapar el auto */
+body.touch #dash{transform:translateX(-50%) scale(.74);transform-origin:50% 100%;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);gap:10px;padding:6px 12px;border-radius:12px}
 body.touch #gear{font-size:30px;width:26px}
 body.touch .spd{min-width:62px}
 body.touch .spd b{font-size:26px}
@@ -121,7 +124,7 @@ body.touch #lights i{width:26px;height:26px}
 .mp{width:min(580px,100%);height:100%;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 30px) 30px calc(env(safe-area-inset-bottom,0px) + 30px) calc(env(safe-area-inset-left,0px) + 30px)}
 .title{position:relative;margin:0 0 6px}
 .title h1{margin:0;font-size:clamp(52px,9vw,88px);line-height:.84;font-weight:900;font-style:italic;letter-spacing:-.02em}
-.title .num{position:absolute;right:0;top:-6px;font-size:clamp(70px,12vw,120px);font-weight:900;font-style:italic;color:transparent;-webkit-text-stroke:2px var(--accent);line-height:.8;opacity:.9}
+.title .num{touch-action:manipulation;-webkit-user-select:none;position:absolute;right:0;top:-6px;font-size:clamp(70px,12vw,120px);font-weight:900;font-style:italic;color:transparent;-webkit-text-stroke:2px var(--accent);line-height:.8;opacity:.9}
 .stripe{display:flex;gap:6px;margin:18px 0 6px}
 .stripe i{height:6px;width:46px;background:var(--accent);transform:skewX(-30deg)}
 .stripe i:nth-child(2){opacity:.6}.stripe i:nth-child(3){opacity:.3}
@@ -272,7 +275,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 
 <div id="menu" class="overlay hidden">
   <div class="mp">
-    <div class="title"><h1>Gran<br>Premio</h1><div class="num">3D</div></div>
+    <div class="title"><h1>Gran<br>Premio</h1><div class="num" id="t3d">3D</div></div>
     <div class="stripe"><i></i><i></i><i></i></div>
     <p class="lead">Elegi tu escuderia, el circuito y larga contra 9 rivales. Usa el ERS en las rectas para pasar.</p>
     <h3>Modo de juego</h3>
@@ -282,7 +285,6 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <h3>Tu piloto</h3>
     <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
     <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button></div></div>
-    <button class="btn wide onlbtn" id="onlineBtn">Jugar online con amigos</button>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
     <div id="circSec"><h3>Circuito</h3>
@@ -1974,6 +1976,13 @@ function playerStep(dt){
  else{
  if(c.pit===1){const pp=track.pit,j=(c.idx+8)%N,lp=pp.S*PL.ON,tx=P[j].x+NL[j].x*lp,tz=P[j].z+NL[j].z*lp,tA=Math.min(Math.sqrt(42*42+50*Math.max(0,pp.eA-pitSr(c))),(RAIN?track.vTw:track.vT)[(c.idx+3)%N]*Math.sqrt(tyreGrip(c)*(1-0.18*c.dmg))*0.95);
   steerIn=clamp(wrapA(Math.atan2(tx-c.pos.x,tz-c.pos.z)-c.head)*4,-1,1);thr=c.v<tA-1?1:0;brk=c.v>tA+1?1:0;}
+ // codigo 0900: ayudas de manejo. Si venis mas rapido de lo que se puede doblar, frena solo; y suma volante hacia la linea ideal (mas fuerte si te estas yendo afuera)
+ if(c.assist&&live&&c.pit===0){const ia=c.idx,vt=(RAIN?track.vTw:track.vT)[(ia+3)%N]*Math.sqrt(tyreGrip(c)*(1-0.18*c.dmg))*1.03;
+  if(c.v>vt+0.5){thr=0;brk=Math.max(brk,Math.min(1,(c.v-vt)/6));}
+  const j=(ia+Math.round((6+c.v*0.26)/ds))%N,lp=track.line[j],tx=P[j].x+NL[j].x*lp,tz=P[j].z+NL[j].z*lp;
+  const as=clamp(wrapA(Math.atan2(tx-c.pos.x,tz-c.pos.z)-c.head)*3,-1,1);steerIn=clamp(steerIn+as*(Math.abs(c.lat)>HALF-1.2?1:0.8),-1,1);
+  // si el auto todavia esta muy cruzado respecto de la linea, suelta el acelerador hasta enderezar
+  if(Math.abs(as)>0.9&&c.v>25)thr=0;}
  // largada: con el acelerador a fondo al apagarse las luces patina; si reaccionas rapido, sale limpio
  if(live&&!c.reacted&&sess.type!=='quali'){
   if(c.preGas){c.reacted=true;c.spinT=0.9;c.launchFx=1;setTimeout(()=>showMsg('Patinaste en la largada',1300),700);}
@@ -2164,12 +2173,12 @@ function startRace(){
  initAudio();if(actx&&actx.state==='suspended')actx.resume();
  // clima de esta sesion (en "Variable" se sortea cada vez: 40% de lluvia)
  RAIN=sess.online?sess.online.rain:sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
- buildRace();player.cheat=CODE.on;$("menu").classList.add("hidden");$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
+ buildRace();player.cheat=CODE.on;player.assist=CODE.assist;$("menu").classList.add("hidden");$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
  finishShown=false;wrongT=0;towerT=0;$("hSes").textContent=(sess.online?"Online · "+ONL.code+" · ":"")+SNAME[sess.type]+(CH?' · F'+(CH.round+1):'')+(RAIN?' · Lluvia':'');
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(sess.type==='quali'){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg('Clasificación · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
- if(player.cheat||player.m.gt)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.gt?"Código 2011 · auto deportivo":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
+ if(player.cheat||player.m.gt||player.assist)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.gt?"Código 2011 · auto deportivo":"",player.assist?"Código 0900 · ayudas":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
  $('pEnd').classList.toggle('hidden',sess.type!=='quali');$('boxPanel').classList.add('hidden');
  $('c').focus();
 }
@@ -2365,11 +2374,12 @@ function circInfo(c){if(!c._L){const tk=computeTrack(c);let t=0;for(let i=0;i<tk
 /* ---------------- codigo secreto ---------------- */
 // 1312: gomas que no se gastan, auto que no se rompe, ERS infinito y mucha mas aceleracion
 // 2011: corres con un auto deportivo (solo vos; anda igual que el F1)
-// los dos duran solo la proxima carrera y se pueden usar juntos
-const CODE={on:false,sport:false,buf:'',t:0};
-function setCode(k,v){if(k===false)CODE.on=CODE.sport=false;else CODE[k]=v;const any=CODE.on||CODE.sport;
+// 0900: ayudas de manejo (frena solo antes de las curvas y ayuda a doblar)
+// duran solo la proxima carrera y se pueden usar juntos
+const CODE={on:false,sport:false,assist:false,buf:'',t:0};
+function setCode(k,v){if(k===false)CODE.on=CODE.sport=CODE.assist=false;else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist;
  $('codeBtn').classList.toggle('on',any);$('codeOn').classList.toggle('hidden',!any);
- $('codeOn').textContent=[CODE.on?'Código 1312 activo: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.':'',CODE.sport?'Código 2011 activo: corrés con un auto deportivo.':''].filter(Boolean).join(' ')+' Vale para la próxima carrera.';}
+ $('codeOn').textContent=[CODE.on?'Código 1312 activo: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.':'',CODE.sport?'Código 2011 activo: corrés con un auto deportivo.':'',CODE.assist?'Código 0900 activo: ayudas para frenar y doblar.':''].filter(Boolean).join(' ')+' Vale para la próxima carrera.';}
 function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textContent=CODE.buf[i]||'';s.classList.toggle('f',i<CODE.buf.length);});
  if(msg!==undefined){const m=$('codeMsg');m.textContent=msg;m.className='padmsg'+(cls?' '+cls:'');}}
 function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');$('codePad').classList.remove('hidden');}
@@ -2379,6 +2389,7 @@ function codeKey(k){if(k==='del'){clearTimeout(CODE.t);CODE.buf=CODE.buf.slice(0
  if(CODE.buf.length>=4)return;CODE.buf+=k;codeSync(CODE.buf.length===1?'Poné el código de 4 números':undefined);if(CODE.buf.length===4){clearTimeout(CODE.t);CODE.t=setTimeout(codeCheck,180);}}
 function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');return;}
  if(CODE.buf==='1312'){setCode('on',true);codeSync('¡Activado! Vale para la próxima carrera','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ if(CODE.buf==="0900"){setCode("assist",true);codeSync("¡Ayudas activadas para la próxima carrera!","ok");CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='2011'){setCode('sport',true);if(state==='menu')buildRace();codeSync('¡Auto deportivo para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  CODE.buf='';codeSync('Código incorrecto','bad');const p=$('codePad').querySelector('.pad');p.classList.remove('shake');void p.offsetWidth;p.classList.add('shake');}
 for(const k of ['1','2','3','4','5','6','7','8','9','del','0','ok']){const b=document.createElement('button');b.textContent=k==='del'?'⌫':k==='ok'?'OK':k;if(k==='ok')b.className='ok';
@@ -2573,7 +2584,8 @@ function olResults(){const fin=cars.filter(c=>c.finished).sort((a,b)=>a.finishTi
 function olBackToRoom(){const msg=ONL.closedMsg;ONL.inRace=false;goMenu();
  if(msg){olLeave();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');olMsg(msg,'bad');return;}
  if(ONL.code){$('onlinePad').classList.remove('hidden');olView('lobby');olRender();rtSend('hola',myInfo());}}
-$('onlineBtn').onclick=olOpen;$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
+// el online esta escondido: se abre tocando 3 veces seguidas el "3D" del titulo
+{let n=0,t=0;$("t3d").addEventListener("click",()=>{const now=performance.now();n=now-t<700?n+1:1;t=now;if(n>=3){n=0;olOpen();}});}$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
 $('olAcc').onclick=()=>{$('onlinePad').classList.add('hidden');acOpen();};
 $('olCopy').onclick=()=>{const t=ONL.code||'';try{navigator.clipboard.writeText(t).then(()=>olMsg('Código copiado: pegalo en WhatsApp','ok'),()=>olMsg('Copialo a mano: '+t));}catch(e){olMsg('Copialo a mano: '+t);}};
 $('olCPrev').onclick=()=>olCfgSet('ci',(ONL.cfg.ci-1+CIRCUITS.length)%CIRCUITS.length);$('olCNext').onclick=()=>olCfgSet('ci',(ONL.cfg.ci+1)%CIRCUITS.length);
@@ -2583,6 +2595,12 @@ $('onlinePad').addEventListener('keydown',e=>{if(e.key==='Escape'&&!ONL.code)olC
 addEventListener('pagehide',()=>{if(ONL.code){rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});}});
 
 /* ---------------- eventos ---------------- */
+// celular: tocar dos veces, tocar y arrastrar o pellizcar no hace zoom (iPhone a veces ignora el viewport)
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+let lastTouchEnd=0;const tapSafe=t=>!!(t&&t.closest&&t.closest('button,input,select,label,a,#t3d'));
+document.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTouchEnd<350&&!tapSafe(e.target))e.preventDefault();lastTouchEnd=now;},{passive:false});
+document.addEventListener('touchstart',e=>{if(Date.now()-lastTouchEnd<350&&!tapSafe(e.target)&&!(e.target.closest&&e.target.closest('.mp,.modal')))e.preventDefault();},{passive:false});
+document.addEventListener('touchmove',e=>{if(typeof e.scale==='number'&&e.scale!==1)e.preventDefault();},{passive:false});
 addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
  // con el teclado del codigo abierto, los numeros van al codigo
  if(!$('codePad').classList.contains('hidden')){const d=/^(Digit|Numpad)([0-9])$/.exec(e.code);if(d)codeKey(d[2]);else if(e.code==='Backspace')codeKey('del');else if(e.code==='Enter'||e.code==='NumpadEnter')codeKey('ok');else if(e.code==='Escape')codeClose();e.preventDefault();return;}
