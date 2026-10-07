@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- seguridad: solo se cargan scripts de cdnjs, estilos y fuentes de Google Fonts; nada mas puede entrar ni salir -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://sbcvsgqzdhwhpxkspyvf.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://sbcvsgqzdhwhpxkspyvf.supabase.co wss://sbcvsgqzdhwhpxkspyvf.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gran Premio 3D</title>
@@ -204,6 +204,19 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .rkhead{display:flex;align-items:center;gap:10px;margin-top:14px}
 .rkhead b{flex:1;text-align:center;font-size:18px}
 .wet{font-size:11px;color:#6bb6ff;font-weight:700}
+/* online */
+.onlbtn{margin-top:12px;background:var(--accent);color:var(--ink);border:0;font-weight:900;font-style:italic}
+.onl{width:min(460px,92vw)}
+.joinrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:6px}
+.joinrow .inp{text-transform:uppercase;letter-spacing:.15em;font-size:20px;text-align:center}
+.roomcode{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--accent)}
+.roomcode span{font-size:12px;color:var(--muted);font-weight:700;flex:none;max-width:70px;line-height:1.1}
+.roomcode b{flex:1;text-align:center;font-size:32px;font-weight:900;letter-spacing:.18em;-webkit-user-select:text;user-select:text}
+.olplayers{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.olplayers div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--panel-2);font-weight:700}
+.olplayers i{width:6px;height:22px;border-radius:3px;flex:none}
+.olplayers small{margin-left:auto;color:var(--muted);font-weight:600}
+#onlinePad h3{margin:14px 0 8px}
 @media (max-width:760px){#menu{background:rgba(6,7,11,.9)}.mp{padding-left:calc(env(safe-area-inset-left,0px) + 18px);padding-right:18px}}
 @media (prefers-reduced-motion: reduce){#msg{transition:none}.pad.shake{animation:none}}
 </style>
@@ -269,6 +282,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <h3>Tu piloto</h3>
     <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
     <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button></div></div>
+    <button class="btn wide onlbtn" id="onlineBtn">Jugar online con amigos</button>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
     <div id="circSec"><h3>Circuito</h3>
@@ -341,10 +355,39 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
   </div>
 </div>
 
+<div id="onlinePad" class="overlay modalwrap hidden">
+  <div class="modal glass onl" role="dialog" aria-label="Online">
+    <h2>Online</h2>
+    <div id="olNoAcc" class="hidden">
+      <p>Para jugar online necesitás una cuenta (la misma del ranking).</p>
+      <button class="btn pri wide" id="olAcc">Entrar / crear cuenta</button>
+    </div>
+    <div id="olHome" class="hidden">
+      <p class="hint" id="olQuota"></p>
+      <button class="btn pri wide" id="olCreate">Crear sala</button>
+      <p class="hint">¿Te pasaron un código? Ponelo acá:</p>
+      <div class="joinrow"><input class="inp" id="olCode" maxlength="6" placeholder="Código de la sala" autocomplete="off" spellcheck="false" autocapitalize="characters"><button class="btn" id="olJoin">Unirse</button></div>
+    </div>
+    <div id="olLobby" class="hidden">
+      <div class="roomcode"><span>Código de la sala</span><b id="olRoom"></b><button class="btn sm" id="olCopy">Copiar</button></div>
+      <div class="olplayers" id="olPlayers"></div>
+      <div id="olHostCfg">
+        <div class="rkhead"><button class="btn sm" id="olCPrev" aria-label="Circuito anterior">◀</button><b id="olCirc"></b><button class="btn sm" id="olCNext" aria-label="Circuito siguiente">▶</button></div>
+        <div class="row2"><div><h3>Vueltas</h3><div class="seg" id="olLaps"><button data-v="3">3</button><button data-v="5">5</button><button data-v="8">8</button></div></div>
+          <div><h3>Clima</h3><div class="seg" id="olW"><button data-v="0">Seco</button><button data-v="1">Lluvia</button></div></div></div>
+        <button class="btn pri wide" id="olStart">Largar</button>
+      </div>
+      <p class="hint" id="olWait"></p>
+    </div>
+    <p class="padmsg" id="olMsg"></p>
+    <button class="btn wide" id="olClose">Cerrar</button>
+  </div>
+</div>
+
 <div id="pause" class="overlay modalwrap hidden">
   <div class="modal glass">
     <h2>Pausa</h2>
-    <p>La carrera esta frenada.</p>
+    <p id="pTxt">La carrera esta frenada.</p>
     <div class="btnrow"><button class="btn pri" id="pCont">Seguir</button><button class="btn hidden" id="pEnd">Terminar clasificación</button><button class="btn" id="pRestart">Reiniciar</button><button class="btn" id="pMenu">Menu</button></div>
   </div>
 </div>
@@ -1808,19 +1851,21 @@ function buildRace(){buildRace0();prewarm();}
 function buildRace0(){
  if(carsGroup){scene.remove(carsGroup);disposeObj(carsGroup);}
  carsGroup=new THREE.Group();scene.add(carsGroup);cars=[];FX.clear();
- const L=roster();const base=[0.86,0.93,0.985][sel.diff];const SK=CH?CH.skill:WK?WK.skill:null;
+ const L=sess.online?olRoster():roster();const base=[0.86,0.93,0.985][sel.diff];const SK=CH?CH.skill:WK?WK.skill:null;
  L.forEach(c=>{if(!c.isPlayer)c.skill=clamp(base+(SK?SK[c.id]+rnd(-0.008,0.008):rnd(-0.035,0.025)),0.8,1.0);});
  const me=L.find(c=>c.isPlayer);let order;
  if(sess.type==='quali'){order=[me];sess.qtimes=L.filter(c=>!c.isPlayer).map(c=>({id:c.id,driver:c.driver,team:c.team,code:c.code,t:aiLapTime(c.skill)*(1+rnd(-0.004,0.004))}));}
  else if(sess.grid){order=sess.grid.map(id=>L.find(c=>c.id===id)).filter(Boolean);for(const c of L)if(!order.includes(c))order.push(c);}
+ else if(sess.online)order=L;
  else{const ais=L.filter(c=>!c.isPlayer).sort((a,b)=>b.skill-a.skill);order=ais.slice();order.splice(5,0,me);}
  const {N,P,NL,H}=track;
  order.forEach((c,slot)=>{
   // con el codigo 2011 tu auto es un deportivo
-  const nm=c.isPlayer?playerName():c.driver.split(" ").pop(),m=c.isPlayer&&CODE.sport?makeSportsCar(c.team,c.num,nm):makeCar(c.team,c.num,nm);carsGroup.add(m.root);
+  const nm=sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop(),m=(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.team,c.num,nm):makeCar(c.team,c.num,nm);carsGroup.add(m.root);
   const q=sess.type==='quali';const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
   const car=Object.assign(c,{m,s:gi-N,s0:gi-N,prog:gi-N,idx:gi,lane:lat,laneT:lat,lat:lat,startLane:lat,pref:rnd(-1.4,1.4),v:0,steer:0,head:H[gi],pos:new V3(P[gi].x+NL[gi].x*lat,P[gi].y,P[gi].z+NL[gi].z*lat),
    finished:false,finishTime:0,overT:0,react:rnd(0.18,0.5),launch:rnd(0.9,1.05),launchFx:0,started:false,lapStart:0,best:Infinity,lastLaps:0,lapsSeen:-1,timing:false,lapBad:false,offT:0,tw:0,twWarn:false,dmg:0,pit:0,pitReq:false,pitCi:0,ps:0,ps0:0,pl0:0,pitL:0,box:0,stopT:0,stopTot:0,stops:0,ers:1,ersOn:false,pitch:0,roll:0,acc:0,heat:0,spinT:0,reacted:false,grid:slot+1});
+  if(c.remote){car.snap=[];car.heard=performance.now();car.gone=false;}
   cars.push(car);if(c.isPlayer)player=car;
   updateCarVisual(car,0);
  });
@@ -1967,8 +2012,8 @@ function playerStep(dt){
   // golpe contra el muro: de frente y rapido rompe mucho, rozando casi nada
   if(live&&sp>10)addDamage(c,imp*imp*sp/55*0.5+(imp>0.5&&sp>30?0.1:0));
   c.v*=(1-0.6*imp)*0.97;c.head=angLerp(c.head,tgt,0.5);shake=Math.min(1,0.3+imp);}
- // choques con rivales
- for(const o of cars){if(o===c)continue;const dx=c.pos.x-o.pos.x,dz=c.pos.z-o.pos.z;if(dx*dx+dz*dz>36)continue;
+ // choques con rivales (los autos online de otros jugadores se atraviesan)
+ for(const o of cars){if(o===c||o.remote)continue;const dx=c.pos.x-o.pos.x,dz=c.pos.z-o.pos.z;if(dx*dx+dz*dz>36)continue;
   const fx=Math.sin(o.head),fz=Math.cos(o.head),rx=fz,rz=-fx;const al=dx*fx+dz*fz,la=dx*rx+dz*rz;
   if(Math.abs(al)<5.0&&Math.abs(la)<1.95){const pA=5.0-Math.abs(al),pL=1.95-Math.abs(la);
    if(pL<pA){const sg=Math.sign(la)||1;c.pos.x+=rx*sg*pL;c.pos.z+=rz*sg*pL;o.lane-=sg*pL*0.4;c.v*=0.985;}
@@ -2118,14 +2163,14 @@ function goMenu(){state="menu";setCode(false);WK=null;CH=null;sess={type:'race',
 function startRace(){
  initAudio();if(actx&&actx.state==='suspended')actx.resume();
  // clima de esta sesion (en "Variable" se sortea cada vez: 40% de lluvia)
- RAIN=sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
+ RAIN=sess.online?sess.online.rain:sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
  buildRace();player.cheat=CODE.on;$("menu").classList.add("hidden");$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
- finishShown=false;wrongT=0;towerT=0;$('hSes').textContent=SNAME[sess.type]+(CH?' · F'+(CH.round+1):'')+(RAIN?' · Lluvia':'');
+ finishShown=false;wrongT=0;towerT=0;$("hSes").textContent=(sess.online?"Online · "+ONL.code+" · ":"")+SNAME[sess.type]+(CH?' · F'+(CH.round+1):'')+(RAIN?' · Lluvia':'');
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(sess.type==='quali'){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg('Clasificación · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
  if(player.cheat||player.m.gt)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.gt?"Código 2011 · auto deportivo":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
-$&
+ $('pEnd').classList.toggle('hidden',sess.type!=='quali');$('boxPanel').classList.add('hidden');
  $('c').focus();
 }
 // cambia de circuito solo si hace falta (con pantalla de carga)
@@ -2181,6 +2226,7 @@ function showResults(){
  if(finishShown)return;finishShown=true;
  // el codigo dura una sola carrera: si lo queres de nuevo hay que volver a ponerlo
  setCode(false);
+ if(sess.online){olResults();return;}
  const res=sessionResults();sess.res=res;const pos=res.findIndex(r=>r.isPlayer)+1;const ty=sess.type,me=res[pos-1];
  $('rPos').textContent='P'+pos;
  $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');
@@ -2221,8 +2267,11 @@ function showStandings(){
  $('results').classList.remove('hidden');
 }
 function endQuali(){if(sess.type!=='quali'||!state.startsWith('paused'))return;$('pause').classList.add('hidden');player.finished=true;state='finished';showResults();}
-function pauseGame(){if(state!=='race'&&state!=='countdown')return;state=state==='race'?'paused-race':'paused-count';$('pause').classList.remove('hidden');}
-function resumeGame(){if(state==='paused-race')state='race';else if(state==='paused-count')state='countdown';$('pause').classList.add('hidden');}
+function pauseGame(){if(state!=="race"&&state!=="countdown")return;
+ // en online la carrera no se frena: solo se muestra el menu (y se vuelve a tocar para cerrarlo)
+ if(sess.online){const p=$("pause");if(!p.classList.contains("hidden")){p.classList.add("hidden");return;}$("pTxt").textContent="En online la carrera sigue corriendo: no se frena.";$("pRestart").classList.add("hidden");p.classList.remove("hidden");return;}
+ $("pTxt").textContent="La carrera esta frenada.";$("pRestart").classList.remove("hidden");state=state==='race'?'paused-race':'paused-count';$('pause').classList.remove('hidden');}
+function resumeGame(){if(sess.online){$("pause").classList.add("hidden");return;}if(state==="paused-race")state='race';else if(state==='paused-count')state='countdown';$('pause').classList.add('hidden');}
 function resetPlayer(){if(state!=='race'||player.pit>=2)return;const c=player,{P,NL,H}=track;const i=c.idx;c.pos.set(P[i].x,P[i].y,P[i].z);c.head=H[i];c.v=0;c.steer=0;showMsg('De vuelta en pista',1000);}
 
 /* ---------------- loop ---------------- */
@@ -2243,7 +2292,9 @@ function tick(rdt){
   }
   if(state==='race'||state==='finished'||state==='countdown'){
    const steps=dt>1/45?2:1,h=dt/steps;
-   for(let s=0;s<steps;s++){playerStep(h);for(const c of cars)if(!c.isPlayer&&(state==='race'||state==='finished'))aiStep(c,h);}
+   for(let s=0;s<steps;s++){playerStep(h);for(const c of cars)if(!c.isPlayer&&!c.remote&&(state==="race"||state==="finished"))aiStep(c,h);}
+   // online: los autos de los demas llegan por la conexion en vivo y el tuyo se manda
+   if(sess.online){const now=performance.now();for(const c of cars)if(c.remote)olCarStep(c,now);olSend(now);}
    for(const c of cars)updateCarVisual(c,dt);updateCrew(dt);
    updateHUD(dt);
   }
@@ -2401,6 +2452,136 @@ $('rkPrev').onclick=()=>{rkCi=(rkCi-1+CIRCUITS.length)%CIRCUITS.length;rkLoad();
 $('rankPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('rankPad').classList.add('hidden');});
 netLoad();
 
+/* ---------------- online: salas con codigo (Supabase Realtime) ---------------- */
+// conexion en vivo: cada sala es un canal; los mensajes de los demas se validan siempre (nunca se confia en ellos)
+const RT={ws:null,topic:'',ref:1,hb:0,joined:false,tries:0,onMsg:null};
+function rtRaw(ws,event,payload,ref){if(ws&&ws.readyState===1)ws.send(JSON.stringify({topic:RT.topic,event,payload,ref:ref||String(++RT.ref),join_ref:'1'}));}
+function rtConnect(code,onMsg){rtClose();RT.topic='realtime:gp-sala-'+code;RT.onMsg=onMsg;RT.ref=1;
+ const ws=new WebSocket(NET.url.replace('https://','wss://')+'/realtime/v1/websocket?apikey='+encodeURIComponent(NET.key)+'&vsn=1.0.0');RT.ws=ws;
+ ws.onopen=()=>{rtRaw(ws,'phx_join',{config:{broadcast:{self:false,ack:false},presence:{key:''},private:false}},'1');
+  RT.hb=setInterval(()=>{if(ws.readyState===1)ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:String(++RT.ref)}));},25000);};
+ ws.onmessage=e=>{if(RT.ws!==ws)return;let m;try{m=JSON.parse(e.data);}catch(x){return;}if(!m||m.topic!==RT.topic)return;
+  if(m.event==='phx_reply'&&m.ref==='1'){RT.joined=!!(m.payload&&m.payload.status==='ok');RT.tries=0;onMsg(RT.joined?'_on':'_err',{});return;}
+  if(m.event==='broadcast'&&m.payload&&typeof m.payload.event==='string')onMsg(m.payload.event,m.payload.payload);};
+ ws.onclose=()=>{clearInterval(RT.hb);if(RT.ws!==ws)return;RT.joined=false;onMsg('_off',{});
+  // se corto: reintenta unas veces (el codigo de la sala sigue siendo el mismo)
+  if(ONL.code&&RT.tries<6){RT.tries++;setTimeout(()=>{if(ONL.code&&RT.ws===ws)rtConnect(ONL.code,onMsg);},1500*RT.tries);}};}
+function rtSend(ev,payload){if(RT.joined)rtRaw(RT.ws,'broadcast',{type:'broadcast',event:ev,payload});}
+function rtClose(){const w=RT.ws;RT.ws=null;RT.joined=false;clearInterval(RT.hb);if(w){try{rtRaw(w,'phx_leave',{});w.close();}catch(e){}}}
+
+// estado de la sala: los jugadores se reconocen por su usuario (unico)
+const ONL={code:null,host:false,hostName:'',players:new Map(),cfg:{ci:0,laps:5,rain:0},quota:null,inRace:false,lastSend:0,hbT:0,closedMsg:''};
+const OK_NAME=/^[A-Za-z0-9_]{3,14}$/;
+const isNum=v=>typeof v==='number'&&isFinite(v);
+function olMsg(t,cls){const m=$('olMsg');m.textContent=t||'';m.className='padmsg'+(cls?' '+cls:'');}
+function olView(v){$('olNoAcc').classList.toggle('hidden',v!=='noacc');$('olHome').classList.toggle('hidden',v!=='home');$('olLobby').classList.toggle('hidden',v!=='lobby');
+ $('olClose').textContent=v==='lobby'?'Salir de la sala':'Cerrar';}
+function myInfo(){return {u:NET.sess.u,ti:sel.team,num:playerNum(),gt:!!CODE.sport,host:ONL.host,cfg:ONL.host?ONL.cfg:undefined};}
+async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
+ if(ONL.code){olView('lobby');olRender();return;}
+ if(!NET.sess){olView('noacc');return;}
+ olView('home');$('olQuota').textContent='Revisando cuántas carreras online quedan…';
+ const q=await rpc('gp_online_quota',{p_token:NET.sess.t});
+ if(q.error==='sesion'){NET.sess=null;netSave();acctSync();olView('noacc');return;}
+ if(q.error){$('olQuota').textContent=NET_ERR.red;return;}
+ ONL.quota=q;$('olQuota').textContent='Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';}
+function olClose(){if(ONL.code){olLeave();}$('onlinePad').classList.add('hidden');}
+async function olCreate(){if(NET.busy||!NET.sess)return;NET.busy=true;olMsg('Creando sala…');const r=await rpc('gp_room_create',{p_token:NET.sess.t});NET.busy=false;
+ if(r.error||typeof r.code!=='string'){olMsg(r.error==='muchas'?'Creaste muchas salas seguidas: esperá un rato':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ olEnter(r.code,true,NET.sess.u);}
+async function olJoin(){if(NET.busy||!NET.sess)return;const code=$('olCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length!==5){olMsg('El código tiene 5 letras y números','bad');return;}
+ NET.busy=true;olMsg('Entrando a la sala…');const r=await rpc('gp_room_join',{p_token:NET.sess.t,p_code:code});NET.busy=false;
+ if(r.error||typeof r.code!=='string'){olMsg(r.error==='sala'?'No existe una sala con ese código (o ya se cerró)':r.error==='llena'?'La sala está llena':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ olEnter(r.code,false,String(r.host||''));}
+// entrar a la sala: graficos en Alta, conexion en vivo y aviso a los demas
+function olEnter(code,host,hostName){ONL.code=code;ONL.enterT=performance.now();ONL.host=host;ONL.hostName=hostName;ONL.players.clear();ONL.inRace=false;ONL.closedMsg='';
+ ONL.cfg={ci:Math.max(0,sel.circuit),laps:5,rain:0};
+ if(sel.q!==0){sel.q=0;refreshMenu();applyQuality();buildWorld(sel.circuit);buildRace();}
+ olView('lobby');olMsg('Conectando…');olRender();
+ rtConnect(code,olOnMsg);
+ clearInterval(ONL.hbT);ONL.hbT=setInterval(()=>{if(RT.joined)rtSend('hola',myInfo());olRender();},4000);}
+function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});
+ if(NET.sess)rpc('gp_room_leave',{p_token:NET.sess.t,p_code:ONL.code});
+ clearInterval(ONL.hbT);ONL.code=null;ONL.host=false;ONL.players.clear();ONL.inRace=false;setTimeout(rtClose,150);}
+// jugadores que se escucharon en los ultimos 12 s (y vos)
+function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
+function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
+ const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.gt?' · deportivo':'')+'</small></div>').join('');
+ $('olHostCfg').classList.toggle('hidden',!ONL.host);
+ if(ONL.host){$('olCirc').textContent=CIRCUITS[ONL.cfg.ci].name;for(const b of $('olLaps').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.laps);for(const b of $('olW').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.rain);
+  $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
+ else{const c=ONL.cfg;$('olWait').textContent='Esperando que '+(ONL.hostName||'el que creó la sala')+' largue · '+CIRCUITS[c.ci].name+' · '+c.laps+' vueltas · '+(c.rain?'Lluvia':'Seco');}}
+function olCfgSet(k,v){if(!ONL.host)return;ONL.cfg[k]=v;rtSend('hola',myInfo());olRender();}
+async function olStart(){if(!ONL.host||NET.busy)return;const L=olPresent();if(L.length<2){olMsg('Tiene que haber al menos 2 jugadores en la sala','bad');return;}
+ NET.busy=true;olMsg('Largando…');const c=ONL.cfg;
+ const r=await rpc('gp_room_start',{p_token:NET.sess.t,p_code:ONL.code,p_players:L.filter(p=>!p.me).map(p=>p.u),p_circuit:CIRCUITS[c.ci].name,p_laps:c.laps});NET.busy=false;
+ if(!r.ok){olMsg(r.error==='mes'?'Se terminaron las carreras online de este mes. El 1º se reinician.':r.error==='dia'?'Ya usaron sus carreras online de hoy: '+(Array.isArray(r.nombres)?r.nombres.map(String).join(', '):''):
+  r.error==='solo'?'Tiene que haber al menos 2 jugadores en la sala':r.error==='llena'?'Hay demasiados jugadores en la sala':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ // la grilla se sortea; todos reciben lo mismo y largan a la vez
+ const order=L.map(p=>p.u);for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+ const go={race:r.race,ci:c.ci,laps:c.laps,rain:c.rain,order,lo:+(5*0.9+rnd(0.5,1.5)).toFixed(2)};rtSend('go',go);olGo(go);}
+// mensajes de los demas
+function olOnMsg(ev,p){
+ if(ev==='_on'){olMsg('');rtSend('hola',myInfo());olRender();return;}
+ if(ev==='_err'){olMsg('No se pudo entrar a la sala en vivo','bad');return;}
+ if(ev==='_off'){if(ONL.code)olMsg('Se cortó la conexión, reconectando…','bad');return;}
+ if(!p||typeof p!=='object')return;
+ if(ev==='hola'){if(!OK_NAME.test(p.u)||!NET.sess||p.u===NET.sess.u)return;if(!ONL.players.has(p.u)&&ONL.players.size>=8)return;
+  const isNew=!ONL.players.has(p.u),ti=Number.isInteger(p.ti)&&p.ti>=0&&p.ti<TEAMS.length?p.ti:0;
+  ONL.players.set(p.u,{u:p.u,ti,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,host:p.host===true,last:performance.now()});
+  if(p.host===true&&!ONL.host&&p.cfg&&typeof p.cfg==='object'){const c=p.cfg;if(Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1))ONL.cfg={ci:c.ci,laps:c.laps,rain:c.rain};ONL.hostName=p.u;}
+  if(isNew){rtSend("hola",myInfo());if(!ONL.inRace)olMsg(performance.now()-ONL.enterT>3000?p.u+" entró a la sala":"Estás en la sala de "+(ONL.host?"vos":ONL.hostName||p.u),"ok");}
+  olRender();return;}
+ if(ev==='chau'){if(OK_NAME.test(p.u)){ONL.players.delete(p.u);const c=cars.find(o=>o.remote&&o.driver===p.u);if(c){c.gone=true;c.m.root.visible=false;}if(ONL.inRace)showMsg(p.u+" se fue",1500);else olMsg(p.u+" salió de la sala");olRender();}return;}
+ if(ev==='cerrada'){if(ONL.host)return;ONL.closedMsg='La sala se cerró porque se fue '+(ONL.hostName||'el que la creó');if(!ONL.inRace){olLeave();olView(NET.sess?'home':'noacc');olMsg(ONL.closedMsg,'bad');}return;}
+ if(ev==='go'){if(ONL.host||ONL.inRace)return;if(!Array.isArray(p.order)||!p.order.every(u=>OK_NAME.test(u))||!Number.isInteger(p.ci)||p.ci<0||p.ci>=CIRCUITS.length||![3,5,8].includes(p.laps)||!isNum(p.lo)||p.lo<4||p.lo>7)return;
+  if(!NET.sess||!p.order.includes(NET.sess.u)){olMsg('Largaron sin vos: esperá la próxima','bad');return;}olGo(p);return;}
+ if(ev==='p'){const c=cars.find(o=>o.remote&&o.driver===p.u);const pl=ONL.players.get(p.u);if(pl)pl.last=performance.now();
+  if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||!p.a.every(isNum))return;c.snap.push({t:performance.now(),a:p.a});if(c.snap.length>4)c.snap.shift();c.heard=performance.now();return;}
+ if(ev==='fin'){const c=cars.find(o=>o.remote&&o.driver===p.u);if(!c||!isNum(p.t)||p.t<10||p.t>7200)return;c.finished=true;c.finishTime=p.t;if(isNum(p.best)&&p.best>0)c.best=p.best;
+  if(finishShown&&ONL.inRace)olResults();return;}}
+// grilla online: solo los jugadores de la sala, en el orden sorteado (vos con tu escuderia, los demas con la suya)
+function olRoster(){const me=NET.sess?NET.sess.u:"";return sess.online.order.map((u,i)=>{const code=u.slice(0,3).toUpperCase();
+ if(u===me)return {id:"ME",ti:sel.team,driver:u,num:playerNum(),isPlayer:true,team:TEAMS[sel.team],code};
+ const p=ONL.players.get(u)||{ti:0,num:1,gt:false};return {id:"R"+i,ti:p.ti,driver:u,num:p.num,remote:true,gtR:!!p.gt,team:TEAMS[p.ti],code};});}
+// largada: todos arrancan el semaforo al mismo tiempo (3,5 s despues de que el anfitrion toca Largar)
+function olGo(g){const t0=performance.now();ONL.inRace=true;ONL.finSent=false;$('onlinePad').classList.add('hidden');olMsg('');
+ sess={type:'race',laps:g.laps,grid:null,online:{race:g.race,order:g.order.slice(),rain:!!g.rain}};
+ withCircuit(g.ci,()=>{startRace();lightsOutAt=g.lo;lightsT=-Math.max(0,(t0+3500-performance.now())/1000);});}
+// mi auto: 10 veces por segundo en carrera (2 por segundo en la largada y despues de llegar)
+function olSend(now){if(!ONL.inRace||!RT.joined||!player)return;
+ // al llegar se avisa una vez el tiempo final
+ if(player.finished&&!ONL.finSent){ONL.finSent=true;rtSend("fin",{u:NET.sess.u,t:Math.round(player.finishTime*1000)/1000,best:isFinite(player.best)?Math.round(player.best*1000)/1000:0});}const fast=state==='race'&&!player.finished;if(now-ONL.lastSend<(fast?100:500))return;ONL.lastSend=now;
+ const c=player,r2=v=>Math.round(v*100)/100;
+ rtSend('p',{u:NET.sess.u,a:[r2(c.pos.x),r2(c.pos.z),r2(c.pos.y),Math.round(c.head*1000)/1000,Math.round(c.v*10)/10,r2(c.prog),Math.round(c.steer*100)/100,(c.ersOn?1:0)|(c.braking?2:0)|(c.m.ci<<2)]});}
+// autos de los demas: se dibujan 0,12 s atras interpolando entre los ultimos mensajes (si faltan, se estira el ultimo hasta 0,4 s)
+function olCarStep(c,now){const S=c.snap;if(!S.length)return;if(!c.gone)c.m.root.visible=true;
+ const rt=now-120;let a=S[S.length-1].a,b=null,f=0;
+ for(let i=S.length-1;i>0;i--){if(S[i-1].t<=rt&&S[i].t>=rt){a=S[i-1].a;b=S[i].a;f=(rt-S[i-1].t)/Math.max(1,S[i].t-S[i-1].t);break;}}
+ if(b){c.pos.set(lerp(a[0],b[0],f),lerp(a[2],b[2],f),lerp(a[1],b[1],f));c.head=angLerp(a[3],b[3],f);c.v=lerp(a[4],b[4],f);c.prog=lerp(a[5],b[5],f);c.steer=lerp(a[6],b[6],f);a=b;}
+ else{const L=S[S.length-1],dt=Math.min(0.4,(rt-L.t)/1000);a=L.a;c.head=a[3];c.v=a[4];c.steer=a[6];c.pos.set(a[0]+Math.sin(a[3])*a[4]*Math.max(0,dt),a[2],a[1]+Math.cos(a[3])*a[4]*Math.max(0,dt));c.prog=a[5]+(dt>0?a[4]*dt/track.ds:0);}
+ const fl=a[7]|0;c.ersOn=!!(fl&1);c.acc=fl&2?-30:0;const ci=(fl>>2)&3;if(ci!==c.m.ci)setCompound(c,ci);
+ c.idx=nearest(c.pos,c.idx,40);
+ if(now-c.heard>10000&&!c.finished&&!c.gone){c.gone=true;c.m.root.visible=false;showMsg(c.driver+' se desconectó',1600);}}
+// resultados online: los que llegaron por tiempo y despues los que siguen en pista (se actualiza cuando llega cada uno)
+function olResults(){const fin=cars.filter(c=>c.finished).sort((a,b)=>a.finishTime-b.finishTime),run=cars.filter(c=>!c.finished).sort((a,b)=>b.prog-a.prog);
+ const L=fin.concat(run),pos=L.indexOf(player)+1;$('rPos').textContent='P'+pos;
+ $('rTitle').textContent=pos===1?'¡Ganaste la carrera online!':pos<=3?'Al podio':'Bandera a cuadros';
+ $('rSub').textContent=CIRCUITS[curCirc].name+' · '+sess.laps+' vueltas · Online, sala '+(ONL.code||'')+' · Tu mejor vuelta: '+fmt(player.best);
+ $('rTable').innerHTML=L.map((c,i)=>'<tr class="'+(c.isPlayer?'me':'')+'"><td class="p">'+(i+1)+'</td><td class="c"><i style="background:'+c.team.c1+'"></i></td><td>'+esc(c.driver)+'</td><td style="color:var(--muted)">'+c.team.name+'</td><td class="t">'+(c.finished?(c===fin[0]?fmt(c.finishTime):'+'+(c.finishTime-fin[0].finishTime).toFixed(3)):c.gone?'Se fue':'En pista')+'</td></tr>').join('');
+ setBtns([['Volver a la sala',olBackToRoom,1],['Salir',()=>{olLeave();goMenu();}]]);$('results').classList.remove('hidden');}
+function olBackToRoom(){const msg=ONL.closedMsg;ONL.inRace=false;goMenu();
+ if(msg){olLeave();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');olMsg(msg,'bad');return;}
+ if(ONL.code){$('onlinePad').classList.remove('hidden');olView('lobby');olRender();rtSend('hola',myInfo());}}
+$('onlineBtn').onclick=olOpen;$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
+$('olAcc').onclick=()=>{$('onlinePad').classList.add('hidden');acOpen();};
+$('olCopy').onclick=()=>{const t=ONL.code||'';try{navigator.clipboard.writeText(t).then(()=>olMsg('Código copiado: pegalo en WhatsApp','ok'),()=>olMsg('Copialo a mano: '+t));}catch(e){olMsg('Copialo a mano: '+t);}};
+$('olCPrev').onclick=()=>olCfgSet('ci',(ONL.cfg.ci-1+CIRCUITS.length)%CIRCUITS.length);$('olCNext').onclick=()=>olCfgSet('ci',(ONL.cfg.ci+1)%CIRCUITS.length);
+for(const b of $('olLaps').children)b.onclick=()=>olCfgSet('laps',+b.dataset.v);for(const b of $('olW').children)b.onclick=()=>olCfgSet('rain',+b.dataset.v);
+$('olCode').addEventListener('keydown',e=>{if(e.key==='Enter')olJoin();});
+$('onlinePad').addEventListener('keydown',e=>{if(e.key==='Escape'&&!ONL.code)olClose();});
+addEventListener('pagehide',()=>{if(ONL.code){rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});}});
+
 /* ---------------- eventos ---------------- */
 addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
  // con el teclado del codigo abierto, los numeros van al codigo
@@ -2434,7 +2615,7 @@ $('bBox').onclick=boxToggle;
 $('bCam').onclick=nextCam;
 $('bSnd').onclick=toggleSound;
 $('bPause').onclick=()=>{if(state.startsWith('paused'))resumeGame();else pauseGame();};
-$('pCont').onclick=resumeGame;$('pRestart').onclick=startRace;$('pMenu').onclick=goMenu;$('pEnd').onclick=endQuali;
+$('pCont').onclick=resumeGame;$('pRestart').onclick=startRace;$("pMenu").onclick=()=>{if(ONL.code)olLeave();goMenu();};$('pEnd').onclick=endQuali;
 const bindTouch=(id,key)=>{const el=$(id);const on=e=>{e.preventDefault();touchIn[key]=true;el.classList.add('act');if(actx&&actx.state==='suspended')actx.resume();};const off=e=>{e.preventDefault();touchIn[key]=false;el.classList.remove('act');};
  el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('pointerleave',off);el.addEventListener('contextmenu',e=>e.preventDefault());};
 bindTouch('tLeft','left');bindTouch('tRight','right');bindTouch('tGas','gas');bindTouch('tBrake','brake');bindTouch('tErs','ers');
