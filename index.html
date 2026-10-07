@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- seguridad: solo se cargan scripts de cdnjs, estilos y fuentes de Google Fonts; nada mas puede entrar ni salir -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://sbcvsgqzdhwhpxkspyvf.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gran Premio 3D</title>
@@ -190,6 +190,20 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .keypad button.ok{background:var(--accent);color:var(--ink);border:0;font-size:18px}
 .pad.shake{animation:shake .35s}
 @keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+/* cuenta y ranking online */
+.acctrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;margin-top:10px}
+.acctrow .hint{margin:0;flex:1 1 200px}
+.acbtns{display:flex;gap:8px}
+.btn.sm{flex:none;min-width:0;height:38px;padding:0 14px;font-size:14px}
+.acct{width:min(420px,92vw)}
+.acct .seg{margin-top:14px}
+.lbl{display:block;text-align:left;font-size:13px;color:var(--muted);font-weight:700;margin-top:12px}
+.lbl .inp{margin-top:4px;display:block}
+.linkbtn{display:block;margin:10px auto 0;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:13px;font-family:inherit}
+.reccode{font-size:30px;font-weight:900;letter-spacing:.12em;text-align:center;padding:14px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--accent);margin:10px 0;-webkit-user-select:text;user-select:text}
+.rkhead{display:flex;align-items:center;gap:10px;margin-top:14px}
+.rkhead b{flex:1;text-align:center;font-size:18px}
+.wet{font-size:11px;color:#6bb6ff;font-weight:700}
 @media (max-width:760px){#menu{background:rgba(6,7,11,.9)}.mp{padding-left:calc(env(safe-area-inset-left,0px) + 18px);padding-right:18px}}
 @media (prefers-reduced-motion: reduce){#msg{transition:none}.pad.shake{animation:none}}
 </style>
@@ -254,6 +268,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <div id="fmtRow"><h3>Formato del fin de semana</h3><div class="seg" id="segFmt"><button data-v="0">Clasif + Carrera</button><button data-v="1">Clasif + Sprint + Carrera</button></div></div>
     <h3>Tu piloto</h3>
     <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
+    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button></div></div>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
     <div id="circSec"><h3>Circuito</h3>
@@ -290,6 +305,39 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <p class="padmsg" id="codeMsg"></p>
     <div class="keypad" id="keypad"></div>
     <button class="btn wide" id="codeClose">Cerrar</button>
+  </div>
+</div>
+
+<div id="acctPad" class="overlay modalwrap hidden">
+  <div class="modal glass acct" role="dialog" aria-label="Cuenta">
+    <h2 id="acTitle">Tu cuenta</h2>
+    <div class="seg" id="acTabs"><button data-m="login">Entrar</button><button data-m="register">Crear cuenta</button></div>
+    <div id="acForm">
+      <label class="lbl">Usuario<input class="inp" id="acUser" maxlength="14" autocomplete="username" spellcheck="false" autocapitalize="off"></label>
+      <label class="lbl hidden" id="acCodeRow">Código de recuperación<input class="inp" id="acCode" maxlength="11" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX"></label>
+      <label class="lbl"><span id="acPassLbl">Contraseña</span><input class="inp" id="acPass" type="password" maxlength="72" autocomplete="current-password"></label>
+      <p class="hint" id="acHint"></p>
+      <p class="padmsg" id="acMsg"></p>
+      <button class="btn pri wide" id="acGo">Entrar</button>
+      <button class="linkbtn" id="acForgot">Me olvidé la contraseña</button>
+    </div>
+    <div id="acDone" class="hidden">
+      <p>¡Listo! Tu código de recuperación es:</p>
+      <div class="reccode" id="acRec"></div>
+      <p class="hint">Anotalo en un papel o sacale una foto. Si te olvidás la contraseña, con este código ponés una nueva. Solo se muestra esta vez.</p>
+      <button class="btn pri wide" id="acOk">Ya lo anoté</button>
+    </div>
+    <button class="btn wide" id="acClose">Cerrar</button>
+  </div>
+</div>
+
+<div id="rankPad" class="overlay modalwrap hidden">
+  <div class="modal glass" role="dialog" aria-label="Ranking online">
+    <h2>Ranking online</h2>
+    <div class="rkhead"><button class="btn sm" id="rkPrev" aria-label="Circuito anterior">◀</button><b id="rkCirc"></b><button class="btn sm" id="rkNext" aria-label="Circuito siguiente">▶</button></div>
+    <table class="res" id="rkTable"></table>
+    <p class="hint" id="rkMe"></p>
+    <button class="btn wide" id="rkClose">Cerrar</button>
   </div>
 </div>
 
@@ -808,7 +856,8 @@ function makeBridge(ad,span){const g=new THREE.Group();const H=8.6;
 /* ---------------- calidad ---------------- */
 const QUAL=[{name:'Alta',post:false,pr:isTouch?1.25:1.5,sm:2048,ext:55,grass:isTouch?3500:9000,trees:isTouch?260:520},
             {name:'Ultra',post:true,pr:2,sm:4096,ext:75,grass:isTouch?8000:16000,trees:isTouch?480:850}];
-sel.q=isTouch?0:1;
+// siempre arranca en Alta (Ultra al entrar hace que el principio se trabe un poco); Ultra se elige en el menu
+sel.q=0;
 /* ---------------- post-proceso: bloom + vineta ---------------- */
 const post=(()=>{
  const P={ok:true,enabled:false};
@@ -1660,6 +1709,74 @@ function makeCar(team,num,name){
  for(const cv of covers)keep.add(cv);keep.add(blob);const detail=[];root.traverse(o=>{if(o.isMesh&&!keep.has(o))detail.push(o);});
  return {root,body,wheels,fronts,lightM,brakeM,faces,spokes,blurs,covers,team,helmet,ci,blur:false,detail,far:false};
 }
+// codigo 2011: tu auto pasa a ser un deportivo (motor central, butaca al medio) con los colores de tu escuderia; anda igual que el F1
+// 4,6 m de largo, 2 m de ancho, 2,7 m entre ejes
+function makeSportsCar(team,num,name){
+ const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
+ const lin=c=>new THREE.Color(c).convertSRGBToLinear();
+ const add=(geo,mat,shadow,parent)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=!!shadow;m.receiveShadow=true;(parent||body).add(m);return m;};
+ // pintura: color de la escuderia con dos franjas al medio (arriba de la textura del loft) y una linea en los zocalos
+ const paint=new THREE.MeshPhysicalMaterial({roughness:0.28,metalness:0.45,clearcoat:1,clearcoatRoughness:0.05,map:tex(512,512,(x,w,h)=>{
+  x.fillStyle=team.c1;x.fillRect(0,0,w,h);x.fillStyle=team.c2;x.fillRect(w*0.468,0,w*0.018,h);x.fillRect(w*0.514,0,w*0.018,h);
+  x.fillStyle=team.ui;x.fillRect(w*0.205,0,w*0.008,h);x.fillRect(w*0.787,0,w*0.008,h);})});
+ const dark=new THREE.MeshStandardMaterial({color:'#121317',roughness:0.55,metalness:0.3});
+ const glass=new THREE.MeshPhysicalMaterial({color:'#0c141d',roughness:0.04,metalness:0.6,clearcoat:1,clearcoatRoughness:0.02});
+ const chrome=MATS.mirror;
+ // carroceria: cuña baja; la mitad de abajo es mas angosta para que se vean las ruedas debajo de los guardabarros
+ const S=(z,hw,yc,hh,n,lw)=>[z,0,hw,yc,hh,n,lw];
+ // el loft sale con las caras hacia adentro: se dan vuelta para que la pintura se vea de afuera
+ const outw=g=>{const ix=g.index.array;for(let i=0;i<ix.length;i+=3){const t=ix[i+1];ix[i+1]=ix[i+2];ix[i+2]=t;}g.index.needsUpdate=true;g.computeVertexNormals();return g;};
+ add(outw(loft([S(2.30,0.66,0.40,0.17,3,0.95),S(2.06,0.92,0.45,0.27,4,0.85),S(1.55,1.00,0.51,0.36,5,0.74),S(1.00,0.98,0.50,0.33,5,0.78),
+  S(0.30,0.95,0.52,0.36,5,0.82),S(-0.60,0.99,0.55,0.40,5,0.78),S(-1.45,1.02,0.56,0.41,5,0.73),S(-2.05,0.98,0.56,0.38,4,0.85),S(-2.30,0.88,0.56,0.30,4,0.9)],40,6)),paint,true);
+ // cabina vidriada con techo del color del auto
+ add(outw(loft([S(0.86,0.60,0.82,0.02,3,1),S(0.50,0.66,0.92,0.15,3,1),S(0.00,0.64,1.00,0.17,3,1),S(-0.48,0.62,0.98,0.16,3,1),S(-0.98,0.56,0.90,0.10,3,1),S(-1.32,0.50,0.84,0.03,3,1)],28,5)),glass,true);
+ add(outw(loft([S(0.28,0.50,1.155,0.035,3,1),S(-0.10,0.53,1.165,0.04,3,1),S(-0.55,0.50,1.14,0.035,3,1)],24,4)),paint,true);
+ // trompa: faros, toma de aire, splitter; atras: luces, aleron, difusor y escapes
+ for(const s of [-1,1]){const hl=add(new THREE.BoxGeometry(0.42,0.07,0.22),new THREE.MeshStandardMaterial({color:'#f4f8ff',emissive:'#dfe9ff',emissiveIntensity:1.2,roughness:0.2}));hl.position.set(s*0.6,0.6,2.0);hl.rotation.set(-0.35,s*0.32,0);}
+ add(new THREE.BoxGeometry(1.1,0.1,0.12),dark).position.set(0,0.33,2.25);
+ add(new THREE.BoxGeometry(1.6,0.03,0.42),dark,true).position.set(0,0.21,2.02);
+ const lightM=new THREE.MeshStandardMaterial({color:'#300',emissive:'#ff2020',emissiveIntensity:0.6});
+ add(new THREE.BoxGeometry(1.55,0.06,0.04),lightM).position.set(0,0.78,-2.31);
+ for(const s of [-1,1])add(new THREE.BoxGeometry(0.34,0.1,0.04),lightM).position.set(s*0.64,0.72,-2.30);
+ add(new THREE.BoxGeometry(1.4,0.16,0.16),dark).position.set(0,0.3,-2.2);
+ for(const s of [-1,1]){const ex=add(new THREE.CylinderGeometry(0.06,0.06,0.2,14),chrome);ex.rotation.x=PI/2;ex.position.set(s*0.14,0.42,-2.33);}
+ const wing=add(airfoil(0.36,0.05,1.75,0),dark,true);wing.position.set(0,1.18,-1.78);
+ for(const s of [-1,1]){add(new THREE.BoxGeometry(0.04,0.3,0.16),dark).position.set(s*0.55,1.04,-1.95);add(new THREE.BoxGeometry(0.03,0.2,0.42),dark).position.set(s*0.88,1.21,-1.95);}
+ // tomas laterales del motor, espejos y manijas
+ for(const s of [-1,1]){const it=add(new THREE.BoxGeometry(0.06,0.24,0.62),dark);it.position.set(s*0.985,0.62,-0.75);it.rotation.y=s*0.12;
+  const mr=add(new THREE.BoxGeometry(0.2,0.1,0.14),paint);mr.position.set(s*0.88,0.95,0.62);add(new THREE.BoxGeometry(0.02,0.08,0.12),chrome).position.set(s*0.98,0.95,0.62);}
+ // numero en las puertas y nombre arriba del parabrisas
+ const numMat=decalMat('gtn'+team.name+num,()=>textTex(String(num),team.txt,256,256,team.c2));
+ for(const s of [-1,1]){const d=add(new THREE.PlaneGeometry(0.42,0.42),numMat);d.position.set(s*0.995,0.58,-0.05);d.rotation.y=s*PI/2;}
+ if(name){const nm=String(name).toUpperCase();const d=add(new THREE.PlaneGeometry(0.7,0.11),decalMat('gtnm'+team.name+nm,()=>textTex(nm,'#ffffff',512,80)));d.position.set(0,1.13,0.62);d.rotation.x=-1.1;}
+ // adentro: tablero, volante y el piloto con casco (al medio)
+ add(new THREE.BoxGeometry(1.1,0.1,0.3),dark).position.set(0,0.77,0.56);
+ const sw=add(new THREE.TorusGeometry(0.13,0.02,8,24),dark);sw.position.set(0,0.76,0.38);sw.rotation.x=-0.35;
+ const hm=new THREE.MeshPhysicalMaterial({color:lin(team.c2),roughness:0.3,clearcoat:1});
+ const helmet=[add(new THREE.SphereGeometry(0.13,16,12),hm),add(new THREE.BoxGeometry(0.2,0.06,0.04),MATS.visor)];
+ helmet[0].position.set(0,0.98,-0.32);helmet[1].position.set(0,0.99,-0.2);
+ // ruedas: cubierta, llanta de 5 rayos y disco de freno que se pone al rojo
+ const brakeM=new THREE.MeshStandardMaterial({map:T_DISC,roughness:0.6,metalness:0.2,emissive:'#ff4a12',emissiveIntensity:0});
+ const rimMat=new THREE.MeshStandardMaterial({metalness:0.85,roughness:0.28,map:tex(256,256,(x,w,h)=>{const c=w/2;x.fillStyle='#16171a';x.fillRect(0,0,w,h);
+  x.fillStyle='#c9ced6';x.beginPath();x.arc(c,c,c*0.97,0,7);x.arc(c,c,c*0.84,0,7,true);x.fill();
+  for(let k=0;k<5;k++){x.save();x.translate(c,c);x.rotate(k*PI*2/5);x.beginPath();x.moveTo(-14,0);x.lineTo(-26,-c*0.86);x.lineTo(26,-c*0.86);x.lineTo(14,0);x.fill();x.restore();}
+  x.fillStyle=team.ui;x.beginPath();x.arc(c,c,c*0.17,0,7);x.fill();})});
+ const tyreG=new THREE.CylinderGeometry(0.36,0.36,1,32,1,true),rimG=new THREE.CircleGeometry(0.3,32);
+ const wheels=[],fronts=[],keep=new Set();
+ const wheel=(x,z,w,front)=>{const s=Math.sign(x),pv=new THREE.Group();pv.position.set(x,0.36,z);root.add(pv);const sp=new THREE.Group();pv.add(sp);
+  const t=new THREE.Mesh(tyreG,MATS.tire);t.scale.set(1,w,1);t.rotation.z=PI/2;t.castShadow=true;sp.add(t);keep.add(t);
+  for(const side of [s,-s]){const cap=new THREE.Mesh(new THREE.RingGeometry(0.29,0.36,32),MATS.tire);cap.rotation.y=side*PI/2;cap.position.x=side*w/2;sp.add(cap);}
+  const rim=new THREE.Mesh(rimG,rimMat);rim.rotation.y=s*PI/2;rim.position.x=s*(w/2-0.005);sp.add(rim);keep.add(rim);
+  const inner=new THREE.Mesh(rimG,MATS.rimIn);inner.rotation.y=-s*PI/2;inner.position.x=-s*(w/2-0.02);sp.add(inner);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.03,24),brakeM);disc.rotation.z=PI/2;disc.position.x=s*(w/2-0.09);sp.add(disc);
+  wheels.push(sp);if(front)fronts.push(pv);};
+ for(const s of [-1,1]){wheel(s*0.84,1.35,0.27,true);wheel(s*0.84,-1.35,0.33,false);}
+ const blob=new THREE.Mesh(new THREE.PlaneGeometry(2.6,5.4),MATS.blob);blob.rotation.x=-PI/2;blob.position.y=0.03;root.add(blob);keep.add(blob);
+ body.traverse(o=>{if(o.isMesh&&o.geometry.type==='BufferGeometry')keep.add(o);});
+ const detail=[];root.traverse(o=>{if(o.isMesh&&!keep.has(o))detail.push(o);});
+ const ci=RAIN?3:0;
+ return {root,body,wheels,fronts,lightM,brakeM,faces:[],spokes:[],blurs:[],covers:[],team,helmet,ci,blur:false,detail,far:false,gt:true};
+}
 
 
 /* ---------------- carrera ---------------- */
@@ -1699,7 +1816,8 @@ function buildRace0(){
  else{const ais=L.filter(c=>!c.isPlayer).sort((a,b)=>b.skill-a.skill);order=ais.slice();order.splice(5,0,me);}
  const {N,P,NL,H}=track;
  order.forEach((c,slot)=>{
-  const m=makeCar(c.team,c.num,c.isPlayer?playerName():c.driver.split(' ').pop());carsGroup.add(m.root);
+  // con el codigo 2011 tu auto es un deportivo
+  const nm=c.isPlayer?playerName():c.driver.split(" ").pop(),m=c.isPlayer&&CODE.sport?makeSportsCar(c.team,c.num,nm):makeCar(c.team,c.num,nm);carsGroup.add(m.root);
   const q=sess.type==='quali';const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
   const car=Object.assign(c,{m,s:gi-N,s0:gi-N,prog:gi-N,idx:gi,lane:lat,laneT:lat,lat:lat,startLane:lat,pref:rnd(-1.4,1.4),v:0,steer:0,head:H[gi],pos:new V3(P[gi].x+NL[gi].x*lat,P[gi].y,P[gi].z+NL[gi].z*lat),
    finished:false,finishTime:0,overT:0,react:rnd(0.18,0.5),launch:rnd(0.9,1.05),launchFx:0,started:false,lapStart:0,best:Infinity,lastLaps:0,lapsSeen:-1,timing:false,lapBad:false,offT:0,tw:0,twWarn:false,dmg:0,pit:0,pitReq:false,pitCi:0,ps:0,ps0:0,pl0:0,pitL:0,box:0,stopT:0,stopTot:0,stops:0,ers:1,ersOn:false,pitch:0,roll:0,acc:0,heat:0,spinT:0,reacted:false,grid:slot+1});
@@ -1868,11 +1986,11 @@ function playerStep(dt){
  if(live&&laps>c.lapsSeen){c.lapsSeen=laps;
   if(sess.type==='quali'){
    if(laps===0){c.lapStart=rt;c.timing=true;c.lapBad=false;c.offT=0;showMsg('Vuelta lanzada 1/'+QLAPS,1600);}
-   else if(c.timing){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;const ok=lapOK(c,lt);const pb=ok&&lt<c.best;if(pb)c.best=lt;
+   else if(c.timing){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;const ok=lapOK(c,lt);if(ok)netLap(lt);const pb=ok&&lt<c.best;if(pb)c.best=lt;
     const txt=ok?(pb?'Mejor vuelta ':'Vuelta ')+fmt(lt)+'  ·  P'+qualiPos():'Vuelta anulada '+fmt(lt);
     if(laps>=QLAPS){c.finished=true;c.finishTime=rt;state='finished';showMsg(txt,2600);setTimeout(showResults,2600);}else showMsg(txt,2200);}}
   else if(laps>=1){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;
-   const ok=lapOK(c,lt),had=c.best<Infinity;let fast=false;if(ok&&lt<c.best){c.best=lt;fast=had;}
+   const ok=lapOK(c,lt),had=c.best<Infinity;let fast=false;if(ok)netLap(lt);if(ok&&lt<c.best){c.best=lt;fast=had;}
    if(laps>=sess.laps){c.finished=true;c.finishTime=rt;state='finished';showMsg('Bandera a cuadros',2600);setTimeout(showResults,2600);}
    else if(laps===sess.laps-1)showMsg((fast?'Vuelta rapida '+fmt(lt)+'  ·  ':'')+'Ultima vuelta',2200);
    else showMsg(fast?'Vuelta rapida '+fmt(lt):'Vuelta '+(laps+1)+'  ·  '+fmt(lt)+(ok?'':' (anulada)'),2000);}}
@@ -1919,8 +2037,9 @@ function updateCamera(dt){
  let p,l,kk;
  if(camMode===0){p=c.pos.clone().addScaledVector(f,-8.8);p.y=c.pos.y+3.1;l=c.pos.clone().addScaledVector(fc,5);l.y=hA(c,5)+1.1;kk=1-Math.exp(-dt*9);}
  // TV Pod: justo arriba de la cabeza, mirando 8 grados hacia abajo: el halo cruza la pantalla y abajo se ven el volante, los espejos y las ruedas
- else if(camMode===1){p=c.pos.clone().addScaledVector(fc,-0.1);p.y=c.pos.y+1.18;l=c.pos.clone().addScaledVector(fc,14);l.y=hA(c,14)-0.79;kk=1;}
- else if(camMode===2){p=c.pos.clone().addScaledVector(fc,-0.08);p.y=c.pos.y+0.88;l=c.pos.clone().addScaledVector(fc,30);l.y=hA(c,30)+0.78;kk=1;}
+ // en el deportivo: camara 1 arriba del techo y camara 2 en la butaca (al medio)
+ else if(camMode===1){p=c.pos.clone().addScaledVector(fc,c.m.gt?-0.2:-0.1);p.y=c.pos.y+(c.m.gt?1.5:1.18);l=c.pos.clone().addScaledVector(fc,14);l.y=hA(c,14)-0.79;kk=1;}
+ else if(camMode===2){p=c.pos.clone().addScaledVector(fc,c.m.gt?0.02:-0.08);p.y=c.pos.y+(c.m.gt?0.99:0.88);l=c.pos.clone().addScaledVector(fc,30);l.y=hA(c,30)+0.78;kk=1;}
  else{p=c.pos.clone().addScaledVector(f,-14);p.y=c.pos.y+9.5;l=c.pos.clone().addScaledVector(fc,8);l.y=hA(c,8)+0.5;kk=1-Math.exp(-dt*6);}
  camPos.lerp(p,kk);camLook.lerp(l,onb?1:1-Math.exp(-dt*12));
  camera.position.copy(camPos);
@@ -2005,7 +2124,7 @@ function startRace(){
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(sess.type==='quali'){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg('Clasificación · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
- if(player.cheat)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg("Código 1312 activo",1600);},1900);
+ if(player.cheat||player.m.gt)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.gt?"Código 2011 · auto deportivo":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
 $&
  $('c').focus();
 }
@@ -2193,9 +2312,13 @@ function circInfo(c){if(!c._L){const tk=computeTrack(c);let t=0;for(let i=0;i<tk
  return km+' km ('+cat+') \u00b7 vuelta ~'+mm+':'+String(ss).padStart(2,'0')+' \u00b7 '+sel.laps+' vueltas ~'+Math.round(lt*sel.laps/60)+' min';}
 
 /* ---------------- codigo secreto ---------------- */
-// 1312: gomas que no se gastan, auto que no se rompe, ERS infinito y mucha mas aceleracion; dura solo la proxima carrera
-const CODE={on:false,buf:'',t:0};
-function setCode(on){CODE.on=on;$('codeBtn').classList.toggle('on',on);$('codeOn').classList.toggle('hidden',!on);}
+// 1312: gomas que no se gastan, auto que no se rompe, ERS infinito y mucha mas aceleracion
+// 2011: corres con un auto deportivo (solo vos; anda igual que el F1)
+// los dos duran solo la proxima carrera y se pueden usar juntos
+const CODE={on:false,sport:false,buf:'',t:0};
+function setCode(k,v){if(k===false)CODE.on=CODE.sport=false;else CODE[k]=v;const any=CODE.on||CODE.sport;
+ $('codeBtn').classList.toggle('on',any);$('codeOn').classList.toggle('hidden',!any);
+ $('codeOn').textContent=[CODE.on?'Código 1312 activo: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.':'',CODE.sport?'Código 2011 activo: corrés con un auto deportivo.':''].filter(Boolean).join(' ')+' Vale para la próxima carrera.';}
 function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textContent=CODE.buf[i]||'';s.classList.toggle('f',i<CODE.buf.length);});
  if(msg!==undefined){const m=$('codeMsg');m.textContent=msg;m.className='padmsg'+(cls?' '+cls:'');}}
 function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');$('codePad').classList.remove('hidden');}
@@ -2204,12 +2327,79 @@ function codeKey(k){if(k==='del'){clearTimeout(CODE.t);CODE.buf=CODE.buf.slice(0
  if(k==='ok'){clearTimeout(CODE.t);codeCheck();return;}
  if(CODE.buf.length>=4)return;CODE.buf+=k;codeSync(CODE.buf.length===1?'Poné el código de 4 números':undefined);if(CODE.buf.length===4){clearTimeout(CODE.t);CODE.t=setTimeout(codeCheck,180);}}
 function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');return;}
- if(CODE.buf==='1312'){setCode(true);codeSync('¡Activado! Vale para la próxima carrera','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ if(CODE.buf==='1312'){setCode('on',true);codeSync('¡Activado! Vale para la próxima carrera','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ if(CODE.buf==='2011'){setCode('sport',true);if(state==='menu')buildRace();codeSync('¡Auto deportivo para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  CODE.buf='';codeSync('Código incorrecto','bad');const p=$('codePad').querySelector('.pad');p.classList.remove('shake');void p.offsetWidth;p.classList.add('shake');}
 for(const k of ['1','2','3','4','5','6','7','8','9','del','0','ok']){const b=document.createElement('button');b.textContent=k==='del'?'⌫':k==='ok'?'OK':k;if(k==='ok')b.className='ok';
  if(k==='del')b.setAttribute('aria-label','Borrar');b.onclick=()=>codeKey(k);$('keypad').appendChild(b);}
 $('codeBtn').onclick=codeOpen;$('codeClose').onclick=codeClose;
 $('codePad').addEventListener('pointerdown',e=>{if(e.target===$('codePad'))codeClose();});
+
+/* ---------------- cuenta y ranking online (Supabase) ---------------- */
+// la clave publica solo deja usar las funciones gp_* del servidor, que revisan usuario, contraseña y cada vuelta
+const NET={url:'https://sbcvsgqzdhwhpxkspyvf.supabase.co',key:'sb_publishable_GgKRhFvyCoWZS-V7vxfcOA_KLtQdIb3',sess:null,best:{},busy:false};
+const NET_ERR={usuario:'El usuario tiene que tener de 3 a 14 letras, números o _',pass:'La contraseña tiene que tener al menos 6 caracteres',
+ nombre:'Ese nombre no se puede usar, elegí otro',espera:'Hay muchas cuentas nuevas en este momento: probá en un minuto',existe:'Ese usuario ya existe, elegí otro',
+ datos:'Usuario, contraseña o código incorrectos',bloqueado:'Demasiados intentos: esperá 5 minutos y probá de nuevo',
+ red:'No se pudo conectar con el ranking. Revisá internet y probá de nuevo',sesion:'Tu sesión venció: entrá de nuevo'};
+async function rpc(fn,args){const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),10000);
+ try{const r=await fetch(NET.url+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:NET.key,'Content-Type':'application/json'},body:JSON.stringify(args),signal:ctl.signal});
+  if(!r.ok)return {error:'red'};const j=await r.json();return j&&typeof j==='object'?j:{error:'red'};}
+ catch(e){return {error:'red'};}finally{clearTimeout(t);}}
+function netSave(){try{if(NET.sess)localStorage.setItem('gp3d_cuenta',JSON.stringify(NET.sess));else localStorage.removeItem('gp3d_cuenta');}catch(e){}}
+function acctSync(){const s=NET.sess;$('acctTxt').textContent=s?'Conectado como '+s.u+' · tus mejores vueltas van al ranking online':'Sin cuenta: tus vueltas no van al ranking online';
+ $('acctBtn').textContent=s?'Salir de la cuenta':'Entrar / crear cuenta';}
+// al abrir el juego: si habia una sesion guardada, se revisa que siga valiendo
+function netLoad(){try{const s=JSON.parse(localStorage.getItem('gp3d_cuenta')||'null');if(s&&typeof s.u==='string'&&/^[A-Za-z0-9_]{3,14}$/.test(s.u)&&typeof s.t==='string'&&/^[0-9a-f]{64}$/.test(s.t))NET.sess={u:s.u,t:s.t};}catch(e){}
+ acctSync();if(NET.sess)rpc('gp_me',{p_token:NET.sess.t}).then(r=>{if(!NET.sess)return;if(r.error==='sesion'){NET.sess=null;netSave();acctSync();}else if(r.user){NET.sess.u=r.user;netSave();acctSync();}});}
+// cada vuelta valida (sin el codigo 1312) que mejora tu marca se manda al ranking; el servidor la vuelve a revisar
+function netLap(lt){const c=player;if(!NET.sess||c.cheat||curCirc<0)return;const name=CIRCUITS[curCirc].name,ms=Math.round(lt*1000);if(NET.best[name]&&ms>=NET.best[name])return;
+ rpc('gp_submit_lap',{p_token:NET.sess.t,p_circuit:name,p_ms:ms,p_rain:!!RAIN}).then(r=>{
+  if(r.error==='sesion'){NET.sess=null;netSave();acctSync();return;}
+  if(r.ok){NET.best[name]=r.best;if(r.pb)setTimeout(()=>{if(state==='race'||state==='finished')showMsg('Récord online · puesto '+r.rank,2200);},2300);}});}
+// ventana de cuenta: entrar, crear cuenta o poner contraseña nueva con el codigo de recuperacion
+let acMode='login';
+function acMsg(t,cls){const m=$('acMsg');m.textContent=t;m.className='padmsg'+(cls?' '+cls:'');}
+function acSet(m){acMode=m;const reg=m==='register',rst=m==='reset';
+ $('acTitle').textContent=rst?'Contraseña nueva':'Tu cuenta';$('acTabs').classList.toggle('hidden',rst);
+ for(const b of $('acTabs').children)b.classList.toggle('sel',b.dataset.m===m);
+ $('acCodeRow').classList.toggle('hidden',!rst);$('acPassLbl').textContent=rst?'Contraseña nueva':'Contraseña';
+ $('acPass').setAttribute('autocomplete',reg||rst?'new-password':'current-password');
+ $('acHint').textContent=reg?'Inventá un usuario (de 3 a 14 letras o números) y una contraseña de al menos 6. No uses la misma contraseña que en otras páginas.':rst?'Poné tu usuario, el código de recuperación que anotaste y una contraseña nueva.':'';
+ $('acGo').textContent=reg?'Crear cuenta':rst?'Cambiar contraseña':'Entrar';$('acForgot').textContent=rst?'Volver':'Me olvidé la contraseña';$('acForgot').classList.toggle('hidden',reg);acMsg('');}
+function acOpen(){if(NET.sess){const t=NET.sess.t;NET.sess=null;NET.best={};netSave();acctSync();rpc('gp_logout',{p_token:t});return;}
+ $('acForm').classList.remove('hidden');$('acDone').classList.add('hidden');$('acPass').value='';$('acCode').value='';acSet('login');$('acctPad').classList.remove('hidden');$('acUser').focus();}
+function acClose(){$('acctPad').classList.add('hidden');$('acPass').value='';}
+async function acGo(){if(NET.busy)return;const u=$('acUser').value.trim(),p=$('acPass').value,code=$('acCode').value.trim();
+ if(!/^[A-Za-z0-9_]{3,14}$/.test(u)){acMsg(NET_ERR.usuario,'bad');return;}
+ if(p.length<6){acMsg(acMode==='login'?NET_ERR.datos:NET_ERR.pass,'bad');return;}
+ if(acMode==='reset'&&code.replace('-','').length!==10){acMsg('El código tiene 10 letras y números','bad');return;}
+ NET.busy=true;$('acGo').disabled=true;acMsg('Conectando…');
+ const r=acMode==='register'?await rpc('gp_register',{p_user:u,p_pass:p}):acMode==='reset'?await rpc('gp_reset',{p_user:u,p_code:code,p_pass:p}):await rpc('gp_login',{p_user:u,p_pass:p});
+ NET.busy=false;$('acGo').disabled=false;
+ if(r.error||typeof r.token!=='string'||typeof r.user!=='string'){acMsg(NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ NET.sess={u:r.user,t:r.token};NET.best={};netSave();acctSync();$('acPass').value='';
+ if(r.code){$('acRec').textContent=String(r.code).slice(0,5)+'-'+String(r.code).slice(5);$('acForm').classList.add('hidden');$('acTabs').classList.add('hidden');$('acDone').classList.remove('hidden');}
+ else acClose();}
+for(const b of $('acTabs').children)b.onclick=()=>acSet(b.dataset.m);
+$('acctBtn').onclick=acOpen;$('acGo').onclick=acGo;$('acClose').onclick=acClose;$('acOk').onclick=acClose;
+$('acForgot').onclick=()=>acSet(acMode==='reset'?'login':'reset');
+$('acctPad').addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('acForm').classList.contains('hidden'))acGo();else if(e.key==='Escape')acClose();});
+// ventana del ranking: los 20 mejores de cada circuito y tu puesto
+let rkCi=0;
+function rkOpen(){rkCi=Math.max(0,sel.circuit);$('rankPad').classList.remove('hidden');rkLoad();}
+async function rkLoad(){const ci=rkCi,name=CIRCUITS[ci].name;$('rkCirc').textContent=name;$('rkTable').innerHTML='<tr><td>Cargando…</td></tr>';$('rkMe').textContent='';
+ const r=await rpc('gp_leaderboard',{p_circuit:name,p_token:NET.sess?NET.sess.t:null});if(ci!==rkCi)return;
+ if(r.error||!Array.isArray(r.top)){$('rkTable').innerHTML='<tr><td>'+esc(NET_ERR.red)+'</td></tr>';return;}
+ $('rkTable').innerHTML=r.top.length?r.top.map((t,i)=>'<tr'+(NET.sess&&t.u===NET.sess.u?' class="me"':'')+'><td class="p">'+(i+1)+'</td><td>'+esc(t.u)+(t.r?' <span class="wet">lluvia</span>':'')+'</td><td class="t">'+fmt(t.ms/1000)+'</td></tr>').join('')
+  :'<tr><td>Todavía nadie marcó tiempo en este circuito. ¡Sé el primero!</td></tr>';
+ $('rkMe').textContent=NET.sess?(r.best?'Tu mejor vuelta: '+fmt(r.best/1000)+' · puesto '+r.rank+' de '+r.total:'Todavía no tenés vuelta en este circuito.')
+  :'Creá una cuenta para que tus vueltas aparezcan acá.';
+ if(NET.sess&&r.best)NET.best[name]=r.best;}
+$('rankBtn').onclick=rkOpen;$('rkClose').onclick=()=>$('rankPad').classList.add('hidden');
+$('rkPrev').onclick=()=>{rkCi=(rkCi-1+CIRCUITS.length)%CIRCUITS.length;rkLoad();};$('rkNext').onclick=()=>{rkCi=(rkCi+1)%CIRCUITS.length;rkLoad();};
+$('rankPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('rankPad').classList.add('hidden');});
+netLoad();
 
 /* ---------------- eventos ---------------- */
 addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
