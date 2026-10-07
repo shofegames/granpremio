@@ -41,6 +41,9 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #tower .r .p{width:18px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
 #tower .r .g{margin-left:auto;color:var(--muted);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums}
 #tower .r.me{background:rgba(255,255,255,.14);box-shadow:inset 3px 0 0 var(--accent)}
+#hPos.ahead{color:#34c759}#hPos.behind{color:#ff453a}
+#segMode{flex-wrap:wrap}#segMode button{flex:1 1 30%}
+@media (max-width:640px){#segMode button{flex:1 1 40%}}
 #map{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);width:170px;height:170px;border-radius:14px}
 #dash{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;align-items:center;gap:16px;padding:10px 20px;border-radius:16px}
 #gear{font-size:48px;font-weight:900;font-style:italic;width:42px;text-align:center;color:var(--accent);line-height:1}
@@ -279,7 +282,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <div class="stripe"><i></i><i></i><i></i></div>
     <p class="lead">Elegi tu escuderia, el circuito y larga contra 9 rivales. Usa el ERS en las rectas para pasar.</p>
     <h3>Modo de juego</h3>
-    <div class="seg" id="segMode"><button data-v="0">Carrera rápida</button><button data-v="1">Fin de semana</button><button data-v="2">Campeonato</button></div>
+    <div class="seg" id="segMode"><button data-v="0">Carrera rápida</button><button data-v="1">Fin de semana</button><button data-v="2">Campeonato</button><button data-v="3">Supera tu récord</button><button data-v="4">Récord mundial</button></div>
     <p class="hint" id="modeHint"></p>
     <div id="fmtRow"><h3>Formato del fin de semana</h3><div class="seg" id="segFmt"><button data-v="0">Clasif + Carrera</button><button data-v="1">Clasif + Sprint + Carrera</button></div></div>
     <h3>Tu piloto</h3>
@@ -290,7 +293,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <div id="circSec"><h3>Circuito</h3>
     <div class="circs" id="circGrid"></div></div>
     <p class="hint" id="calNote"></p>
-    <div class="row2">
+    <div class="row2" id="raceRow">
       <div><h3>Vueltas</h3><div class="seg" id="segLaps"><button data-v="3">3</button><button data-v="5">5</button><button data-v="8">8</button><button data-v="12">12</button><button data-v="20">20</button></div></div>
       <div><h3>Rivales</h3><div class="seg" id="segDiff"><button data-v="0">Faciles</button><button data-v="1">Normales</button><button data-v="2">Picantes</button></div></div>
     </div>
@@ -495,6 +498,8 @@ const SKIN=['#f1c27d','#e0ac69','#c68642','#8d5524','#ffdbac','#d1a37a'];
 
 const W=16, HALF=W/2, WALL=HALF+12;
 const sel={team:0,circuit:0,laps:3,diff:1,mode:0,sprint:false,name:'',num:0,weather:0};
+// contra reloj: récord cargado, vuelta que se esta grabando, auto fantasma y vueltas de la tanda
+const TT={rec:null,buf:null,next:0,ghost:null,laps:[],newRec:false,delta:null,dT:0};
 let RAIN=false;// clima de la sesion actual
 try{const sv=JSON.parse(localStorage.getItem('gp3d_piloto')||'{}');if(sv&&typeof sv.name==='string')sel.name=cleanName(sv.name);if(sv&&isInt(sv.num,1,99))sel.num=sv.num;}catch(e){}
 
@@ -1830,7 +1835,9 @@ const camPos=new V3(),camLook=new V3();
 function raceT(){return state==='race'||state==='finished'?simT-raceStart:0;}
 /* ---- sesiones: carrera rapida, fin de semana y campeonato ---- */
 const QLAPS=3;
-const SNAME={quali:'Clasificación',sprint:'Sprint',race:'Carrera'};
+const SNAME={quali:'Clasificación',sprint:'Sprint',race:'Carrera',tt:'Contra reloj'};
+// sesiones con vos solo en pista (clasificacion y contra reloj): largada lanzada, sin desgaste ni boxes
+function solo(){return sess.type==='quali'||sess.type==='tt';}
 const PTS={race:[25,18,15,12,10,8,6,4,2,1],sprint:[8,7,6,5,4,3,2,1]};
 const CAL_NAMES=['Melbourne','Buenos Aires','Imola','Barcelona','Autodromo Costanera','Silverstone','Red Bull Ring','Hungaroring','Spa-Francorchamps','Zandvoort','Monza','Valle Dorado','Austin (COTA)','México','Interlagos'];
 let sess={type:'race',laps:3,grid:null},WK=null,CH=null,curCirc=-1;
@@ -1852,11 +1859,11 @@ function aiLapTime(sk){const {N,ds}=track,vT=RAIN?track.vTw:track.vT,ac=RAIN?0.8
 function buildRace(){buildRace0();prewarm();}
 function buildRace0(){
  if(carsGroup){scene.remove(carsGroup);disposeObj(carsGroup);}
- carsGroup=new THREE.Group();scene.add(carsGroup);cars=[];FX.clear();
+ carsGroup=new THREE.Group();scene.add(carsGroup);cars=[];FX.clear();TT.ghost=null;REC.lap=-9;
  const L=sess.online?olRoster():roster();const base=[0.86,0.93,0.985][sel.diff];const SK=CH?CH.skill:WK?WK.skill:null;
  L.forEach(c=>{if(!c.isPlayer)c.skill=clamp(base+(SK?SK[c.id]+rnd(-0.008,0.008):rnd(-0.035,0.025)),0.8,1.0);});
  const me=L.find(c=>c.isPlayer);let order;
- if(sess.type==='quali'){order=[me];sess.qtimes=L.filter(c=>!c.isPlayer).map(c=>({id:c.id,driver:c.driver,team:c.team,code:c.code,t:aiLapTime(c.skill)*(1+rnd(-0.004,0.004))}));}
+ if(solo()){order=[me];sess.qtimes=L.filter(c=>!c.isPlayer).map(c=>({id:c.id,driver:c.driver,team:c.team,code:c.code,t:aiLapTime(c.skill)*(1+rnd(-0.004,0.004))}));}
  else if(sess.grid){order=sess.grid.map(id=>L.find(c=>c.id===id)).filter(Boolean);for(const c of L)if(!order.includes(c))order.push(c);}
  else if(sess.online)order=L;
  else{const ais=L.filter(c=>!c.isPlayer).sort((a,b)=>b.skill-a.skill);order=ais.slice();order.splice(5,0,me);}
@@ -1864,7 +1871,7 @@ function buildRace0(){
  order.forEach((c,slot)=>{
   // con el codigo 2011 tu auto es un deportivo
   const nm=sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop(),m=(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.team,c.num,nm):makeCar(c.team,c.num,nm);carsGroup.add(m.root);
-  const q=sess.type==='quali';const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
+  const q=solo();const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
   const car=Object.assign(c,{m,s:gi-N,s0:gi-N,prog:gi-N,idx:gi,lane:lat,laneT:lat,lat:lat,startLane:lat,pref:rnd(-1.4,1.4),v:0,steer:0,head:H[gi],pos:new V3(P[gi].x+NL[gi].x*lat,P[gi].y,P[gi].z+NL[gi].z*lat),
    finished:false,finishTime:0,overT:0,react:rnd(0.18,0.5),launch:rnd(0.9,1.05),launchFx:0,started:false,lapStart:0,best:Infinity,lastLaps:0,lapsSeen:-1,timing:false,lapBad:false,offT:0,tw:0,twWarn:false,dmg:0,pit:0,pitReq:false,pitCi:0,ps:0,ps0:0,pl0:0,pitL:0,box:0,stopT:0,stopTot:0,stops:0,ers:1,ersOn:false,pitch:0,roll:0,acc:0,heat:0,spinT:0,reacted:false,grid:slot+1});
   if(c.remote){car.snap=[];car.heard=performance.now();car.gone=false;}
@@ -1984,7 +1991,7 @@ function playerStep(dt){
   // si el auto todavia esta muy cruzado respecto de la linea, suelta el acelerador hasta enderezar
   if(Math.abs(as)>0.9&&c.v>25)thr=0;}
  // largada: con el acelerador a fondo al apagarse las luces patina; si reaccionas rapido, sale limpio
- if(live&&!c.reacted&&sess.type!=='quali'){
+ if(live&&!c.reacted&&!solo()){
   if(c.preGas){c.reacted=true;c.spinT=0.9;c.launchFx=1;setTimeout(()=>showMsg('Patinaste en la largada',1300),700);}
   else if(thr>0){c.reacted=true;const r=raceT();c.launchFx=0.4;setTimeout(()=>showMsg(r<0.3?'Gran largada · '+r.toFixed(3)+' s':'Reacción '+r.toFixed(3)+' s',1300),500);}}
  if(c.spinT>0)c.spinT-=dt;
@@ -1993,9 +2000,9 @@ function playerStep(dt){
  let surf='asf';if(a>HALF+0.2){if(a<=HALF+1.8&&track.kerb[i])surf='kerb';else if(a<=HALF+10&&(lat>0?track.gL[i]:track.gR[i]))surf='grava';else surf='pasto';}
  c.surf=surf;const grip={asf:1,kerb:0.93,grava:0.4,pasto:0.58}[surf]*(RAIN?0.72:1)*tyreGrip(c)*(1-0.18*c.dmg);
  // las gomas se gastan mas doblando fuerte, frenando a fondo y por fuera de la pista
- if(live&&!c.pit&&sess.type!=='quali')wearTyres(c,dt,1+0.5*Math.abs(c.steer)*Math.min(1,Math.abs(c.v)/50)+(inp.brk&&c.v>30?0.3:0)+(surf==='grava'||surf==='pasto'?0.6:0));
+ if(live&&!c.pit&&!solo())wearTyres(c,dt,1+0.5*Math.abs(c.steer)*Math.min(1,Math.abs(c.v)/50)+(inp.brk&&c.v>30?0.3:0)+(surf==='grava'||surf==='pasto'?0.6:0));
  // limites de pista: con las 4 ruedas afuera del asfalto y los pianos mas de medio segundo, la vuelta se anula
- if(live&&!c.lapBad&&(c.timing||sess.type!=='quali')&&a>HALF+(track.kerb[i]?1.8:0.2)+1.0){c.offT+=dt;if(c.offT>0.5){c.lapBad=true;showMsg('Vuelta anulada · límites de pista',1800);}}
+ if(live&&!c.lapBad&&(c.timing||!solo())&&a>HALF+(track.kerb[i]?1.8:0.2)+1.0){c.offT+=dt;if(c.offT>0.5){c.lapBad=true;showMsg('Vuelta anulada · límites de pista',1800);}}
  c.ersOn=inp.ers&&thr>0&&c.ers>0.01&&live&&!c.pit;
  const vmax=((surf==='asf'||surf==='kerb'?93:surf==='pasto'?45:28)+(c.ersOn?7:0))*(1-0.12*c.dmg);
  let acc=0;
@@ -2034,17 +2041,20 @@ function playerStep(dt){
  if(live&&Math.cos(wrapA(c.head-H[k]))<-0.5&&c.v>3)wrongT+=dt;else wrongT=0;
  // si te metes por la entrada de boxes manejando, el equipo toma el control (sin pedir box se ponen las gomas que convienen)
  {const pp=track.pit,sr=pitSr(c),ln=(c.pos.x-P[k].x)*NL[k].x+(c.pos.z-P[k].z)*NL[k].z;
-  if(c.pit===0&&live&&sess.type!=='quali'&&sr>=pp.eA&&sr<=pp.gE&&ln*pp.S>Math.max(HALF+1.2,pitInner(pp,sr)-1.5)){c.lat=ln;pitEnter(c,sr);}}
+  if(c.pit===0&&live&&!solo()&&sr>=pp.eA&&sr<=pp.gE&&ln*pp.S>Math.max(HALF+1.2,pitInner(pp,sr)-1.5)){c.lat=ln;pitEnter(c,sr);}}
  }
  const rt=raceT();const laps=Math.floor(c.prog/N);
  if(live&&laps>c.lapsSeen){c.lapsSeen=laps;
-  if(sess.type==='quali'){
+  if(sess.type==='tt'){
+   if(laps===0){c.lapStart=rt;c.timing=true;c.lapBad=false;c.offT=0;ttLapStart();showMsg(sess.world?wrStartMsg():TT.rec?'Vuelta lanzada · contra tu récord '+fmt(TT.rec.t):'Vuelta lanzada · marcá tu primer récord',2000);}
+   else if(c.timing){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;const gs=recLapEnd(lt),ok=lapOK(c,lt);if(ok)netLap(lt,gs);if(ok&&lt<c.best)c.best=lt;ttLap(lt,ok,gs);ttLapStart();}}
+  else if(sess.type==='quali'){
    if(laps===0){c.lapStart=rt;c.timing=true;c.lapBad=false;c.offT=0;showMsg('Vuelta lanzada 1/'+QLAPS,1600);}
-   else if(c.timing){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;const ok=lapOK(c,lt);if(ok)netLap(lt);const pb=ok&&lt<c.best;if(pb)c.best=lt;
+   else if(c.timing){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;const gs=recLapEnd(lt),ok=lapOK(c,lt);if(ok)netLap(lt,gs);const pb=ok&&lt<c.best;if(pb)c.best=lt;
     const txt=ok?(pb?'Mejor vuelta ':'Vuelta ')+fmt(lt)+'  ·  P'+qualiPos():'Vuelta anulada '+fmt(lt);
     if(laps>=QLAPS){c.finished=true;c.finishTime=rt;state='finished';showMsg(txt,2600);setTimeout(showResults,2600);}else showMsg(txt,2200);}}
   else if(laps>=1){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;
-   const ok=lapOK(c,lt),had=c.best<Infinity;let fast=false;if(ok)netLap(lt);if(ok&&lt<c.best){c.best=lt;fast=had;}
+   const gs=recLapEnd(lt),ok=lapOK(c,lt),had=c.best<Infinity;let fast=false;if(ok)netLap(lt,gs);if(ok&&lt<c.best){c.best=lt;fast=had;}
    if(laps>=sess.laps){c.finished=true;c.finishTime=rt;state='finished';showMsg('Bandera a cuadros',2600);setTimeout(showResults,2600);}
    else if(laps===sess.laps-1)showMsg((fast?'Vuelta rapida '+fmt(lt)+'  ·  ':'')+'Ultima vuelta',2200);
    else showMsg(fast?'Vuelta rapida '+fmt(lt):'Vuelta '+(laps+1)+'  ·  '+fmt(lt)+(ok?'':' (anulada)'),2000);}}
@@ -2122,6 +2132,8 @@ function prepMap(){
 function drawMap(){
  const cv=$('map'),x=cv.getContext('2d');x.clearRect(0,0,340,340);x.drawImage(mapBase,0,0);
  for(const c of cars){if(c.isPlayer)continue;const [a,b]=mapXf(c.pos.x,c.pos.z);x.fillStyle=c.team.c1;x.strokeStyle='rgba(0,0,0,.7)';x.lineWidth=3;x.beginPath();x.arc(a,b,8,0,7);x.fill();x.stroke();}
+ // el fantasma: circulo blanco hueco
+ if(sess.type==='tt'&&TT.ghost&&TT.ghost.on){const [a,b]=mapXf(TT.ghost.pos.x,TT.ghost.pos.z);x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=4;x.setLineDash([5,4]);x.beginPath();x.arc(a,b,9,0,7);x.stroke();x.setLineDash([]);}
  const [a,b]=mapXf(player.pos.x,player.pos.z);x.fillStyle=player.team.ui;x.strokeStyle='#fff';x.lineWidth=4;x.beginPath();x.arc(a,b,11,0,7);x.fill();x.stroke();
 }
 function updateHUD(dt){
@@ -2133,6 +2145,8 @@ function updateHUD(dt){
  $('ers').style.width=(c.ers*100)+'%';$("ersTxt").textContent=c.cheat?"∞":Math.round(c.ers*100)+"%";$('ersBar').classList.toggle('on',c.ersOn);
  {const w=Math.max(0,1-c.tw);$('tyre').style.width=(w*100)+'%';$('tyre').style.background=c.tw>0.8?'#ff3b30':COMPOUNDS[c.m.ci];$('tyLbl').textContent=TYRE.name[c.m.ci];$("tyTxt").textContent=c.cheat?"∞":Math.round(w*100)+"%";
   $('dmgRow').classList.toggle('hidden',c.dmg<0.05);$('dmgFx').classList.toggle('hidden',c.dmg<0.05);$('dmgTxt').textContent=Math.round(c.dmg*100)+'%';$('dmgV').textContent='−'+Math.round(93*0.12*c.dmg*3.6)+' km/h';$('dmgG').textContent='−'+Math.round(18*c.dmg)+'% agarre';$('bBox').classList.toggle('on',c.pitReq||c.pit>0);}
+ $('hPos').classList.toggle('ahead',sess.type==='tt'&&TT.delta!=null&&TT.delta<0);$('hPos').classList.toggle('behind',sess.type==='tt'&&TT.delta!=null&&TT.delta>=0);
+ if(sess.type==='tt'){ttHUD(dt);if(wrongT>1.2)showMsg('Vas al reves',300);return;}
  if(sess.type==='quali'){const qb=qualiBoard();$('hPos').textContent=c.best<Infinity?'P'+(qb.findIndex(q=>q.isPlayer)+1):'--';$('hPosN').textContent='de '+qb.length;
   $('hLap').textContent=c.lapsSeen<0?'Salida':clamp(c.lastLaps+1,1,QLAPS)+'/'+QLAPS;
   $('hTime').textContent=c.timing&&!c.finished?fmt(raceT()-c.lapStart):'--';$('hTime').classList.toggle('bad',c.lapBad&&!c.finished);$('hBest').textContent=fmt(c.best);
@@ -2163,6 +2177,110 @@ function updateAudio(){if(!actx)return;const t=actx.currentTime;const on=!muted&
  o1.frequency.setTargetAtTime(f,t,0.03);o2.frequency.setTargetAtTime(f*0.5,t,0.03);filt.frequency.setTargetAtTime(500+thr*2400+(player&&player.ersOn?800:0),t,0.05);
  gainN.gain.setTargetAtTime(on?0.035+thr*0.06:0,t,0.08);}
 
+/* ---------------- supera tu record y record mundial (auto fantasma) ---------------- */
+// tu vuelta se graba siempre (posicion cada 0,1 s). La mejor de cada circuito (seco y lluvia aparte) queda guardada
+// y en "Supera tu récord" la corre un auto fantasma transparente que no choca; en "Récord mundial" el fantasma es
+// la vuelta del 1º del ranking online. Muestra [t ms, x, z, y, rumbo, volante, metros]
+const TT_STEP=0.1,TT_W=7;
+const REC={lap:-9,s:[],d:0,next:0};
+function ttKey(ci,wet){return 'gp3d_rec:'+CIRCUITS[ci].name+(wet?':lluvia':'');}
+function ttValid(o){return !!o&&typeof o==='object'&&o.v===1&&typeof o.t==='number'&&o.t>5&&o.t<3600&&isInt(o.ti,0,TEAMS.length-1)&&isInt(o.num,0,99)&&typeof o.n==='string'
+ &&Array.isArray(o.s)&&o.s.length>=TT_W*20&&o.s.length%TT_W===0&&o.s.length<TT_W*40000&&o.s.every(Number.isFinite);}
+function ttLoad(ci,wet){try{const o=JSON.parse(localStorage.getItem(ttKey(ci,wet)));if(ttValid(o))return o;}catch(e){}return null;}
+function ttSave(ci,wet,o){try{localStorage.setItem(ttKey(ci,wet),JSON.stringify(o));return true;}catch(e){return false;}}
+function ttHint(){const r=ttLoad(sel.circuit,sel.weather===1);
+ return 'Vos solo en pista contra tu auto fantasma: tu mejor vuelta queda grabada y en cada intento la corrés en vivo, con la diferencia arriba a la izquierda. Sin desgaste ni boxes; terminás desde la pausa. '
+  +(r?'Tu récord acá'+(sel.weather===1?' con lluvia':'')+': '+fmt(r.t)+'.':'Todavía no tenés récord en este circuito'+(sel.weather===1?' con lluvia':'')+'.');}
+function wrHint(){return 'Corrés contra el auto fantasma del 1º del ranking online de este circuito, con el mismo clima que tuvo él. Necesita internet. '
+ +(NET.sess?'Si lo superás, tu vuelta sube al ranking y tu fantasma pasa a ser el que persiguen todos.':'Sin cuenta podés correrlo, pero tu vuelta no sube al ranking: creá una cuenta para ser el récord mundial.');}
+// grabadora: arranca de cero en cada vuelta y se cierra al cruzar la linea
+function recPush(S,t,d){const c=player,r2=v=>Math.round(v*100)/100;S.push(Math.round(t*1000),r2(c.pos.x),r2(c.pos.z),r2(c.pos.y),Math.round(wrapA(c.head)*1000)/1000,r2(c.steer),Math.round(d*10)/10);}
+function recFrame(){const c=player;if(!c||state!=='race')return;const lap=c.lapsSeen;if(lap<0||(solo()&&!c.timing))return;
+ if(REC.lap!==lap){REC.lap=lap;REC.s=[];REC.d=0;REC.next=0;}
+ const lt=raceT()-c.lapStart;REC.d=Math.max(REC.d,(c.prog-lap*track.N)*track.ds);
+ if(lt>=REC.next&&REC.s.length<TT_W*30000){recPush(REC.s,lt,REC.d);while(REC.next<=lt)REC.next+=TT_STEP;}}
+function recLapEnd(lt){const c=player;let s=null;if(REC.lap===c.lapsSeen-1&&REC.s.length>=TT_W*10){recPush(REC.s,lt,Math.max(REC.d,track.L));s=REC.s;}
+ REC.lap=c.lapsSeen;REC.s=[];REC.d=0;REC.next=0;return s;}
+// TT.rec = tu récord guardado; TT.ref = la vuelta que corre el fantasma (tu récord, o el mundial)
+function ttStart(){const W=sess.world;TT.rec=ttLoad(curCirc,RAIN);TT.ref=W?W.rec:TT.rec;TT.laps=[];TT.newRec=false;TT.newWorld=false;TT.delta=null;if(TT.ref)ttMakeGhost();
+ if(player.cheat)setTimeout(()=>{if(state==='race')showMsg('Con el código 1312 los récords no se guardan',2200);},4600);}
+function ttMakeGhost(){const r=TT.ref,team=TEAMS[r.ti],m=r.gt?makeSportsCar(team,r.num,r.n):makeCar(team,r.num,r.n);const mats=new Map();
+ const sw=mt=>{if(!mats.has(mt)){const g=mt.clone();g.userData={};g.transparent=true;g.opacity=0.38;g.depthWrite=false;mats.set(mt,g);}return mats.get(mt);};
+ m.root.traverse(o=>{o.castShadow=false;if(o.isMesh)o.material=Array.isArray(o.material)?o.material.map(sw):sw(o.material);});
+ for(const mt of mats.keys())if(!mt.userData.shared)mt.dispose();
+ m.root.visible=false;carsGroup.add(m.root);TT.ghost={m,mats:[...mats.values()],k:0,op:0.38,idx:0,on:false,pos:new V3(),ti:r.ti,gt:!!r.gt,n:r.n};}
+// cambia la vuelta que corre el fantasma (si cambia el auto, el equipo o el nombre se arma otro)
+function ttSetRef(o){TT.ref=o;const g=TT.ghost;if(g&&g.ti===o.ti&&g.gt===!!o.gt&&g.n===o.n)return;
+ if(g){carsGroup.remove(g.m.root);disposeObj(g.m.root);TT.ghost=null;}ttMakeGhost();}
+function ttLapStart(){if(TT.ghost){TT.ghost.k=0;TT.ghost.idx=0;}}
+// tiempo en que la vuelta del fantasma paso por estos metros (para la diferencia en vivo)
+function ttTimeAt(d){const S=TT.ref.s,n=S.length/TT_W;if(d<=0||d>S[(n-1)*TT_W+6])return null;let lo=0,hi=n-1;
+ while(hi-lo>1){const md=(lo+hi)>>1;if(S[md*TT_W+6]<d)lo=md;else hi=md;}
+ const a=lo*TT_W,b=hi*TT_W,f=clamp((d-S[a+6])/Math.max(0.01,S[b+6]-S[a+6]),0,1);return lerp(S[a],S[b],f)/1000;}
+function ttFrame(dt){const c=player;if(state!=='race'&&state!=='finished')return;
+ const lt=raceT()-c.lapStart,d=(c.prog-c.lapsSeen*track.N)*track.ds;
+ TT.dT-=dt;if(TT.dT<=0){TT.dT=0.1;const tg=c.timing&&TT.ref&&d>40?ttTimeAt(d):null;TT.delta=tg==null?null:lt-tg;}
+ const g=TT.ghost;if(!g)return;const S=TT.ref.s,n=S.length/TT_W,tm=lt*1000;
+ g.on=c.timing&&state==='race'&&tm<=S[(n-1)*TT_W];if(!g.on){g.m.root.visible=false;return;}
+ while(g.k<n-2&&S[(g.k+1)*TT_W]<=tm)g.k++;
+ const a=g.k*TT_W,b=a+TT_W,f=clamp((tm-S[a])/Math.max(1,S[b]-S[a]),0,1);
+ g.pos.set(lerp(S[a+1],S[b+1],f),lerp(S[a+3],S[b+3],f),lerp(S[a+2],S[b+2],f));
+ const head=angLerp(S[a+4],S[b+4],f),steer=lerp(S[a+5],S[b+5],f),v=(S[b+6]-S[a+6])/Math.max(0.001,(S[b]-S[a])/1000);
+ g.idx=nearest(g.pos,g.idx,g.idx?40:track.N>>1);
+ const m=g.m;m.root.position.copy(g.pos);m.root.rotation.y=head;
+ {const ti=track.T[g.idx];m.root.rotation.x=-Math.atan(track.SL[g.idx]*(Math.sin(head)*ti.x+Math.cos(head)*ti.z));}
+ for(const w of m.wheels)w.rotation.x+=v*dt/0.354;for(const fr of m.fronts)fr.rotation.y=steer*0.42;
+ // se desvanece cuando lo tenes encima, asi no tapa tu auto ni la camara
+ const op=0.38*sstep(2.5,11,g.pos.distanceTo(c.pos));m.root.visible=op>0.01;
+ if(Math.abs(op-g.op)>0.01){g.op=op;for(const mt of g.mats)mt.opacity=op;}}
+function ttLap(lt,ok,gs){const c=player,W=sess.world,prev=TT.rec?TT.rec.t:Infinity,lap={t:lt,ok,rec:false,wr:false};let txt;
+ const valid=ok&&!c.cheat&&!!gs,o=valid?{v:1,t:Math.round(lt*1000)/1000,ti:sel.team,num:isInt(c.num,0,99)?c.num:0,n:playerName().slice(0,14),gt:!!c.m.gt,date:Date.now(),s:gs}:null;
+ let saved=true;if(valid&&lt<prev){saved=ttSave(curCirc,RAIN,o);TT.rec=o;TT.newRec=true;lap.rec=true;}
+ const nosave=saved?'':' (no se pudo guardar)';
+ if(W){const ref=wrT();
+  if(valid&&lt<ref){lap.wr=true;TT.newWorld=true;ttSetRef(Object.assign({},o,{n:NET.sess?NET.sess.u:o.n}));W.rec=TT.ref;W.topMs=Math.round(lt*1000);W.topU=TT.ref.n;
+   txt='¡Récord mundial! '+fmt(lt)+(isFinite(ref)?'  ·  −'+(ref-lt).toFixed(3):'')+(NET.sess?'':' (sin cuenta no sube)');}
+  else if(ok)txt='Vuelta '+fmt(lt)+(isFinite(ref)?'  ·  '+(lt<ref?'−':'+')+Math.abs(lt-ref).toFixed(3)+' vs mundial':'')+(c.cheat&&lt<ref?' (con 1312 no cuenta)':lap.rec?'  ·  tu mejor'+nosave:'');
+  else txt='Vuelta anulada '+fmt(lt);}
+ else if(lap.rec){ttSetRef(o);txt=(isFinite(prev)?'¡Nuevo récord! '+fmt(lt)+'  ·  −'+(prev-lt).toFixed(3):'Primer récord: '+fmt(lt))+nosave;}
+ else if(ok)txt='Vuelta '+fmt(lt)+(isFinite(prev)?'  ·  '+(lt<prev?'−':'+')+Math.abs(lt-prev).toFixed(3):'')+(c.cheat&&lt<prev?' (con 1312 no cuenta)':'');
+ else txt='Vuelta anulada '+fmt(lt);
+ TT.laps.push(lap);showMsg(txt,2600);}
+function ttHUD(dt){const c=player,dl=TT.delta,W=sess.world;
+ $('hPos').textContent=dl==null?'--':(dl<0?'−':'+')+Math.abs(dl).toFixed(2);$('hPosN').textContent=W?'vs mundial':TT.rec?'vs récord':'sin récord';
+ $('hLap').textContent=c.lapsSeen<0?'Salida':'V'+(c.lapsSeen+1);
+ $('hTime').textContent=c.timing?fmt(raceT()-c.lapStart):'--';$('hTime').classList.toggle('bad',c.lapBad);$('hBest').textContent=fmt(c.best);
+ towerT-=dt;if(towerT>0)return;towerT=0.3;
+ const row=(p,col,nm,t,me)=>'<div class="r'+(me?' me':'')+'"><span class="p">'+p+'</span><i style="background:'+col+'"></i><span>'+esc(nm)+'</span><span class="g">'+t+'</span></div>';
+ let html=W?row('★','#ffd60a','MUN',fmt(wrT()),false)+row('','rgba(255,255,255,.6)','TU',TT.rec?fmt(TT.rec.t):'--',false):row('★','#ffd60a','REC',TT.rec?fmt(TT.rec.t):'--',false);
+ TT.laps.map((l,i)=>[l,i]).reverse().slice(0,8).forEach(([l,i])=>{html+=row(i+1,l.wr?'#ffd60a':l.rec?'#34c759':l.ok?'rgba(255,255,255,.35)':'#ff3b30','V'+(i+1),l.ok?fmt(l.t):'Anulada',l.rec||l.wr);});
+ $('tower').innerHTML=html;drawMap();}
+function ttResults(){const r=TT.rec,W=sess.world;
+ $('rPos').textContent=TT.newWorld||TT.newRec?'★':W?'WR':'TT';
+ $('rTitle').textContent=TT.newWorld?'¡Récord mundial!':TT.newRec?'¡Nuevo récord!':W?'Récord mundial':'Contra reloj';
+ $('rSub').textContent=CIRCUITS[curCirc].name+(RAIN?' · Lluvia':'')+' · '+TT.laps.length+(TT.laps.length===1?' vuelta':' vueltas')
+  +(W&&W.topU?' · Récord mundial: '+fmt(wrT())+' ('+W.topU+(W.rec?'':', sin fantasma')+')':'')+' · Tu récord: '+(r?fmt(r.t):'--');
+ let h='';TT.laps.forEach((l,i)=>{h+='<tr class="'+(l.rec||l.wr?'me':'')+'"><td class="p">'+(i+1)+'</td><td class="c"><i style="background:'+(l.wr?'#ffd60a':l.rec?'#34c759':l.ok?'#8e8e93':'#ff3b30')+'"></i></td><td>Vuelta '+(i+1)+'</td><td style="color:var(--muted)">'+(l.wr?'Récord mundial':l.rec?'Tu récord':l.ok?'':'Anulada')+'</td><td class="t">'+fmt(l.t)+'</td></tr>';});
+ $('rTable').innerHTML=h||'<tr><td style="color:var(--muted)">No completaste ninguna vuelta lanzada.</td></tr>';
+ setBtns([['Otra tanda',startRace,1],['Menú',goMenu]]);$('results').classList.remove('hidden');}
+// record mundial: se baja el fantasma del 1º del ranking de este circuito y se sale a pista.
+// Si el récord no tiene fantasma (o nadie marcó tiempo) se sale igual: corrés contra su tiempo y, si lo bajás, el fantasma pasa a ser el tuyo
+function wrT(){const W=sess.world;return TT.ref?TT.ref.t:W&&W.topMs?W.topMs/1000:Infinity;}
+function wrStartMsg(){const W=sess.world;return TT.ref?'Vuelta lanzada · contra '+TT.ref.n+' ('+fmt(TT.ref.t)+')':W.topU?'Vuelta lanzada · récord a batir: '+fmt(W.topMs/1000)+' de '+W.topU:'Vuelta lanzada · marcá el primer récord mundial';}
+async function worldStart(){if(NET.busy)return;const ci=sel.circuit,name=CIRCUITS[ci].name;
+ NET.busy=true;$('go').disabled=true;$('go').textContent='Buscando el récord mundial…';
+ const r=await rpc('gp_world_ghost',{p_circuit:name});NET.busy=false;$('go').disabled=false;
+ if(state!=='menu'||sel.mode!==4||sel.circuit!==ci){refreshMenu();return;}
+ // sin internet no se puede: se avisa en el mismo boton
+ if(!r||r.error){refreshMenu();$('go').textContent='Sin conexión · tocá para reintentar';$('modeHint').textContent=NET_ERR.red;return;}
+ const g=!r.none?{v:1,t:r.ms/1000,ti:r.ti,num:r.num,n:String(r.u||'').slice(0,14),gt:!!r.gt,s:r.s}:null,o=ttValid(g)?g:null;
+ const topU=typeof r.top_u==='string'?r.top_u.slice(0,14):null,topMs=isInt(r.top_ms,1,3600000)?r.top_ms:null;
+ const rain=o?!!r.rain:sel.weather===1||(sel.weather===2&&Math.random()<0.4);
+ WK=null;CH=null;sess={type:'tt',laps:0,grid:null,world:{rec:o,rain,rank:r.rank,topU:o?(topU||o.n):topU,topMs:o?(topMs||r.ms):topMs}};startRace();
+ const info=!o?(topU?topU+' no tiene auto fantasma: bajá de '+fmt(topMs/1000)+' y el fantasma va a ser el tuyo':'Nadie marcó tiempo acá todavía: tu vuelta va a ser el récord mundial')
+  :r.rank>1?'El 1º ('+topU+') no tiene fantasma: corrés contra '+o.n+', puesto '+r.rank:'';
+ if(info)setTimeout(()=>{if(state==='race')showMsg(info+(NET.sess?'':' (necesitás cuenta)'),3200);},2600);}
+
 /* ---------------- flujo ---------------- */
 function setAccent(){document.documentElement.style.setProperty('--accent',TEAMS[sel.team].ui);}
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -2172,14 +2290,14 @@ function goMenu(){state="menu";setCode(false);WK=null;CH=null;sess={type:'race',
 function startRace(){
  initAudio();if(actx&&actx.state==='suspended')actx.resume();
  // clima de esta sesion (en "Variable" se sortea cada vez: 40% de lluvia)
- RAIN=sess.online?sess.online.rain:sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
- buildRace();player.cheat=CODE.on;player.assist=CODE.assist;$("menu").classList.add("hidden");$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
- finishShown=false;wrongT=0;towerT=0;$("hSes").textContent=(sess.online?"Online · "+ONL.code+" · ":"")+SNAME[sess.type]+(CH?' · F'+(CH.round+1):'')+(RAIN?' · Lluvia':'');
+ RAIN=sess.online?sess.online.rain:sess.world?sess.world.rain:sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
+ buildRace();player.cheat=CODE.on;player.assist=CODE.assist;if(sess.type==='tt')ttStart();$("menu").classList.add("hidden");$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
+ finishShown=false;wrongT=0;towerT=0;$("hSes").textContent=(sess.online?"Online · "+ONL.code+" · ":"")+(sess.world?'Récord mundial':SNAME[sess.type])+(CH?' · F'+(CH.round+1):'')+(RAIN?' · Lluvia':'');
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
- if(sess.type==='quali'){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg('Clasificación · vuelta de salida',2400);}
+ if(solo()){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg(SNAME[sess.type]+' · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
  if(player.cheat||player.m.gt||player.assist)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.gt?"Código 2011 · auto deportivo":"",player.assist?"Código 0900 · ayudas":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
- $('pEnd').classList.toggle('hidden',sess.type!=='quali');$('boxPanel').classList.add('hidden');
+ $('pEnd').classList.toggle('hidden',!solo());$('pEnd').textContent=sess.type==='tt'?'Terminar tanda':'Terminar clasificación';$('boxPanel').classList.add('hidden');
  $('c').focus();
 }
 // cambia de circuito solo si hace falta (con pantalla de carga)
@@ -2189,6 +2307,8 @@ function startSession(){const ty=WK.sessions[WK.si];sess={type:ty,laps:ty==='qua
 function startFromMenu(){
  if(sel.mode===0){WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};startRace();}
  else if(sel.mode===1){CH=null;WK=newWeekend(sel.circuit);startSession();}
+ else if(sel.mode===3){WK=null;CH=null;sess={type:'tt',laps:0,grid:null};startRace();}
+ else if(sel.mode===4)worldStart();
  else newChamp();}
 function newChamp(){const cal=CAL_NAMES.map(n=>CIRCUITS.findIndex(c=>c.name===n)).filter(i=>i>=0);CIRCUITS.forEach((c,i)=>{if(!cal.includes(i))cal.push(i);});
  champBad=false;
@@ -2236,6 +2356,7 @@ function showResults(){
  // el codigo dura una sola carrera: si lo queres de nuevo hay que volver a ponerlo
  setCode(false);
  if(sess.online){olResults();return;}
+ if(sess.type==='tt'){ttResults();return;}
  const res=sessionResults();sess.res=res;const pos=res.findIndex(r=>r.isPlayer)+1;const ty=sess.type,me=res[pos-1];
  $('rPos').textContent='P'+pos;
  $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');
@@ -2275,7 +2396,7 @@ function showStandings(){
  else setBtns([['Próximo GP: '+CIRCUITS[CH.cal[CH.round]].name,startRound,1],['Menú',goMenu]]);
  $('results').classList.remove('hidden');
 }
-function endQuali(){if(sess.type!=='quali'||!state.startsWith('paused'))return;$('pause').classList.add('hidden');player.finished=true;state='finished';showResults();}
+function endQuali(){if(!solo()||!state.startsWith('paused'))return;$('pause').classList.add('hidden');player.finished=true;state='finished';showResults();}
 function pauseGame(){if(state!=="race"&&state!=="countdown")return;
  // en online la carrera no se frena: solo se muestra el menu (y se vuelve a tocar para cerrarlo)
  if(sess.online){const p=$("pause");if(!p.classList.contains("hidden")){p.classList.add("hidden");return;}$("pTxt").textContent="En online la carrera sigue corriendo: no se frena.";$("pRestart").classList.add("hidden");p.classList.remove("hidden");return;}
@@ -2305,6 +2426,7 @@ function tick(rdt){
    // online: los autos de los demas llegan por la conexion en vivo y el tuyo se manda
    if(sess.online){const now=performance.now();for(const c of cars)if(c.remote)olCarStep(c,now);olSend(now);}
    for(const c of cars)updateCarVisual(c,dt);updateCrew(dt);
+   recFrame();if(sess.type==='tt')ttFrame(dt);
    updateHUD(dt);
   }
   // banderas
@@ -2353,16 +2475,16 @@ function refreshMenu(){
  [...$('segLaps').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.laps));
  [...$('segDiff').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.diff));
  [...$('segQ').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.q));
- CIRCUITS.forEach((c,i)=>{const e=$('cinf'+i);if(e)e.textContent=circInfo(c);});
+ CIRCUITS.forEach((c,i)=>{const e=$('cinf'+i);if(e){const r=sel.mode===3?ttLoad(i,sel.weather===1):null;e.textContent=circInfo(c)+(r?' · Récord '+fmt(r.t):'');}});
  [...$('segMode').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.mode));
  [...$('segFmt').children].forEach(b=>b.classList.toggle('sel',(b.dataset.v==='1')===sel.sprint));
  [...$('segW').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.weather));
- const m=sel.mode;$('fmtRow').classList.toggle('hidden',m===0);$('circSec').classList.toggle('hidden',m===2);
+ const m=sel.mode;$('fmtRow').classList.toggle('hidden',m===0||m>=3);$('raceRow').classList.toggle('hidden',m>=3);$('circSec').classList.toggle('hidden',m===2);
  const grid=sel.sprint?' La clasificación arma la grilla del Sprint y el Sprint la de la carrera.':' La clasificación arma la grilla de la carrera.';
- $('modeHint').textContent=m===0?'Una carrera directa en el circuito que elijas.':m===1?'Un Gran Premio completo en un circuito: clasificación ('+QLAPS+' vueltas, vale la mejor)'+(sel.sprint?', Sprint de '+sprintLaps()+' vueltas':'')+' y carrera.'+grid
+ $('modeHint').textContent=m===0?'Una carrera directa en el circuito que elijas.':m===3?ttHint():m===4?wrHint():m===1?'Un Gran Premio completo en un circuito: clasificación ('+QLAPS+' vueltas, vale la mejor)'+(sel.sprint?', Sprint de '+sprintLaps()+' vueltas':'')+' y carrera.'+grid
   :'Los '+CIRCUITS.length+' circuitos en orden, cada uno con clasificación'+(sel.sprint?', Sprint':'')+' y carrera. Puntos de F1: carrera 25-18-15-12-10-8-6-4-2-1'+(sel.sprint?', sprint 8 al 1':'')+'. Se guarda solo.'+grid;
  $('calNote').textContent=m===2?'Calendario: '+CAL_NAMES.filter(n=>CIRCUITS.some(c=>c.name===n)).join(' · '):'';
- $('go').textContent=m===0?'Largar':m===1?'Ir a la clasificación':'Empezar campeonato';
+ $('go').textContent=m===0?'Largar':m>=3?'Salir a pista':m===1?'Ir a la clasificación':'Empezar campeonato';
  const sv=m===2?loadChamp():null;$('cont').classList.toggle('hidden',!sv);
  $('saveWarn').classList.toggle('hidden',!(m===2&&champBad));
  if(sv){$('cont').textContent='Continuar campeonato · fecha '+(sv.round+1)+'/'+sv.cal.length+' ('+CIRCUITS[sv.cal[sv.round]].name+')';$('go').textContent='Empezar campeonato nuevo';}
@@ -2415,10 +2537,12 @@ function acctSync(){const s=NET.sess;$('acctTxt').textContent=s?'Conectado como 
 function netLoad(){try{const s=JSON.parse(localStorage.getItem('gp3d_cuenta')||'null');if(s&&typeof s.u==='string'&&/^[A-Za-z0-9_]{3,14}$/.test(s.u)&&typeof s.t==='string'&&/^[0-9a-f]{64}$/.test(s.t))NET.sess={u:s.u,t:s.t};}catch(e){}
  acctSync();if(NET.sess)rpc('gp_me',{p_token:NET.sess.t}).then(r=>{if(!NET.sess)return;if(r.error==='sesion'){NET.sess=null;netSave();acctSync();}else if(r.user){NET.sess.u=r.user;netSave();acctSync();}});}
 // cada vuelta valida (sin el codigo 1312) que mejora tu marca se manda al ranking; el servidor la vuelve a revisar
-function netLap(lt){const c=player;if(!NET.sess||c.cheat||curCirc<0)return;const name=CIRCUITS[curCirc].name,ms=Math.round(lt*1000);if(NET.best[name]&&ms>=NET.best[name])return;
+function netLap(lt,gs){const c=player;if(!NET.sess||c.cheat||curCirc<0)return;const name=CIRCUITS[curCirc].name,ms=Math.round(lt*1000);if(NET.best[name]&&ms>=NET.best[name])return;
  rpc('gp_submit_lap',{p_token:NET.sess.t,p_circuit:name,p_ms:ms,p_rain:!!RAIN}).then(r=>{
   if(r.error==='sesion'){NET.sess=null;netSave();acctSync();return;}
-  if(r.ok){NET.best[name]=r.best;if(r.pb)setTimeout(()=>{if(state==='race'||state==='finished')showMsg('Récord online · puesto '+r.rank,2200);},2300);}});}
+  if(r.ok){NET.best[name]=r.best;if(r.pb){setTimeout(()=>{if(state==='race'||state==='finished')showMsg('Récord online · puesto '+r.rank,2200);},2300);
+   // con la vuelta va su fantasma (el servidor solo lo acepta si es tu mejor vuelta recien mandada)
+   if(gs&&NET.sess)rpc('gp_submit_ghost',{p_token:NET.sess.t,p_circuit:name,p_ms:ms,p_data:gs,p_team:sel.team,p_num:isInt(c.num,0,99)?c.num:0,p_gt:!!c.m.gt});}}});}
 // ventana de cuenta: entrar, crear cuenta o poner contraseña nueva con el codigo de recuperacion
 let acMode='login';
 function acMsg(t,cls){const m=$('acMsg');m.textContent=t;m.className='padmsg'+(cls?' '+cls:'');}
@@ -2622,7 +2746,7 @@ const CAMS=['Cámara normal','TV Pod (arriba del halo)','Piloto (adentro del hal
 function nextCam(){camMode=(camMode+1)%4;showMsg(CAMS[camMode],1100);}
 // pedir parada en boxes (B o el boton Box) y elegir gomas
 function boxToggle(){const c=player;if(!c||!(state==='race'||state.startsWith('paused')))return;
- if(sess.type==='quali'){showMsg('En la clasificación no hay paradas',1400);return;}
+ if(solo()){showMsg(sess.type==='tt'?'En contra reloj no hay paradas':'En la clasificación no hay paradas',1400);return;}
  if(c.pit)return;
  if(c.pitReq){c.pitReq=false;$('boxPanel').classList.add('hidden');showMsg('Parada cancelada',1000);return;}
  if(sess.laps-c.lastLaps<=1){showMsg('Última vuelta: no hay parada',1400);return;}
