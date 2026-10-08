@@ -134,6 +134,8 @@ body.touch #lights i{width:26px;height:26px}
 #paintPad input[type=color]{width:100%;height:42px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:3px;cursor:pointer}
 #paintPad .btnrow{margin-top:14px}
 @media (max-width:640px){#paintPad{top:auto;right:0;height:58vh}#paintPad .pp{width:100%;border-radius:18px 18px 0 0}}
+#olVip{margin-top:10px;font-style:italic;letter-spacing:.06em;color:#fff;border:0;background:linear-gradient(90deg,#ff4fa3,#7c4dff,#22d3ee,#ff4fa3);background-size:300% 100%;animation:vipg 2.4s linear infinite,vipw 1.1s ease-in-out infinite;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+@keyframes vipg{to{background-position:300% 0}}@keyframes vipw{0%,100%{transform:rotate(-1.2deg)}50%{transform:rotate(1.2deg) scale(1.02)}}
 .overlay{position:fixed;inset:0;display:flex;z-index:10}
 #menu{background:linear-gradient(90deg,rgba(6,7,11,.95) 0%,rgba(6,7,11,.86) 36%,rgba(6,7,11,0) 68%)}
 .mp{width:min(580px,100%);height:100%;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 30px) 30px calc(env(safe-area-inset-bottom,0px) + 30px) calc(env(safe-area-inset-left,0px) + 30px)}
@@ -405,6 +407,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     </div>
     <div id="olHome" class="hidden">
       <p class="hint" id="olQuota"></p>
+      <button class="btn wide hidden" id="olVip">✦ ¿Jugar conmigo? ✦</button>
       <button class="btn pri wide" id="olCreate">Crear sala</button>
       <p class="hint">¿Te pasaron un código? Ponelo acá:</p>
       <div class="joinrow"><input class="inp" id="olCode" maxlength="6" placeholder="Código de la sala" autocomplete="off" spellcheck="false" autocapitalize="characters"><button class="btn" id="olJoin">Unirse</button></div>
@@ -3001,7 +3004,7 @@ const ONL={code:null,host:false,hostName:'',players:new Map(),cfg:{ci:0,laps:5,r
 const OK_NAME=/^[A-Za-z0-9_]{3,14}$/;
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function olMsg(t,cls){const m=$('olMsg');m.textContent=t||'';m.className='padmsg'+(cls?' '+cls:'');}
-function olView(v){$('olNoAcc').classList.toggle('hidden',v!=='noacc');$('olHome').classList.toggle('hidden',v!=='home');$('olLobby').classList.toggle('hidden',v!=='lobby');
+function olView(v){if(v==='home')setTimeout(vipCheck,0);$('olNoAcc').classList.toggle('hidden',v!=='noacc');$('olHome').classList.toggle('hidden',v!=='home');$('olLobby').classList.toggle('hidden',v!=='lobby');
  $('olClose').textContent=v==='lobby'?'Salir de la sala':'Cerrar';}
 function myInfo(){return {u:NET.sess.u,ti:sel.team,num:playerNum(),gt:!!CODE.sport,host:ONL.host,cfg:ONL.host?ONL.cfg:undefined};}
 async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
@@ -3011,8 +3014,12 @@ async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
  const q=await rpc('gp_online_quota',{p_token:NET.sess.t});
  if(q.error==='sesion'){NET.sess=null;netSave();acctSync();olView('noacc');return;}
  if(q.error){$('olQuota').textContent=NET_ERR.red;return;}
- ONL.quota=q;$('olQuota').textContent='Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';}
-function olClose(){if(ONL.code){olLeave();}$('onlinePad').classList.add('hidden');}
+ ONL.quota=q;$('olQuota').textContent=q.vip?'Sin límite de carreras online por día.':'Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';vipCheck();}
+// boton raro "Jugar conmigo": solo aparece mientras filcman tiene una sala abierta, y te mete directo en ella
+let vipT=0;
+async function vipCheck(){clearTimeout(vipT);const b=$('olVip');if(!NET.sess||ONL.code||$('onlinePad').classList.contains('hidden')){b.classList.add('hidden');return;}
+ const r=await rpc('gp_vip_room',{p_token:NET.sess.t});const ok=r&&typeof r.code==='string'&&/^[A-Z0-9]{5}$/.test(r.code)&&!ONL.code;b.classList.toggle('hidden',!ok);b.dataset.code=ok?r.code:'';vipT=setTimeout(vipCheck,5000);}
+function olClose(){if(ONL.code){olLeave();}$('onlinePad').classList.add('hidden');clearTimeout(vipT);}
 async function olCreate(){if(NET.busy||!NET.sess)return;NET.busy=true;olMsg('Creando sala…');const r=await rpc('gp_room_create',{p_token:NET.sess.t});NET.busy=false;
  if(r.error||typeof r.code!=='string'){olMsg(r.error==='muchas'?'Creaste muchas salas seguidas: esperá un rato':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  olEnter(r.code,true,NET.sess.u);}
@@ -3101,7 +3108,7 @@ function olBackToRoom(){const msg=ONL.closedMsg;ONL.inRace=false;goMenu();
  if(msg){olLeave();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');olMsg(msg,'bad');return;}
  if(ONL.code){$('onlinePad').classList.remove('hidden');olView('lobby');olRender();rtSend('hola',myInfo());}}
 // el online esta escondido: se abre tocando 3 veces seguidas el "3D" del titulo
-{let n=0,t=0;$("t3d").addEventListener("click",()=>{const now=performance.now();n=now-t<700?n+1:1;t=now;if(n>=3){n=0;olOpen();}});}$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
+{let n=0,t=0;$("t3d").addEventListener("click",()=>{const now=performance.now();n=now-t<700?n+1:1;t=now;if(n>=3){n=0;olOpen();}});}$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olVip').onclick=()=>{const c=$('olVip').dataset.code;if(!c)return;$('olCode').value=c;olJoin();};$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
 $('olAcc').onclick=()=>{$('onlinePad').classList.add('hidden');acOpen();};
 $('olCopy').onclick=()=>{const t=ONL.code||'';try{navigator.clipboard.writeText(t).then(()=>olMsg('Código copiado: pegalo en WhatsApp','ok'),()=>olMsg('Copialo a mano: '+t));}catch(e){olMsg('Copialo a mano: '+t);}};
 $('olCPrev').onclick=()=>olCfgSet('ci',(ONL.cfg.ci-1+CIRCUITS.length)%CIRCUITS.length);$('olCNext').onclick=()=>olCfgSet('ci',(ONL.cfg.ci+1)%CIRCUITS.length);
