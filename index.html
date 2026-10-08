@@ -530,7 +530,7 @@ const CIRCUITS=[
 const SKIES={
  day:{top:'#2c6cd1',hor:'#cfe2f5',gnd:'#7d8a6c',sun:'#fff1d0',dir:[0.42,0.66,0.36],sunI:2.3,hs:'#d4e6ff',hg:'#4d5d3c',hI:0.8,exp:1.0,hills:['#5f8160','#6f8e70','#7c93a6'],cloud:'#ffffff',ridge:['#5b7d66','#8fa5bd'],glow:0.5,glowS:520},
  overcast:{top:'#7f8c9b',hor:'#c8cfd6',gnd:'#5d6458',sun:'#e6ebf1',disk:'#7d838c',dir:[0.3,0.75,-0.45],sunI:1.15,hs:'#dfe6ee',hg:'#4a5245',hI:1.3,exp:1.0,hills:['#56705a','#647c68','#7b8a94'],cloud:'#e4e8ec',ridge:['#4c6250','#7a8a93'],glow:0.12,glowS:380,clouds:90},
- night:{top:'#02040b',hor:'#141b30',gnd:'#06070a',sun:'#d4ddff',disk:'#2a3350',dir:[0.18,0.95,0.24],sunI:0.5,hs:'#4a587c',hg:'#0a0c12',hI:0.32,exp:1.0,hills:['#1d2433','#222a3a','#283041'],cloud:'#232a3c',ridge:['#141a28','#1d2436'],glow:0.4,glowS:230},
+ night:{top:'#02040b',hor:'#141b30',gnd:'#06070a',sun:'#e2e8ff',disk:'#2a3350',dir:[0.18,0.95,0.24],sunI:0.95,hs:'#66779f',hg:'#1a1d26',hI:0.62,exp:1.12,hills:['#1d2433','#222a3a','#283041'],cloud:'#232a3c',ridge:['#141a28','#1d2436'],glow:0.4,glowS:230},
  sunset:{top:'#25305c',hor:'#ff9f5e',gnd:'#4b3a3c',sun:'#ffcf96',dir:[-0.78,0.17,0.32],sunI:2.4,hs:'#ffb98d',hg:'#3b2f3c',hI:0.7,exp:1.08,hills:['#56485f','#685462','#463c55'],cloud:'#ffc49e',ridge:['#4a3a55','#7d5a6b'],glow:1,glowS:950}
 };
 const CROWD=['#e63946','#f1faee','#a8dadc','#457b9d','#1d3557','#ffb703','#fb8500','#2a9d8f','#e9c46a','#ffffff','#ff4fa3','#5ab4f0','#c6f432','#22ff8a','#ffd21f','#7c1532','#5b24c9'];
@@ -1142,6 +1142,8 @@ const DROPS=(()=>{const cv=document.createElement('canvas');cv.style.cssText='po
 const ROADDRY={c:MATS.road.color.clone(),r:MATS.road.roughness};
 function applyWeather(){const night=sel.tod===2,dusk=sel.tod===1;applySky(night?'night':dusk?'sunset':CIRCUITS[curCirc].sky);
  if(night){skyMat.uniforms.uDir.value.copy(MOON);scene.fog=new THREE.Fog(new THREE.Color('#0b1020'),160,1500);}
+ // de noche la luz viene de arriba y la zona de sombras se veia como un recuadro oscuro que seguia al auto: se apaga
+ sun.castShadow=!night;
  skyTint(night,dusk);nightLights(night);
  MATS.road.roughness=RAIN?0.3:ROADDRY.r;MATS.road.metalness=RAIN?0.12:0;MATS.road.color.copy(ROADDRY.c).multiplyScalar(RAIN?0.6:1);
  RAINFX.mesh.visible=RAIN;if(!RAIN)return;
@@ -1176,11 +1178,11 @@ function buildNightLights(){const T=track,{P,NL,H,N,ds,L}=T,pp=T.pit,step=Math.m
  const hg=new THREE.BufferGeometry();hg.setAttribute('position',new THREE.BufferAttribute(hp,3));
  G.add(new THREE.Points(hg,new THREE.PointsMaterial({map:T_GLOW,color:'#fff0d4',size:16,sizeAttenuation:true,transparent:true,opacity:0.9,depthWrite:false,blending:THREE.AdditiveBlending})));
  // manchas de luz: una cinta sobre la pista con el brillo calculado por cercania a cada torre
- const LAT=[-(WALL-1),-(HALF+5),-HALF,-HALF*0.5,0,HALF*0.5,HALF,HALF+5,WALL-1],pos=[],col=[],idx=[],byI=new Map();for(const l of lamps)byI.set(l.i,l);
+ const LAT=[-(HALF+2),-HALF,-HALF*0.66,-HALF*0.33,0,HALF*0.33,HALF*0.66,HALF,HALF+2],pos=[],col=[],idx=[],byI=new Map();for(const l of lamps)byI.set(l.i,l);
  const reach=Math.ceil(60/ds),cw=new THREE.Color('#ffe9c8').convertSRGBToLinear();
- for(let i=0;i<=N;i++){const q=i%N;for(const la of LAT){const x=P[q].x+NL[q].x*la,z=P[q].z+NL[q].z*la;pos.push(x,P[q].y+0.035,z);let v=0;
+ for(let i=0;i<=N;i++){const q=i%N;for(const la of LAT){const x=P[q].x+NL[q].x*la,z=P[q].z+NL[q].z*la;pos.push(x,P[q].y+0.12,z);let v=0;
    for(let d=-reach;d<=reach;d++){const l=byI.get(((q+d)%N+N)%N);if(!l)continue;const al=d*ds,lt=la-l.s*HALF*0.55;v+=Math.exp(-(al*al)/(2*17*17)-(lt*lt)/(2*11*11));}
-   v=Math.min(1,v)*0.3;col.push(cw.r*v,cw.g*v,cw.b*v);}}
+   v=Math.min(1,v)*(Math.abs(la)>HALF?0.12:0.32);col.push(cw.r*v,cw.g*v,cw.b*v);}}
  const C=LAT.length;for(let i=0;i<N;i++)for(let j=0;j<C-1;j++){const a=i*C+j,b=a+1,c=a+C,d=c+1;idx.push(a,c,b,b,c,d);}
  const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));rg.setAttribute('color',new THREE.Float32BufferAttribute(col,3));rg.setIndex(idx);
  const rib=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
@@ -2347,6 +2349,8 @@ function updateCamera(dt){
  const c=player;const onb=camMode===1||camMode===2;
  // en la camara TV Pod y en la del piloto se oculta el casco para ver el volante
  const hideH=camMode===1||camMode===2;if(c.m.helmet[0].visible===hideH)for(const h of c.m.helmet)h.visible=!hideH;
+ // la sombrita fija de abajo del auto: desde la cabina tapaba la pista de adelante como un recuadro oscuro
+ if(c.m.blob===undefined)c.m.blob=c.m.root.children.find(o=>o.material===MATS.blob)||null;if(c.m.blob)c.m.blob.visible=!hideH;
  const near=camMode===2?0.05:camMode===1?0.1:0.22;if(camera.near!==near){camera.near=near;}
  camHead=angLerp(camHead,c.head,1-Math.exp(-dt*(onb?30:5)));
  const f=new V3(Math.sin(camHead),0,Math.cos(camHead));const fc=new V3(Math.sin(c.head),0,Math.cos(c.head));
