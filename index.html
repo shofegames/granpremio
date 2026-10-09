@@ -3202,8 +3202,46 @@ function rtConnect(code,onMsg){rtClose();RT.topic='realtime:gp-sala-'+code;RT.on
 function rtSend(ev,payload){if(RT.joined)rtRaw(RT.ws,'broadcast',{type:'broadcast',event:ev,payload});}
 function rtClose(){const w=RT.ws;RT.ws=null;RT.joined=false;clearInterval(RT.hb);if(w){try{rtRaw(w,'phx_leave',{});w.close();}catch(e){}}}
 
+// conexion directa entre jugadores (WebRTC): las posiciones (10 por segundo) van de celu a celu sin pasar por Supabase.
+// Supabase solo presenta a cada pareja (una oferta y una respuesta) y queda de respaldo si un WiFi bloquea la conexion directa.
+const P2P={peers:new Map(),tries:new Map()};
+const ICE_SRV=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},{urls:'stun:stun.cloudflare.com:3478'}];
+const hasRTC=typeof RTCPeerConnection==='function';
+function p2pOk(u){const q=P2P.peers.get(u);return !!(q&&q.dc&&q.dc.readyState==='open');}
+function p2pDrop(u){const q=P2P.peers.get(u);if(!q)return;P2P.peers.delete(u);try{if(q.dc)q.dc.close();}catch(e){}try{q.pc.close();}catch(e){}}
+function p2pCloseAll(){for(const u of [...P2P.peers.keys()])p2pDrop(u);P2P.tries.clear();}
+function p2pNew(u){p2pDrop(u);const pc=new RTCPeerConnection({iceServers:ICE_SRV}),q={pc,dc:null,t0:performance.now(),heard:0};P2P.peers.set(u,q);
+ pc.onconnectionstatechange=()=>{if((pc.connectionState==='failed'||pc.connectionState==='closed')&&P2P.peers.get(u)===q)p2pDrop(u);};return q;}
+// por la conexion directa solo se acepta 'p' y solo con el nombre de esa pareja
+function p2pDc(u,q,dc){q.dc=dc;
+ dc.onopen=()=>{q.heard=performance.now();P2P.tries.set(u,0);olRender();};
+ dc.onclose=()=>{if(P2P.peers.get(u)===q){p2pDrop(u);olRender();}};
+ dc.onmessage=e=>{if(typeof e.data!=='string'||e.data.length>600)return;let m;try{m=JSON.parse(e.data);}catch(x){return;}
+  if(m&&m.p&&typeof m.p==='object'&&m.p.u===u){q.heard=performance.now();olOnMsg('p',m.p);}};}
+// esperar los caminos posibles (asi va todo en un solo mensaje, sin mandar candidatos sueltos)
+function iceDone(pc){return new Promise(r=>{if(pc.iceGatheringState==='complete')return r();
+ const f=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',f);r();}};pc.addEventListener('icegatheringstatechange',f);setTimeout(r,2500);});}
+// llama el de nombre "menor" (orden alfabetico); el otro contesta. Se reintenta con cada 'hola', hasta 3 veces seguidas
+async function p2pCall(u){const me=NET.sess&&NET.sess.u;if(!hasRTC||!me||!(me<u)||!ONL.code)return;
+ const q0=P2P.peers.get(u);if(q0&&(p2pOk(u)||performance.now()-q0.t0<12000))return;
+ const n=P2P.tries.get(u)||0;if(n>=3)return;P2P.tries.set(u,n+1);
+ const q=p2pNew(u);p2pDc(u,q,q.pc.createDataChannel('p',{ordered:false,maxRetransmits:0}));
+ try{await q.pc.setLocalDescription(await q.pc.createOffer());await iceDone(q.pc);if(P2P.peers.get(u)!==q)return;
+  rtSend('sig',{f:me,to:u,k:'o',sdp:q.pc.localDescription.sdp});}catch(e){if(P2P.peers.get(u)===q)p2pDrop(u);}}
+async function p2pSig(p){const me=NET.sess&&NET.sess.u;if(!hasRTC||!me||!ONL.code||p.to!==me||!OK_NAME.test(p.f)||!ONL.players.has(p.f)||typeof p.sdp!=='string'||p.sdp.length>12000)return;const u=p.f;
+ try{if(p.k==='o'&&u<me){const q=p2pNew(u);q.pc.ondatachannel=e=>p2pDc(u,q,e.channel);
+   await q.pc.setRemoteDescription({type:'offer',sdp:p.sdp});await q.pc.setLocalDescription(await q.pc.createAnswer());await iceDone(q.pc);if(P2P.peers.get(u)!==q)return;
+   rtSend('sig',{f:me,to:u,k:'a',sdp:q.pc.localDescription.sdp});}
+  else if(p.k==='a'&&me<u){const q=P2P.peers.get(u);if(q&&q.pc.signalingState==='have-local-offer')await q.pc.setRemoteDescription({type:'answer',sdp:p.sdp});}}
+ catch(e){p2pDrop(u);}}
+// mandar mi posicion: directo a cada uno; si a alguno no le llega directo (o hace rato que no se lo escucha), tambien por Supabase
+function p2pSendP(p,now){const s=JSON.stringify({p});let all=true;
+ for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);
+  if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){all=false;}if(now-q.heard>1500)all=false;}else all=false;}
+ if(!all)rtSend('p',p);}
+
 // estado de la sala: los jugadores se reconocen por su usuario (unico)
-const ONL={code:null,host:false,hostName:'',players:new Map(),cfg:{ci:0,laps:5,rain:0},quota:null,inRace:false,lastSend:0,hbT:0,closedMsg:''};
+const ONL={code:null,host:false,hostName:'',players:new Map(),cfg:{ci:0,laps:5,rain:0},quota:null,inRace:false,lastSend:0,seq:0,hbT:0,closedMsg:''};
 const OK_NAME=/^[A-Za-z0-9_]{3,14}$/;
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function olMsg(t,cls){const m=$('olMsg');m.textContent=t||'';m.className='padmsg'+(cls?' '+cls:'');}
@@ -3231,7 +3269,7 @@ async function olJoin(){if(NET.busy||!NET.sess)return;const code=$('olCode').val
  if(r.error||typeof r.code!=='string'){olMsg(r.error==='sala'?'No existe una sala con ese código (o ya se cerró)':r.error==='llena'?'La sala está llena':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  olEnter(r.code,false,String(r.host||''));}
 // entrar a la sala: graficos en Alta, conexion en vivo y aviso a los demas
-function olEnter(code,host,hostName){ONL.code=code;ONL.enterT=performance.now();ONL.host=host;ONL.hostName=hostName;ONL.players.clear();ONL.inRace=false;ONL.closedMsg='';
+function olEnter(code,host,hostName){p2pCloseAll();ONL.code=code;ONL.enterT=performance.now();ONL.host=host;ONL.hostName=hostName;ONL.players.clear();ONL.inRace=false;ONL.closedMsg='';
  ONL.cfg={ci:Math.max(0,sel.circuit),laps:5,rain:0};
  if(sel.q!==0){sel.q=0;refreshMenu();applyQuality();buildWorld(sel.circuit);buildRace();}
  olView('lobby');olMsg('Conectando…');olRender();
@@ -3239,11 +3277,11 @@ function olEnter(code,host,hostName){ONL.code=code;ONL.enterT=performance.now();
  clearInterval(ONL.hbT);ONL.hbT=setInterval(()=>{if(RT.joined)rtSend('hola',myInfo());olRender();},4000);}
 function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});
  if(NET.sess)rpc('gp_room_leave',{p_token:NET.sess.t,p_code:ONL.code});
- clearInterval(ONL.hbT);ONL.code=null;ONL.host=false;ONL.players.clear();ONL.inRace=false;setTimeout(rtClose,150);}
+ clearInterval(ONL.hbT);ONL.code=null;ONL.host=false;ONL.players.clear();ONL.inRace=false;p2pCloseAll();setTimeout(rtClose,150);}
 // jugadores que se escucharon en los ultimos 12 s (y vos)
 function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
 function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
- const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · Chiron':p.gt?' · deportivo':'')+'</small></div>').join('');
+ const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · Chiron':p.gt?' · deportivo':'')+(!p.me&&p2pOk(p.u)?' · directo':'')+'</small></div>').join('');
  $('olHostCfg').classList.toggle('hidden',!ONL.host);
  if(ONL.host){$('olCirc').textContent=CIRCUITS[ONL.cfg.ci].name;for(const b of $('olLaps').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.laps);for(const b of $('olW').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.rain);
   $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
@@ -3267,14 +3305,18 @@ function olOnMsg(ev,p){
   const isNew=!ONL.players.has(p.u),ti=Number.isInteger(p.ti)&&p.ti>=0&&p.ti<TEAMS.length?p.ti:0;
   ONL.players.set(p.u,{u:p.u,ti,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,host:p.host===true,last:performance.now()});
   if(p.host===true&&!ONL.host&&p.cfg&&typeof p.cfg==='object'){const c=p.cfg;if(Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1))ONL.cfg={ci:c.ci,laps:c.laps,rain:c.rain};ONL.hostName=p.u;}
+  p2pCall(p.u);
   if(isNew){rtSend("hola",myInfo());if(!ONL.inRace)olMsg(performance.now()-ONL.enterT>3000?p.u+" entró a la sala":"Estás en la sala de "+(ONL.host?"vos":ONL.hostName||p.u),"ok");}
   olRender();return;}
- if(ev==='chau'){if(OK_NAME.test(p.u)){ONL.players.delete(p.u);const c=cars.find(o=>o.remote&&o.driver===p.u);if(c){c.gone=true;c.m.root.visible=false;}if(ONL.inRace)showMsg(p.u+" se fue",1500);else olMsg(p.u+" salió de la sala");olRender();}return;}
+ if(ev==='sig'){p2pSig(p);return;}
+ if(ev==='chau'){if(OK_NAME.test(p.u)){ONL.players.delete(p.u);p2pDrop(p.u);const c=cars.find(o=>o.remote&&o.driver===p.u);if(c){c.gone=true;c.m.root.visible=false;}if(ONL.inRace)showMsg(p.u+" se fue",1500);else olMsg(p.u+" salió de la sala");olRender();}return;}
  if(ev==='cerrada'){if(ONL.host)return;ONL.closedMsg='La sala se cerró porque se fue '+(ONL.hostName||'el que la creó');if(!ONL.inRace){olLeave();olView(NET.sess?'home':'noacc');olMsg(ONL.closedMsg,'bad');}return;}
  if(ev==='go'){if(ONL.host||ONL.inRace)return;if(!Array.isArray(p.order)||!p.order.every(u=>OK_NAME.test(u))||!Number.isInteger(p.ci)||p.ci<0||p.ci>=CIRCUITS.length||![3,5,8].includes(p.laps)||!isNum(p.lo)||p.lo<4||p.lo>7)return;
   if(!NET.sess||!p.order.includes(NET.sess.u)){olMsg('Largaron sin vos: esperá la próxima','bad');return;}olGo(p);return;}
  if(ev==='p'){const c=cars.find(o=>o.remote&&o.driver===p.u);const pl=ONL.players.get(p.u);if(pl)pl.last=performance.now();
-  if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||!p.a.every(isNum))return;c.snap.push({t:performance.now(),a:p.a});if(c.snap.length>4)c.snap.shift();c.heard=performance.now();return;}
+  if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||!p.a.every(isNum))return;
+  // puede llegar dos veces (directo y por Supabase): se usa solo el mas nuevo
+  if(Number.isInteger(p.n)){if(isNum(c.lastN)&&p.n<=c.lastN&&p.n>c.lastN-1000)return;c.lastN=p.n;}c.snap.push({t:performance.now(),a:p.a});if(c.snap.length>4)c.snap.shift();c.heard=performance.now();return;}
  if(ev==='fin'){const c=cars.find(o=>o.remote&&o.driver===p.u);if(!c||!isNum(p.t)||p.t<10||p.t>7200)return;c.finished=true;c.finishTime=p.t;if(isNum(p.best)&&p.best>0)c.best=p.best;
   if(finishShown&&ONL.inRace)olResults();return;}}
 // grilla online: solo los jugadores de la sala, en el orden sorteado (vos con tu escuderia, los demas con la suya)
@@ -3286,11 +3328,11 @@ function olGo(g){const t0=performance.now();ONL.inRace=true;ONL.finSent=false;$(
  sess={type:'race',laps:g.laps,grid:null,online:{race:g.race,order:g.order.slice(),rain:!!g.rain}};
  withCircuit(g.ci,()=>{startRace();lightsOutAt=g.lo;lightsT=-Math.max(0,(t0+3500-performance.now())/1000);});}
 // mi auto: 10 veces por segundo en carrera (2 por segundo en la largada y despues de llegar)
-function olSend(now){if(!ONL.inRace||!RT.joined||!player)return;
+function olSend(now){if(!ONL.inRace||!player)return;
  // al llegar se avisa una vez el tiempo final
- if(player.finished&&!ONL.finSent){ONL.finSent=true;rtSend("fin",{u:NET.sess.u,t:Math.round(player.finishTime*1000)/1000,best:isFinite(player.best)?Math.round(player.best*1000)/1000:0});}const fast=state==='race'&&!player.finished;if(now-ONL.lastSend<(fast?100:500))return;ONL.lastSend=now;
+ if(player.finished&&!ONL.finSent&&RT.joined){ONL.finSent=true;rtSend("fin",{u:NET.sess.u,t:Math.round(player.finishTime*1000)/1000,best:isFinite(player.best)?Math.round(player.best*1000)/1000:0});}const fast=state==='race'&&!player.finished;if(now-ONL.lastSend<(fast?100:500))return;ONL.lastSend=now;
  const c=player,r2=v=>Math.round(v*100)/100;
- rtSend('p',{u:NET.sess.u,a:[r2(c.pos.x),r2(c.pos.z),r2(c.pos.y),Math.round(c.head*1000)/1000,Math.round(c.v*10)/10,r2(c.prog),Math.round(c.steer*100)/100,(c.ersOn?1:0)|(c.braking?2:0)|(c.m.ci<<2)]});}
+ p2pSendP({u:NET.sess.u,n:++ONL.seq,a:[r2(c.pos.x),r2(c.pos.z),r2(c.pos.y),Math.round(c.head*1000)/1000,Math.round(c.v*10)/10,r2(c.prog),Math.round(c.steer*100)/100,(c.ersOn?1:0)|(c.braking?2:0)|(c.m.ci<<2)]},now);}
 // autos de los demas: se dibujan 0,12 s atras interpolando entre los ultimos mensajes (si faltan, se estira el ultimo hasta 0,4 s)
 function olCarStep(c,now){const S=c.snap;if(!S.length)return;if(!c.gone)c.m.root.visible=true;
  const rt=now-120;let a=S[S.length-1].a,b=null,f=0;
