@@ -106,11 +106,11 @@ body.touch .bars{width:104px;gap:3px}
 body.touch .bar{height:6px}
 body.touch .barlbl{font-size:9px}
 body.touch #touch{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:0 calc(env(safe-area-inset-right,0px) + 10px) 0 calc(env(safe-area-inset-left,0px) + 10px)}
-body.touch .tbtn.big{width:78px;height:78px}
+body.touch .tbtn.big{width:min(104px,27vh);height:min(104px,27vh);font-size:20px}
 body.touch #touch .grp:last-child{display:grid;grid-template-columns:auto auto;gap:8px 10px;align-items:end}
-body.touch #tErs{grid-column:1;grid-row:1;justify-self:center;width:52px;height:52px;font-size:12px}
-body.touch #tBrake{grid-column:1;grid-row:2;width:70px;height:70px;font-size:14px}
-body.touch #tGas{grid-column:2;grid-row:1/span 2;width:86px;height:86px}
+body.touch #tErs{grid-column:1;grid-row:1;justify-self:center;width:min(70px,18vh);height:min(70px,18vh);font-size:14px}
+body.touch #tBrake{grid-column:1;grid-row:2;width:min(92px,24vh);height:min(92px,24vh);font-size:16px}
+body.touch #tGas{grid-column:2;grid-row:1/span 2;width:min(116px,30vh);height:min(116px,30vh);font-size:16px}
 body.touch #msg{font-size:22px;top:36%}
 body.touch #boxPanel{top:calc(env(safe-area-inset-top,0px) + 46px);left:auto;right:calc(env(safe-area-inset-right,0px) + 108px);transform:none;padding:5px 6px 5px 10px;gap:6px}
 body.touch #boxPanel b{font-size:12px}
@@ -3354,15 +3354,34 @@ function boxToggle(){const c=player;if(!c||!(state==='race'||state.startsWith('p
  if(sess.laps-c.lastLaps<=1){showMsg('Última vuelta: no hay parada',1400);return;}
  c.pitReq=true;const left=sess.laps-c.lastLaps;c.pitCi=RAIN?3:left<=3?2:left<=5?0:1;boxPanelSync();$('boxPanel').classList.remove('hidden');showMsg('Box esta vuelta',1200);}
 function boxPanelSync(){for(const b of $('boxPanel').querySelectorAll('button')){const v=+b.dataset.c;b.classList.toggle('hidden',v>=0&&(RAIN?v!==3:v===3));b.classList.toggle('sel',!!player&&v===player.pitCi);}}
-for(const b of $('boxPanel').querySelectorAll('button'))b.onclick=()=>{const v=+b.dataset.c;if(v<0){boxToggle();return;}if(player){player.pitCi=v;boxPanelSync();}};
-$('bBox').onclick=boxToggle;
-$('bCam').onclick=nextCam;
-$('bSnd').onclick=toggleSound;
-$('bPause').onclick=()=>{if(state.startsWith('paused'))resumeGame();else pauseGame();};
+// botones del HUD: en el celu se activan al apoyar el dedo (con otro dedo apretado el celu no manda "click")
+const fastTap=(el,fn)=>{el.onclick=fn;el.addEventListener('touchstart',e=>{e.preventDefault();fn();},{passive:false});};
+for(const b of $('boxPanel').querySelectorAll('button'))fastTap(b,()=>{const v=+b.dataset.c;if(v<0){boxToggle();return;}if(player){player.pitCi=v;boxPanelSync();}});
+fastTap($('bBox'),boxToggle);
+fastTap($('bCam'),nextCam);
+fastTap($('bSnd'),toggleSound);
+fastTap($('bPause'),()=>{if(state.startsWith('paused'))resumeGame();else pauseGame();});
 $('pCont').onclick=resumeGame;$('pRestart').onclick=startRace;$("pMenu").onclick=()=>{if(ONL.code)olLeave();goMenu();};$('pEnd').onclick=endQuali;
-const bindTouch=(id,key)=>{const el=$(id);const on=e=>{e.preventDefault();touchIn[key]=true;el.classList.add('act');if(actx&&actx.state==='suspended')actx.resume();};const off=e=>{e.preventDefault();touchIn[key]=false;el.classList.remove('act');};
- el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('pointerleave',off);el.addEventListener('contextmenu',e=>e.preventDefault());};
-bindTouch('tLeft','left');bindTouch('tRight','right');bindTouch('tGas','gas');bindTouch('tBrake','brake');bindTouch('tErs','ers');
+// controles tactiles: lo apretado sale SIEMPRE de los dedos que siguen apoyados (e.touches),
+// asi si el celu no avisa que soltaste, el boton se suelta solo al proximo toque. Deslizar el dedo cambia de boton.
+const TB={left:$('tLeft'),right:$('tRight'),gas:$('tGas'),brake:$('tBrake'),ers:$('tErs')},tOwn=new Set();
+function tbSet(k,v){if(touchIn[k]!==v){touchIn[k]=v;TB[k].classList.toggle('act',v);}}
+function tbClear(){tOwn.clear();for(const k in TB)tbSet(k,false);}
+function tbHit(x,y){let best=null,bd=1e9;for(const k in TB){const r=TB[k].getBoundingClientRect();if(!r.width)continue;
+ if(x<r.left-12||x>r.right+12||y<r.top-12||y>r.bottom+12)continue;const d=Math.hypot(x-(r.left+r.right)/2,y-(r.top+r.bottom)/2);if(d<bd){bd=d;best=k;}}return best;}
+function tbSync(e){const on={},live=new Set();
+ for(const t of e.touches){live.add(t.identifier);if(!tOwn.has(t.identifier))continue;const k=tbHit(t.clientX,t.clientY);if(k)on[k]=true;}
+ for(const id of tOwn)if(!live.has(id))tOwn.delete(id);
+ for(const k in TB)tbSet(k,!!on[k]);}
+document.addEventListener('touchstart',e=>{let mine=false;
+ for(const t of e.changedTouches)if(t.target&&t.target.closest&&t.target.closest('#touch .tbtn')){tOwn.add(t.identifier);mine=true;}
+ if(mine){e.preventDefault();if(actx&&actx.state==='suspended')actx.resume();}tbSync(e);},{passive:false,capture:true});
+document.addEventListener('touchmove',e=>{if(tOwn.size)tbSync(e);},{passive:true,capture:true});
+for(const ev of ['touchend','touchcancel'])document.addEventListener(ev,tbSync,{passive:true,capture:true});
+addEventListener('blur',tbClear);document.addEventListener('visibilitychange',()=>{if(document.hidden)tbClear();});
+// con mouse (compu con pantalla tactil o pruebas)
+for(const k in TB){const el=TB[k],m=f=>e=>{if(e.pointerType==='mouse')f();};
+ el.addEventListener('pointerdown',m(()=>tbSet(k,true)));el.addEventListener('pointerup',m(()=>tbSet(k,false)));el.addEventListener('pointerleave',m(()=>tbSet(k,false)));el.addEventListener('contextmenu',e=>e.preventDefault());}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);post.resize();});
 
 /* ---------------- arranque ---------------- */
