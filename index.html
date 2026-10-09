@@ -236,6 +236,10 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .olplayers div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--panel-2);font-weight:700}
 .olplayers i{width:6px;height:22px;border-radius:3px;flex:none}
 .olplayers small{margin-left:auto;color:var(--muted);font-weight:600}
+.olplayers .net{flex:none;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.08)}
+.net.dir{color:#34c759}.net.sb{color:#ffcc00}.net.con{color:var(--muted)}.net.mix{color:#ff9f0a}
+#olNet{position:absolute;right:calc(env(safe-area-inset-right,0px) + 12px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+body.touch #olNet{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 106px);right:calc(env(safe-area-inset-right,0px) + 8px);padding:3px 8px;font-size:11px}
 #onlinePad h3{margin:14px 0 8px}
 @media (max-width:760px){#menu{background:rgba(6,7,11,.9)}.mp{padding-left:calc(env(safe-area-inset-left,0px) + 18px);padding-right:18px}}
 @media (prefers-reduced-motion: reduce){#msg{transition:none}.pad.shake{animation:none}}
@@ -257,6 +261,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
   </div>
   <div id="tower" class="glass"></div>
   <canvas id="map" class="glass" width="340" height="340"></canvas>
+  <div id="olNet" class="glass net hidden"></div>
   <div id="topbtns">
     <button class="ibtn glass" id="bCam" aria-label="Cambiar camara">Camara</button>
     <button class="ibtn glass" id="bSnd" aria-label="Sonido">Sonido</button>
@@ -415,6 +420,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <div id="olLobby" class="hidden">
       <div class="roomcode"><span>Código de la sala</span><b id="olRoom"></b><button class="btn sm" id="olCopy">Copiar</button></div>
       <div class="olplayers" id="olPlayers"></div>
+      <p class="hint hidden" id="olNetHint">Supabase = el WiFi no deja conectarse directo con ese jugador. La carrera anda igual.</p>
       <div id="olHostCfg">
         <div class="rkhead"><button class="btn sm" id="olCPrev" aria-label="Circuito anterior">◀</button><b id="olCirc"></b><button class="btn sm" id="olCNext" aria-label="Circuito siguiente">▶</button></div>
         <div class="row2"><div><h3>Vueltas</h3><div class="seg" id="olLaps"><button data-v="3">3</button><button data-v="5">5</button><button data-v="8">8</button></div></div>
@@ -2836,7 +2842,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;
 function goMenu(){state="menu";setCode(false);WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
  $('menu').classList.remove('hidden');$('hud').classList.add('hidden');$('pause').classList.add('hidden');$('results').classList.add('hidden');$('lights').classList.add('hidden');
  sel.circuit=curCirc;setAccent();RAIN=sel.weather===1;applyWeather();refreshMenu();buildRace();}
-function startRace(){
+function startRace(){$('olNet').classList.add('hidden');ONL.netT=0;
  initAudio();if(actx&&actx.state==='suspended')actx.resume();
  // clima de esta sesion (en "Variable" se sortea cada vez: 40% de lluvia)
  RAIN=sess.online?sess.online.rain:sess.world?sess.world.rain:sel.weather===1||(sel.weather===2&&Math.random()<0.4);applyWeather();
@@ -2974,7 +2980,7 @@ function tick(rdt){
    const steps=dt>1/45?2:1,h=dt/steps;
    for(let s=0;s<steps;s++){playerStep(h);for(const c of cars)if(!c.isPlayer&&!c.remote&&(state==="race"||state==="finished"))aiStep(c,h);}
    // online: los autos de los demas llegan por la conexion en vivo y el tuyo se manda
-   if(sess.online){const now=performance.now();for(const c of cars)if(c.remote)olCarStep(c,now);olSend(now);}
+   if(sess.online){const now=performance.now();for(const c of cars)if(c.remote)olCarStep(c,now);olSend(now);olNetHud(now);}
    for(const c of cars)updateCarVisual(c,dt);updateCrew(dt);
    recFrame();if(sess.type==='tt')ttFrame(dt);
    updateHUD(dt);
@@ -3234,6 +3240,16 @@ async function p2pSig(p){const me=NET.sess&&NET.sess.u;if(!hasRTC||!me||!ONL.cod
    rtSend('sig',{f:me,to:u,k:'a',sdp:q.pc.localDescription.sdp});}
   else if(p.k==='a'&&me<u){const q=P2P.peers.get(u);if(q&&q.pc.signalingState==='have-local-offer')await q.pc.setRemoteDescription({type:'answer',sdp:p.sdp});}}
  catch(e){p2pDrop(u);}}
+// como me llegan los datos de cada jugador: 'dir' directo, 'con' conectando, 'sb' por Supabase (en carrera, directo solo si se lo escucho hace poco)
+function p2pState(u,race){const q=P2P.peers.get(u),now=performance.now(),pl=ONL.players.get(u);
+ if(q&&q.dc&&q.dc.readyState==='open'&&(!race||now-q.heard<2000))return 'dir';
+ if(hasRTC&&((pl&&now-pl.seen<15000)||(q&&now-q.t0<12000)))return 'con';return 'sb';}
+const NETTXT={dir:'Directo',con:'Conectando…',sb:'Supabase'};
+// cartel en carrera (abajo del mapa en el celu)
+function olNetHud(now){const el=$('olNet');if(!sess.online){el.classList.add('hidden');return;}if(now-(ONL.netT||0)<500)return;ONL.netT=now;
+ const S=cars.filter(c=>c.remote&&!c.gone&&!c.finished).map(c=>p2pState(c.driver,true));if(!S.length){el.classList.add('hidden');return;}
+ const d=S.filter(s=>s==='dir').length,k=d===S.length?'dir':d?'mix':S.includes('con')?'con':'sb';
+ el.className='glass net '+k;el.textContent='● '+(k==='mix'?'Directo '+d+'/'+S.length:NETTXT[k]);}
 // mandar mi posicion: directo a cada uno; si a alguno no le llega directo (o hace rato que no se lo escucha), tambien por Supabase
 function p2pSendP(p,now){const s=JSON.stringify({p});let all=true;
  for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);
@@ -3281,8 +3297,8 @@ function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''})
 // jugadores que se escucharon en los ultimos 12 s (y vos)
 function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
 function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
- const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · Chiron':p.gt?' · deportivo':'')+(!p.me&&p2pOk(p.u)?' · directo':'')+'</small></div>').join('');
- $('olHostCfg').classList.toggle('hidden',!ONL.host);
+ const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · Chiron':p.gt?' · deportivo':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
+ $('olNetHint').classList.toggle('hidden',!L.some(p=>!p.me&&p2pState(p.u)==='sb'));$('olHostCfg').classList.toggle('hidden',!ONL.host);
  if(ONL.host){$('olCirc').textContent=CIRCUITS[ONL.cfg.ci].name;for(const b of $('olLaps').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.laps);for(const b of $('olW').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.rain);
   $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
  else{const c=ONL.cfg;$('olWait').textContent='Esperando que '+(ONL.hostName||'el que creó la sala')+' largue · '+CIRCUITS[c.ci].name+' · '+c.laps+' vueltas · '+(c.rain?'Lluvia':'Seco');}}
@@ -3303,7 +3319,7 @@ function olOnMsg(ev,p){
  if(!p||typeof p!=='object')return;
  if(ev==='hola'){if(!OK_NAME.test(p.u)||!NET.sess||p.u===NET.sess.u)return;if(!ONL.players.has(p.u)&&ONL.players.size>=8)return;
   const isNew=!ONL.players.has(p.u),ti=Number.isInteger(p.ti)&&p.ti>=0&&p.ti<TEAMS.length?p.ti:0;
-  ONL.players.set(p.u,{u:p.u,ti,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,host:p.host===true,last:performance.now()});
+  ONL.players.set(p.u,{u:p.u,ti,seen:isNew?performance.now():ONL.players.get(p.u).seen,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,host:p.host===true,last:performance.now()});
   if(p.host===true&&!ONL.host&&p.cfg&&typeof p.cfg==='object'){const c=p.cfg;if(Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1))ONL.cfg={ci:c.ci,laps:c.laps,rain:c.rain};ONL.hostName=p.u;}
   p2pCall(p.u);
   if(isNew){rtSend("hola",myInfo());if(!ONL.inRace)olMsg(performance.now()-ONL.enterT>3000?p.u+" entró a la sala":"Estás en la sala de "+(ONL.host?"vos":ONL.hostName||p.u),"ok");}
