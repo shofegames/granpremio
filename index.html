@@ -408,8 +408,8 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
     <div id="olHome" class="hidden">
       <p class="hint" id="olQuota"></p>
       <button class="btn wide hidden" id="olVip">✦ ¿Jugar conmigo? ✦</button>
-      <button class="btn pri wide" id="olCreate">Crear sala</button>
-      <p class="hint">¿Te pasaron un código? Ponelo acá:</p>
+      <button class="btn pri wide hidden" id="olCreate">Crear sala</button>
+      <p class="hint" id="olJoinHint">¿Te pasaron un código? Ponelo acá:</p>
       <div class="joinrow"><input class="inp" id="olCode" maxlength="6" placeholder="Código de la sala" autocomplete="off" spellcheck="false" autocapitalize="characters"><button class="btn" id="olJoin">Unirse</button></div>
     </div>
     <div id="olLobby" class="hidden">
@@ -3018,14 +3018,14 @@ async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
  const q=await rpc('gp_online_quota',{p_token:NET.sess.t});
  if(q.error==='sesion'){NET.sess=null;netSave();acctSync();olView('noacc');return;}
  if(q.error){$('olQuota').textContent=NET_ERR.red;return;}
- ONL.quota=q;$('olQuota').textContent=q.vip?'Sin límite de carreras online por día.':'Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';vipCheck();}
+ ONL.quota=q;$('olCreate').classList.toggle('hidden',!q.vip);$('olJoinHint').textContent=q.vip?'¿Te pasaron un código? Ponelo acá:':'Las salas las crea filcman: pedile el código y ponelo acá, o tocá el botón cuando aparezca.';$('olQuota').textContent=q.vip?'Sin límite de carreras online por día.':'Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';vipCheck();}
 // boton raro "Jugar conmigo": solo aparece mientras filcman tiene una sala abierta, y te mete directo en ella
 let vipT=0;
 async function vipCheck(){clearTimeout(vipT);const b=$('olVip');if(!NET.sess||ONL.code||$('onlinePad').classList.contains('hidden')){b.classList.add('hidden');return;}
  const r=await rpc('gp_vip_room',{p_token:NET.sess.t});const ok=r&&typeof r.code==='string'&&/^[A-Z0-9]{5}$/.test(r.code)&&!ONL.code;b.classList.toggle('hidden',!ok);b.dataset.code=ok?r.code:'';vipT=setTimeout(vipCheck,5000);}
 function olClose(){if(ONL.code){olLeave();}$('onlinePad').classList.add('hidden');clearTimeout(vipT);}
 async function olCreate(){if(NET.busy||!NET.sess)return;NET.busy=true;olMsg('Creando sala…');const r=await rpc('gp_room_create',{p_token:NET.sess.t});NET.busy=false;
- if(r.error||typeof r.code!=='string'){olMsg(r.error==='muchas'?'Creaste muchas salas seguidas: esperá un rato':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ if(r.error||typeof r.code!=='string'){olMsg(r.error==='solo_filcman'?'Solo filcman puede crear salas: pedile el código':r.error==='muchas'?'Creaste muchas salas seguidas: esperá un rato':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  olEnter(r.code,true,NET.sess.u);}
 async function olJoin(){if(NET.busy||!NET.sess)return;const code=$('olCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length!==5){olMsg('El código tiene 5 letras y números','bad');return;}
  NET.busy=true;olMsg('Entrando a la sala…');const r=await rpc('gp_room_join',{p_token:NET.sess.t,p_code:code});NET.busy=false;
