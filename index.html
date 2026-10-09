@@ -1874,77 +1874,252 @@ function makeCar(team,num,name){
  for(const cv of covers)keep.add(cv);keep.add(blob);const detail=[];root.traverse(o=>{if(o.isMesh&&!keep.has(o))detail.push(o);});
  return {root,body,wheels,fronts,lightM,brakeM,faces,spokes,blurs,covers,team,helmet,ci,blur:false,detail,far:false,stock};
 }
-// codigo 2011: tu auto pasa a ser un deportivo (motor central, butaca al medio) con los colores de tu escuderia; anda igual que el F1
-// 4,6 m de largo, 2 m de ancho, 2,7 m entre ejes
+// codigo 1705: Porsche 911 GT3 RS (992), blanco con las piezas aerodinamicas en negro. Anda igual que el F1 (solo cambia como se ve).
+// 4,57 m de largo, 1,90 m de ancho, 1,32 m de alto, 2,46 m entre ejes; volante a la izquierda. Sin escudos ni letras de la marca.
+const P9_OX=0.37;   // corrimiento de la butaca del piloto (a la izquierda del auto = +x)
+const P9_WH=[[0.80,1.23,0.35,0.275],[0.775,-1.23,0.367,0.335]];   // [x, z, radio, ancho]: adelante 20", atras 21" mas anchas
+// medio perfil de la carroceria (de arriba al medio hasta abajo al medio): capo bajo entre guardabarros altos con las opticas
+// arriba, cintura angosta en las puertas y caderas anchas atras; la tapa del motor baja hasta la cola
+const P9_PROF=[
+ [2.27,[[0,.49],[.22,.50],[.40,.49],[.52,.46],[.60,.40],[.63,.30],[.61,.19],[.55,.14],[0,.14]]],
+ [2.17,[[0,.60],[.25,.61],[.45,.63],[.60,.67],[.73,.63],[.80,.48],[.82,.27],[.78,.13],[0,.12]]],
+ [2.03,[[0,.645],[.27,.655],[.49,.69],[.66,.78],[.81,.72],[.88,.53],[.90,.28],[.85,.13],[0,.12]]],
+ [1.80,[[0,.69],[.29,.70],[.52,.75],[.71,.83],[.87,.78],[.93,.58],[.94,.30],[.89,.13],[0,.12]]],
+ [1.45,[[0,.73],[.30,.74],[.54,.78],[.73,.86],[.89,.82],[.95,.62],[.95,.30],[.90,.13],[0,.12]]],
+ [1.10,[[0,.79],[.30,.80],[.55,.83],[.74,.88],[.89,.83],[.95,.63],[.95,.30],[.90,.13],[0,.12]]],
+ [0.80,[[0,.83],[.32,.84],[.56,.86],[.74,.89],[.87,.84],[.92,.64],[.92,.30],[.87,.13],[0,.12]]],
+ [0.54,[[0,.86],[.34,.865],[.58,.875],[.72,.885],[.84,.84],[.90,.65],[.90,.30],[.86,.13],[0,.12]]],
+ [0.00,[[0,.865],[.35,.865],[.60,.87],[.70,.875],[.80,.84],[.87,.73],[.88,.40],[.85,.13],[0,.12]]],
+ [-0.50,[[0,.885],[.35,.885],[.60,.89],[.70,.895],[.81,.86],[.88,.74],[.89,.40],[.85,.13],[0,.12]]],
+ [-0.90,[[0,.93],[.35,.93],[.60,.93],[.74,.935],[.88,.89],[.93,.70],[.92,.35],[.87,.13],[0,.12]]],
+ [-1.23,[[0,.99],[.35,.99],[.62,.99],[.82,.99],[.93,.90],[.96,.68],[.96,.30],[.90,.14],[0,.13]]],
+ [-1.65,[[0,.99],[.35,.99],[.62,.99],[.82,.97],[.93,.86],[.96,.64],[.95,.32],[.89,.16],[0,.15]]],
+ [-2.05,[[0,.97],[.35,.97],[.62,.95],[.80,.91],[.90,.81],[.93,.60],[.92,.36],[.85,.22],[0,.20]]],
+ [-2.31,[[0,.94],[.35,.94],[.60,.91],[.76,.86],[.84,.75],[.86,.56],[.84,.40],[.76,.28],[0,.26]]]];
+// cabina: [z, medio ancho, alto arriba, alto del borde de la ventanilla]: parabrisas inclinado, techo y la luneta larga que baja hasta la tapa del motor
+const P9_GL=[[0.56,.67,.875,.86],[0.35,.68,1.0,.86],[0.12,.685,1.15,.865],[-0.09,.68,1.255,.87],[-0.33,.67,1.315,.875],[-0.65,.65,1.275,.89],[-0.95,.6,1.19,.92],[-1.2,.53,1.09,.95],[-1.47,.44,.995,.98]];
+// el capo: dos "fosas" grandes en la mitad de atras (por ahi sale el aire caliente del radiador del medio), con rejilla y persianas
+// adentro; una aleta alta en el borde de adentro de cada una que al final dobla hacia afuera, y entre las dos el lomo del capo
+const P9_NV={x0:0.11,x1:0.41,z0:0.78,z1:1.18,d:0.075},P9_NC={x0:0.055,x1:0.465,z0:0.725,z1:1.235};
+// las piezas del 911 se calculan una sola vez (tirando rayos contra la carroceria) y todos los autos comparten esas formas
+let P9C=null;
+function p9Build(){if(P9C)return P9C;
+ const parts=[],rc=new THREE.Raycaster(),DN=new V3(0,-1,0),o3=new THREE.Object3D(),MM=new THREE.Matrix4();
+ const shg=g=>{g.userData.shared=true;return g;};
+ const put=(g,k,p,q,s,cast)=>{parts.push({g:shg(g),k,p:p.isVector3?p.clone():new V3(p[0],p[1],p[2]),q:q?q.clone():null,s:s||null,cast:!!cast});};
+ const outw=g=>{const ix=g.index.array;for(let i=0;i<ix.length;i+=3){const t=ix[i+1];ix[i+1]=ix[i+2];ix[i+2]=t;}g.index.needsUpdate=true;g.computeVertexNormals();return g;};
+ const lerpT=(T,z,k)=>{if(z>=T[0][0])return T[0][k];for(let i=1;i<T.length;i++)if(z>=T[i][0]){const a=T[i-1],b=T[i],f=(z-b[0])/(a[0]-b[0]);return b[k]+(a[k]-b[k])*f;}return T[T.length-1][k];};
+ // carroceria
+ const hb=loftProf(P9_PROF,8,34),hbM=new THREE.Mesh(hb);
+ {const p=hb.attributes.position;let up=0,uy=-9;for(let i=0;i<p.count;i++)if(Math.abs(p.getX(i))<0.01&&p.getZ(i)>1.2&&p.getZ(i)<2&&p.getY(i)>uy){up=i;uy=p.getY(i);}
+  if(hb.attributes.normal.getY(up)<0)outw(hb);}
+ hbM.updateMatrixWorld(true);
+ // alto de la carroceria en (x,z) (antes de abrir los huecos): los triangulos de arriba se guardan en una grilla
+ // de 5 cm y se busca solo en la celda (miles de consultas en pocos milisegundos)
+ const HG=new Map(),HC=0.05,hk=(i,j)=>i*4096+j;
+ {const p=hb.attributes.position,ix=hb.index.array;
+  for(let t=0;t<ix.length;t+=3){const a=ix[t],b=ix[t+1],c=ix[t+2],ax=p.getX(a),az=p.getZ(a),bx=p.getX(b),bz=p.getZ(b),cx=p.getX(c),cz=p.getZ(c);
+   if((bx-ax)*(cz-az)-(bz-az)*(cx-ax)===0)continue;const tri=[ax,az,p.getY(a),bx,bz,p.getY(b),cx,cz,p.getY(c)];
+   for(let i=Math.floor(Math.min(ax,bx,cx)/HC);i<=Math.floor(Math.max(ax,bx,cx)/HC);i++)for(let j=Math.floor(Math.min(az,bz,cz)/HC);j<=Math.floor(Math.max(az,bz,cz)/HC);j++){const k=hk(i,j);if(!HG.has(k))HG.set(k,[]);HG.get(k).push(tri);}}}
+ const hTop=(x,z)=>{const L=HG.get(hk(Math.floor(x/HC),Math.floor(z/HC)));let best=-9;if(L)for(const T of L){
+   const d=(T[4]-T[7])*(T[0]-T[6])+(T[6]-T[3])*(T[1]-T[7]);if(!d)continue;const u=((T[4]-T[7])*(x-T[6])+(T[6]-T[3])*(z-T[7]))/d,v=((T[7]-T[1])*(x-T[6])+(T[0]-T[6])*(z-T[7]))/d,w=1-u-v;
+   if(u<-1e-6||v<-1e-6||w<-1e-6)continue;const y=u*T[2]+v*T[5]+w*T[8];if(y>best)best=y;}return best>-9?best:0.75;};
+ // superficie que copia la forma de la carroceria (para rejillas, marcos y huecos); skip(x,z) deja celdas vacias
+ const drape=(x0,x1,z0,z1,nx,nz,off,skip,rep)=>{const pos=[],uv=[],idx=[];rep=rep||1;
+  for(let j=0;j<=nz;j++)for(let i=0;i<=nx;i++){const x=x0+(x1-x0)*i/nx,z=z0+(z1-z0)*j/nz;pos.push(x,hTop(x,z)+off,z);uv.push(i/nx*rep,j/nz*rep);}
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){if(skip&&skip(x0+(x1-x0)*(i+0.5)/nx,z0+(z1-z0)*(j+0.5)/nz))continue;const a=j*(nx+1)+i,b=a+1,c=a+nx+1,d=c+1;idx.push(a,c,b,b,c,d);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g;};
+ // pieza apoyada sobre la superficie: rayo hacia el auto, se usa el punto y la normal donde toca
+ const SURF=[hbM];
+ const hit=(o,d)=>{rc.set(o,d);const r=rc.intersectObjects(SURF,false)[0];if(!r)return null;const n=r.face.normal.clone().transformDirection(r.object.matrixWorld);if(n.dot(d)>0)n.negate();return {p:r.point.clone(),n};};
+ const stickT=(o,d,off)=>{const h=hit(o,d);if(!h)return null;o3.position.copy(h.p).addScaledVector(h.n,off||0.006);o3.lookAt(h.p.clone().add(h.n));o3.updateMatrix();return {p:o3.position.clone(),q:o3.quaternion.clone(),n:h.n};};
+ const stick=(g,k,o,d,off,s,cast)=>{const t=stickT(o,d,off);if(t)put(g,k,t.p,t.q,s,cast);return t;};
+ // pieza con forma de perfil (x=z del auto, y=alto) y espesor t hacia -x; queda entre x0-t y x0
+ const blade=(pts,t,x0)=>{const s=new THREE.Shape();s.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)s.lineTo(pts[i][0],pts[i][1]);s.closePath();
+  const g=new THREE.ExtrudeGeometry(s,{depth:t,bevelEnabled:false,curveSegments:4});g.rotateY(-PI/2);g.translate(x0,0,0);g.computeVertexNormals();return g;};
+ const tube=(P,r,k,cast)=>put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(P),Math.max(8,P.length*8),r,8,false),k,[0,0,0],null,null,cast);
+ const NV=P9_NV,NC=P9_NC;
+ // ---- el capo ----
+ for(const s of [-1,1]){const S=[s,1,1];
+  // marco negro alrededor de cada fosa (tapa el borde del hueco)
+  put(drape(NC.x0,NC.x1,NC.z0,NC.z1,20,26,0.004,(x,z)=>x>NV.x0&&x<NV.x1&&z>NV.z0&&z<NV.z1),'blk',[0,0,0],null,S);
+  // fondo con rejilla, un poco hundido y siguiendo la pendiente del capo
+  put(drape(NV.x0,NV.x1,NV.z0,NV.z1,8,10,-NV.d,null,5),'mesh',[0,0,0],null,S);
+  // paredes del hueco
+  {const L=[];const E=(xa,za,xb,zb)=>{for(let i=0;i<10;i++){const f=i/10;L.push([xa+(xb-xa)*f,za+(zb-za)*f]);}};
+   E(NV.x0,NV.z0,NV.x1,NV.z0);E(NV.x1,NV.z0,NV.x1,NV.z1);E(NV.x1,NV.z1,NV.x0,NV.z1);E(NV.x0,NV.z1,NV.x0,NV.z0);
+   const pos=[],idx=[];L.forEach(([x,z])=>{const h=hTop(x,z);pos.push(x,h+0.003,z,x,h-NV.d,z);});
+   for(let i=0;i<L.length;i++){const a=i*2,b=((i+1)%L.length)*2;idx.push(a,b,a+1,b,b+1,a+1);}
+   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();put(g,'well',[0,0,0],null,S);}
+  // persianas adentro, inclinadas para que el aire salga hacia arriba y atras
+  {const xc=(NV.x0+NV.x1)/2,g=new THREE.BoxGeometry(NV.x1-NV.x0-0.012,0.007,0.07);
+   for(let k=0;k<5;k++){const z=NV.z1-(k+0.5)*(NV.z1-NV.z0)/5;o3.rotation.set(0.55,0,0);o3.updateMatrix();put(g,'blk',[xc,hTop(xc,z)-NV.d*0.45,z],o3.quaternion,S);}}
+  // aleta alta en el borde de adentro: baja adelante y sube hacia el parabrisas
+  {const top=[],bot=[];for(let i=0;i<=12;i++){const t=i/12,z=NV.z1+0.02-(NV.z1-NV.z0+0.05)*t,h=hTop(NV.x0,z);top.push([z,h+0.004+0.115*Math.pow(t,1.5)]);bot.push([z,h-NV.d]);}
+   put(blade(top.concat(bot.reverse()),0.018,NV.x0+0.008),'blk',[0,0,0],null,S,true);}
+  // el "boomerang": al final la aleta dobla hacia afuera por el borde de atras, bajando e inclinada hacia atras
+  {const z0=NV.z0-0.015,pts=[];for(let i=0;i<=10;i++){const t=i/10,x=NV.x0+(NV.x1+0.035-NV.x0)*t;pts.push([x,hTop(x,z0)+0.004+0.115*(1-t)+0.03*t]);}
+   for(let i=10;i>=0;i--){const t=i/10,x=NV.x0+(NV.x1+0.035-NV.x0)*t;pts.push([x,hTop(x,z0)-0.01]);}
+   const sh=new THREE.Shape();sh.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)sh.lineTo(pts[i][0],pts[i][1]);sh.closePath();
+   const g=new THREE.ExtrudeGeometry(sh,{depth:0.018,bevelEnabled:false});g.translate(0,0,z0-0.009);
+   const p=g.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i);p.setZ(i,p.getZ(i)-Math.max(0,y-hTop(x,z0))*0.45);}g.computeVertexNormals();put(g,'blk',[0,0,0],null,S,true);}
+  // rejilla con persianas arriba de cada guardabarros de adelante (saca el aire del pasaruedas)
+  put(drape(0.62,0.84,1.0,1.42,8,14,0.004,(x,z)=>x>0.645&&x<0.815&&z>1.03&&z<1.39),'blk',[0,0,0],null,S);
+  put(drape(0.64,0.82,1.02,1.40,6,10,0.002,null,3),'mesh',[0,0,0],null,S);
+  {const g=new THREE.BoxGeometry(0.17,0.012,0.022);for(let k=0;k<8;k++){const z=1.05+k*0.045;o3.rotation.set(0.5,0,0);o3.updateMatrix();put(g,'blk',[0.73,hTop(0.73,z)+0.009,z],o3.quaternion,S);}}}
+ // lineas de la tapa del capo y la ranura entre el paragolpes y el capo
+ {const F=[];for(let i=0;i<=16;i++){const x=-0.55+1.1*i/16;F.push(new V3(x,hTop(x,2.15)+0.002,2.15));}tube(F,0.006,'dark');
+  for(const s of [-1,1]){const P=[];for(let i=0;i<=14;i++){const z=2.15-(2.15-0.54)*i/14;P.push(new V3(s*0.55,hTop(s*0.55,z)+0.002,z));}tube(P,0.0045,'dark');}}
+ // ---- cabina: parabrisas, techo pintado, ventanillas y luneta en una sola pieza (la textura pinta el techo y los parantes) ----
+ // el centro va apenas arriba del borde de la ventanilla: asi el vidrio sale casi vertical y se cierra arriba hacia el techo
+ const S9=(z,hw,top,sill)=>{const yc=sill+0.15*(top-sill);return [z,0,hw,yc,Math.max(0.004,top-yc),4,1];};
+ const gl=outw(loft(P9_GL.map(r=>S9(r[0],r[1],r[2],r[3])),36,6));put(gl,'glass',[0,0,0],null,null,true);
+ // aletas del techo (llevan el aire caliente del capo hacia los costados)
+ const glM=new THREE.Mesh(gl);glM.updateMatrixWorld(true);SURF.push(glM);
+ for(const s of [-1,1]){const P=[];for(let i=0;i<=8;i++){const z=0.02-0.6*i/8,h=hit(new V3(s*0.33,3,z),DN);if(h)P.push([z,h.p.y]);}
+  if(P.length>2){const top=P.map(([z,y],i)=>[z,y+0.006+0.01*Math.sin(i/(P.length-1)*PI)]),bot=P.map(([z,y])=>[z,y-0.01]).reverse();put(blade(top.concat(bot),0.012,s*0.33+0.006),'blk',[0,0,0],null,null,true);}}
+ // ---- abrir los huecos: cabina (abajo va la bañera interior), fosas del capo y arcos de las ruedas ----
+ {const p=hb.attributes.position,ix=hb.index.array,keep=[];
+  const IN=i=>{const x=Math.abs(p.getX(i)),y=p.getY(i),z=p.getZ(i);
+   if(y>0.6&&z>-1.6&&z<0.54&&x<lerpT(P9_GL,z,1)-0.015)return true;
+   if(y>0.6&&x>NC.x0&&x<NC.x1&&z>NC.z0&&z<NC.z1)return true;
+   return AR[i]>0;};
+  // arcos de las ruedas: los puntos que caen adentro del arco se corren justo al borde (arriba siguiendo la curva,
+  // abajo hacia los costados), asi el borde queda redondo y prolijo; los triangulos que quedan del todo adentro se sacan
+  const AR=new Uint8Array(p.count),E=0.05;
+  for(let i=0;i<p.count;i++){const x=Math.abs(p.getX(i)),y=p.getY(i),z=p.getZ(i);if(x<=0.55)continue;
+   for(const [wx,wz,R] of P9_WH){const dz=z-wz,dy=y-R,d=Math.hypot(dz,dy),r=R+E;
+    if(d<r&&y>=R){AR[i]=1;p.setZ(i,wz+dz/d*r);p.setY(i,R+dy/d*r);break;}
+    if(y<R&&Math.abs(dz)<r){AR[i]=1;p.setZ(i,wz+(dz<0?-r:r));break;}}}
+  p.needsUpdate=true;
+  for(let t=0;t<ix.length;t+=3){if(IN(ix[t])&&IN(ix[t+1])&&IN(ix[t+2]))continue;keep.push(ix[t],ix[t+1],ix[t+2]);}hb.setIndex(keep);hb.computeVertexNormals();}
+ put(hb,'paint',[0,0,0],null,null,true);
+ put(new THREE.BoxGeometry(1.3,0.6,2.16),'tub',[0,0.62,-0.53]);
+ // borde de los arcos de las ruedas (redondeado, del color del auto)
+ for(const [wx,wz,R,w] of P9_WH){const g=new THREE.TorusGeometry(R+0.05,0.024,8,44,PI*1.16);g.rotateZ(-PI*0.08);g.rotateY(PI/2);g.scale(0.6,1,1);for(const s of [-1,1]){const h=hit(new V3(s*3,R+0.3,wz),new V3(-s,0,0));put(g,'paint',[s*(h?Math.abs(h.p.x)-0.004:wx+w/2),R,wz],null,null,true);}}
+ for(const [wx,wz,R] of P9_WH){const g=new THREE.CylinderGeometry(R+0.06,R+0.06,0.46,24,1,true,0,PI);g.rotateZ(PI/2);for(const s of [-1,1])put(g,'well',[s*(wx-0.04),R,wz]);}
+ // ---- trompa ----
+ // opticas redondas (un poco ovaladas) sobre la punta de los guardabarros: aro negro, anillo de luz y los cuatro puntos de LED
+ {const hous=new THREE.CylinderGeometry(0.135,0.135,0.09,40);hous.rotateX(PI/2);hous.translate(0,0,-0.045);const ring=new THREE.RingGeometry(0.1,0.118,40),lens=new THREE.CircleGeometry(0.1,40),
+   proj=new THREE.CircleGeometry(0.028,24),dot=new THREE.BoxGeometry(0.03,0.022,0.008),V=new V3(),Q=new THREE.Quaternion();
+  for(const s of [-1,1]){const n=new V3(s*0.22,0.55,0.8).normalize(),h=hit(new V3(s*0.645,0.665,2.08).addScaledVector(n,2),n.clone().negate());if(!h)continue;
+   const t={p:h.p.addScaledVector(n,0.012)};o3.position.copy(t.p);o3.lookAt(t.p.clone().add(n));o3.updateMatrix();t.q=o3.quaternion.clone();MM.compose(t.p,t.q,new V3(1,1,1));
+   const at=(g,k,lx,ly,lz,sc)=>{V.set(lx,ly,lz).applyMatrix4(MM);put(g,k,V,t.q,sc);};
+   at(hous,'blk',0,0,0,[1,0.86,1]);at(lens,'lens',0,0,0.017,[1,0.86,1]);at(ring,'led',0,0,0.019,[1,0.86,1]);at(proj,'chrome',0,0,0.02);
+   for(const [dx,dy] of [[0,0.056],[0,-0.056],[0.064,0],[-0.064,0]])at(dot,'led',dx,dy,0.021);}}
+ // toma de aire grande abajo al medio (en tramos que siguen la curva del frente), tomitas debajo de las opticas, splitter y aletas de las esquinas
+ for(let i=-2;i<=2;i++){const x=i*0.2;stick(new THREE.PlaneGeometry(0.205,0.2),'blk',new V3(x,0.29,3),new V3(0,0,-1),0.003);stick(new THREE.PlaneGeometry(0.2,0.165),'mesh',new V3(x,0.29,3),new V3(0,0,-1),0.006);}
+ for(const s of [-1,1]){stick(new THREE.PlaneGeometry(0.2,0.05),'dark',new V3(s*0.6,0.45,3),new V3(0,0,-1),0.004);}
+ put(new THREE.BoxGeometry(1.74,0.025,0.34),'blk',[0,0.13,2.13],null,null,true);
+ // ---- costados ----
+ for(const s of [-1,1]){
+  // salida de aire detras de la rueda de adelante con su aleta vertical
+  stick(new THREE.PlaneGeometry(0.1,0.28),'dark',new V3(s*3,0.46,0.78),new V3(-s,0,0),0.004);
+  const b=hit(new V3(s*3,0.4,0.71),new V3(-s,0,0));if(b)put(new THREE.BoxGeometry(0.035,0.3,0.03),'blk',[b.p.x+s*0.012,0.42,0.71],null,null,true);
+  // toma grande en el guardabarros de atras (adelante de la rueda), zocalo negro y manija
+  stick(new THREE.PlaneGeometry(0.15,0.34),'blk',new V3(s*3,0.66,-0.86),new V3(-s,0,0),0.003);stick(new THREE.PlaneGeometry(0.12,0.3),'mesh',new V3(s*3,0.66,-0.86),new V3(-s,0,0),0.006);
+  put(new THREE.BoxGeometry(0.08,0.07,1.45),'blk',[s*0.875,0.165,-0.02],null,null,true);
+  stick(new THREE.PlaneGeometry(0.14,0.022),'dark',new V3(s*3,0.8,-0.32),new V3(-s,0,0),0.003);
+  // espejo negro sobre la puerta
+  put(new THREE.BoxGeometry(0.2,0.095,0.13),'blk',[s*0.92,0.99,0.36],null,null,true);put(new THREE.BoxGeometry(0.06,0.08,0.05),'blk',[s*0.82,0.94,0.36]);
+  {o3.rotation.set(0,PI,0);o3.updateMatrix();put(new THREE.PlaneGeometry(0.17,0.075),'chrome',[s*0.92,0.99,0.294],o3.quaternion);}}
+ // ---- cola ----
+ // barra de luz de lado a lado pegada a la cola
+ {const P=[];for(let i=0;i<=16;i++){const x=-0.8+1.6*i/16,h=hit(new V3(x,0.86,-3),new V3(0,0,1));if(h)P.push(h.p.addScaledVector(h.n,0.006));}if(P.length>3)tube(P,0.012,'tail');}
+ // rejilla de la tapa del motor (abajo del aleron) con varillas a lo largo
+ put(drape(-0.44,0.44,-2.16,-1.6,18,12,0.004,(x,z)=>x>-0.41&&x<0.41&&z>-2.13&&z<-1.63),'blk',[0,0,0]);
+ put(drape(-0.41,0.41,-2.13,-1.63,10,8,0.002,null,4),'mesh',[0,0,0]);
+ {const g=new THREE.BoxGeometry(0.012,0.012,0.48);for(let k=-5;k<=5;k++){const x=k*0.07;put(g,'blk',[x,hTop(x,-1.88)+0.008,-1.88]);}}
+ // paragolpes de atras negro (la mitad de abajo de la cola), en tramos que siguen la curva
+ for(let i=-3;i<=3;i++){const x=i*0.23;stick(new THREE.PlaneGeometry(0.235,0.24),'blk',new V3(x,0.4,-3),new V3(0,0,1),0.004);}
+ // tomas de las esquinas, difusor con aletas y los dos escapes al medio
+ for(const s of [-1,1]){stick(new THREE.PlaneGeometry(0.14,0.18),'mesh',new V3(s*0.7,0.42,-3),new V3(0,0,1),0.008);}
+ put(new THREE.BoxGeometry(1.56,0.17,0.3),'blk',[0,0.245,-2.2],null,null,true);
+ {const g=new THREE.BoxGeometry(0.012,0.15,0.34);for(let k=-4;k<=4;k++)if(k)put(g,'blk',[k*0.16,0.2,-2.24]);}
+ {const e=new THREE.CylinderGeometry(0.05,0.052,0.12,24);e.rotateX(PI/2);const d=new THREE.CircleGeometry(0.04,24);o3.rotation.set(0,PI,0);o3.updateMatrix();
+  for(const s of [-1,1]){put(e,'chrome',[s*0.1,0.32,-2.33]);put(d,'dark',[s*0.1,0.32,-2.392],o3.quaternion);}}
+ // aleron enorme de cuello de cisne: plano principal y flap arriba (mas alto que el techo), placas laterales grandes y dos soportes
+ {o3.rotation.set(0.06,0,0);o3.updateMatrix();put(airfoil(0.3,0.04,1.74,0),'blk',[0,1.40,-1.98],o3.quaternion,null,true);
+  o3.rotation.set(0.3,0,0);o3.updateMatrix();put(airfoil(0.2,0.028,1.72,0),'blk',[0,1.46,-2.23],o3.quaternion,null,true);
+  for(const s of [-1,1])put(blade([[-1.9,1.31],[-1.93,1.48],[-2.06,1.54],[-2.47,1.56],[-2.49,1.35],[-2.3,1.27]],0.012,s*0.875+0.006),'blk',[0,0,0],null,null,true);
+  const neck=new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V3(0,0.97,-1.66),new V3(0,1.13,-1.74),new V3(0,1.33,-1.84),new V3(0,1.47,-1.95),new V3(0,1.5,-2.03),new V3(0,1.45,-2.08)]),40,0.035,8,false);
+  for(const s of [-1,1])put(neck,'blk',[s*0.33,0,0],null,[0.4,1,1],true);}
+ // ---- ruedas ----
+ const rim=new THREE.CircleGeometry(1,40);
+ // todas las piezas fijas del mismo material se juntan en una sola (asi son pocas cosas para dibujar, tambien en el celu)
+ const G=new Map();
+ for(const pt of parts){const key=pt.k+(pt.cast?'#':'');if(!G.has(key))G.set(key,[]);
+  const g=pt.g.index?pt.g.toNonIndexed():pt.g.clone();if(!g.attributes.normal)g.computeVertexNormals();
+  MM.compose(pt.p,pt.q||new THREE.Quaternion(),pt.s?new V3(pt.s[0],pt.s[1],pt.s[2]):new V3(1,1,1));g.applyMatrix4(MM);
+  // las piezas espejadas quedan con los triangulos al reves: se dan vuelta
+  if(MM.determinant()<0)for(const a of [g.attributes.position,g.attributes.normal,g.attributes.uv]){if(!a)continue;const A=a.array,s=a.itemSize;for(let i=0;i<a.count;i+=3)for(let c=0;c<s;c++){const t=A[(i+1)*s+c];A[(i+1)*s+c]=A[(i+2)*s+c];A[(i+2)*s+c]=t;}}
+  G.get(key).push(g);}
+ const merged=[...G].map(([key,L])=>({g:mergeGeos(L),k:key.replace('#',''),cast:key.endsWith('#')}));
+ P9C={merged,rim:shg(rim)};return P9C;}
+// llanta negra forjada de 10 rayos (5 pares) con tuerca central
+let P9RIM=null;
+function p9RimTex(){if(P9RIM)return P9RIM;P9RIM=tex(256,256,(x,w,h)=>{const c=w/2;x.fillStyle='#0c0d10';x.fillRect(0,0,w,h);
+ x.fillStyle='#202227';x.beginPath();x.arc(c,c,c*0.98,0,7);x.arc(c,c,c*0.87,0,7,true);x.fill();
+ for(let k=0;k<5;k++)for(const d of [-0.11,0.11]){x.save();x.translate(c,c);x.rotate(k*PI*2/5+d);x.fillStyle='#1d1f24';x.beginPath();x.moveTo(-7,-c*0.2);x.lineTo(-9,-c*0.88);x.lineTo(9,-c*0.88);x.lineTo(6,-c*0.2);x.fill();
+  x.fillStyle='#34373e';x.fillRect(-2,-c*0.86,3,c*0.62);x.restore();}
+ x.fillStyle='#24262b';x.beginPath();x.arc(c,c,c*0.22,0,7);x.fill();x.fillStyle='#b8151b';x.beginPath();x.arc(c,c,c*0.13,0,7);x.fill();
+ x.fillStyle='#16171a';x.beginPath();for(let k=0;k<6;k++){const a=k*PI/3;x.lineTo(c+Math.cos(a)*c*0.1,c+Math.sin(a)*c*0.1);}x.fill();});shared(P9RIM);return P9RIM;}
 function makeSportsCar(team,num,name){
  const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
  const lin=c=>new THREE.Color(c).convertSRGBToLinear();
  const add=(geo,mat,shadow,parent)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=!!shadow;m.receiveShadow=true;(parent||body).add(m);return m;};
- // pintura: color de la escuderia con dos franjas al medio (arriba de la textura del loft) y una linea en los zocalos
- const paint=new THREE.MeshPhysicalMaterial({roughness:0.28,metalness:0.45,clearcoat:1,clearcoatRoughness:0.05,map:tex(512,512,(x,w,h)=>{
-  x.fillStyle=team.c1;x.fillRect(0,0,w,h);x.fillStyle=team.c2;x.fillRect(w*0.468,0,w*0.018,h);x.fillRect(w*0.514,0,w*0.018,h);
-  x.fillStyle=team.ui;x.fillRect(w*0.205,0,w*0.008,h);x.fillRect(w*0.787,0,w*0.008,h);})});
- const dark=new THREE.MeshStandardMaterial({color:'#121317',roughness:0.55,metalness:0.3});
- const glass=new THREE.MeshPhysicalMaterial({color:'#0c141d',roughness:0.04,metalness:0.6,clearcoat:1,clearcoatRoughness:0.02});
- const chrome=MATS.mirror;
- // carroceria: cuña baja; la mitad de abajo es mas angosta para que se vean las ruedas debajo de los guardabarros
- const S=(z,hw,yc,hh,n,lw)=>[z,0,hw,yc,hh,n,lw];
- // el loft sale con las caras hacia adentro: se dan vuelta para que la pintura se vea de afuera
- const outw=g=>{const ix=g.index.array;for(let i=0;i<ix.length;i+=3){const t=ix[i+1];ix[i+1]=ix[i+2];ix[i+2]=t;}g.index.needsUpdate=true;g.computeVertexNormals();return g;};
- const gtb=outw(loft([S(2.30,0.66,0.40,0.17,3,0.95),S(2.06,0.92,0.45,0.27,4,0.85),S(1.55,1.00,0.51,0.36,5,0.74),S(1.00,0.98,0.50,0.33,5,0.78),
-  S(0.30,0.95,0.52,0.36,5,0.82),S(-0.60,0.99,0.55,0.40,5,0.78),S(-1.45,1.02,0.56,0.41,5,0.73),S(-2.05,0.98,0.56,0.38,4,0.85),S(-2.30,0.88,0.56,0.30,4,0.9)],40,6));
- // hueco de la cabina: se saca la parte de arriba de la carroceria que queda debajo de la burbuja de vidrio, y abajo va la bañera interior
- {const p=gtb.attributes.position,ix=gtb.index.array,keep=[],IN=i=>p.getY(i)>0.62&&Math.abs(p.getX(i))<0.56&&p.getZ(i)>-0.92&&p.getZ(i)<0.8;
-  for(let t=0;t<ix.length;t+=3){if(IN(ix[t])&&IN(ix[t+1])&&IN(ix[t+2]))continue;keep.push(ix[t],ix[t+1],ix[t+2]);}gtb.setIndex(keep);}
- add(gtb,paint,true);add(new THREE.BoxGeometry(1.14,0.6,1.74),new THREE.MeshStandardMaterial({color:"#121317",roughness:0.9,side:THREE.BackSide})).position.set(0,0.6,-0.06);
- // cabina vidriada con techo del color del auto
- add(outw(loft([S(0.86,0.60,0.82,0.02,3,1),S(0.50,0.66,0.92,0.15,3,1),S(0.00,0.64,1.00,0.17,3,1),S(-0.48,0.62,0.98,0.16,3,1),S(-0.98,0.56,0.90,0.10,3,1),S(-1.32,0.50,0.84,0.03,3,1)],28,5)),glass,true);
- add(outw(loft([S(0.28,0.50,1.155,0.035,3,1),S(-0.10,0.53,1.165,0.04,3,1),S(-0.55,0.50,1.14,0.035,3,1)],24,4)),paint,true);
- // trompa: faros, toma de aire, splitter; atras: luces, aleron, difusor y escapes
- for(const s of [-1,1]){const hl=add(new THREE.BoxGeometry(0.42,0.07,0.22),new THREE.MeshStandardMaterial({color:'#f4f8ff',emissive:'#dfe9ff',emissiveIntensity:1.2,roughness:0.2}));hl.position.set(s*0.6,0.6,2.0);hl.rotation.set(-0.35,s*0.32,0);}
- add(new THREE.BoxGeometry(1.1,0.1,0.12),dark).position.set(0,0.33,2.25);
- add(new THREE.BoxGeometry(1.6,0.03,0.42),dark,true).position.set(0,0.21,2.02);
- const lightM=new THREE.MeshStandardMaterial({color:'#300',emissive:'#ff2020',emissiveIntensity:0.6});
- add(new THREE.BoxGeometry(1.55,0.06,0.04),lightM).position.set(0,0.78,-2.31);
- for(const s of [-1,1])add(new THREE.BoxGeometry(0.34,0.1,0.04),lightM).position.set(s*0.64,0.72,-2.30);
- add(new THREE.BoxGeometry(1.4,0.16,0.16),dark).position.set(0,0.3,-2.2);
- for(const s of [-1,1]){const ex=add(new THREE.CylinderGeometry(0.06,0.06,0.2,14),chrome);ex.rotation.x=PI/2;ex.position.set(s*0.14,0.42,-2.33);}
- const wing=add(airfoil(0.36,0.05,1.75,0),dark,true);wing.position.set(0,1.18,-1.78);
- for(const s of [-1,1]){add(new THREE.BoxGeometry(0.04,0.3,0.16),dark).position.set(s*0.55,1.04,-1.95);add(new THREE.BoxGeometry(0.03,0.2,0.42),dark).position.set(s*0.88,1.21,-1.95);}
- // tomas laterales del motor, espejos y manijas
- for(const s of [-1,1]){const it=add(new THREE.BoxGeometry(0.06,0.24,0.62),dark);it.position.set(s*0.985,0.62,-0.75);it.rotation.y=s*0.12;
-  const mr=add(new THREE.BoxGeometry(0.2,0.1,0.14),paint);mr.position.set(s*0.88,0.95,0.62);add(new THREE.BoxGeometry(0.02,0.08,0.12),chrome).position.set(s*0.98,0.95,0.62);}
- // numero en las puertas y nombre arriba del parabrisas
- const numMat=decalMat('gtn'+team.name+num,()=>textTex(String(num),team.txt,256,256,team.c2));
- for(const s of [-1,1]){const d=add(new THREE.PlaneGeometry(0.42,0.42),numMat);d.position.set(s*0.995,0.58,-0.05);d.rotation.y=s*PI/2;}
- if(name){const nm=String(name).toUpperCase();const d=add(new THREE.PlaneGeometry(0.7,0.11),decalMat('gtnm'+team.name+nm,()=>textTex(nm,'#ffffff',512,80)));d.position.set(0,1.13,0.62);d.rotation.x=-1.1;}
- // adentro: tablero, volante y el piloto con casco (al medio)
- const stock=[add(new THREE.BoxGeometry(1.1,0.1,0.3),dark)];stock[0].position.set(0,0.77,0.56);
- const sw=add(new THREE.TorusGeometry(0.13,0.02,8,24),dark);sw.position.set(0,0.76,0.38);sw.rotation.x=-0.35;stock.push(sw);
- const hm=team.helm?helmMat(team):new THREE.MeshPhysicalMaterial({color:lin(team.c2),roughness:0.3,clearcoat:1});
+ // blanco; con pintura propia, tu color (las piezas negras quedan negras)
+ const own=!!team.base,col=own?team.c1:'#f3f3f0';
+ const glassTex=tex(512,512,(x,w,h)=>{const V=z=>(1-(z-ZMIN)/ZLEN)*h,U=u=>u*w,R=(u0,u1,z0,z1)=>x.fillRect(U(u0),V(z0),U(u1)-U(u0),V(z1)-V(z0));
+  const P=(pts,c)=>{x.fillStyle=c;x.beginPath();for(const [u,z] of pts)x.lineTo(U(u),V(z));x.fill();};
+  x.fillStyle='#0c0e11';x.fillRect(0,0,w,h);x.fillStyle=col;
+  R(0.39,0.61,-0.07,-0.64);                                 // techo
+  R(0.39,0.43,-0.64,-1.7);R(0.57,0.61,-0.64,-1.7);         // bordes del techo que bajan junto a la luneta
+  for(const m of [0,1]){const u=v=>m?1-v:v;
+   // ventanilla en "D": adelante el parante del parabrisas en diagonal, atras el pilar ancho que baja hasta la cadera
+   P([[u(0.05),0.66],[u(0.05),0.56],[u(0.245),0.5],[u(0.39),-0.09],[u(0.39),-0.03],[u(0.245),0.56]],col);
+   P([[u(0.05),-0.93],[u(0.33),-0.74],[u(0.39),-0.6],[u(0.39),-1.7],[u(0.05),-1.7]],col);
+   x.fillStyle='#050608';R(Math.min(u(0.05),u(0.385)),Math.max(u(0.05),u(0.385)),-0.5,-0.525);}});
+ const M={paint:new THREE.MeshPhysicalMaterial({color:lin(col),roughness:0.3,metalness:own?0.4:0.05,clearcoat:1,clearcoatRoughness:0.05}),
+  glass:new THREE.MeshPhysicalMaterial({map:glassTex,roughness:0.15,metalness:0.05,envMapIntensity:0.45,clearcoat:0.6,clearcoatRoughness:0.05}),
+  blk:new THREE.MeshPhysicalMaterial({color:lin('#0b0b0d'),roughness:0.45,metalness:0.1,envMapIntensity:0.5,clearcoat:0.3,clearcoatRoughness:0.2,side:THREE.DoubleSide}),
+  dark:new THREE.MeshStandardMaterial({color:lin('#060607'),roughness:0.7}),
+  mesh:new THREE.MeshStandardMaterial({color:lin('#0b0c0f'),roughness:0.8,side:THREE.DoubleSide,map:tex(128,128,(x,w,h)=>{x.fillStyle='#08090b';x.fillRect(0,0,w,h);x.strokeStyle='#2e3138';x.lineWidth=2;
+   for(let i=-w;i<w*2;i+=10){x.beginPath();x.moveTo(i,0);x.lineTo(i+h,h);x.stroke();x.beginPath();x.moveTo(i,h);x.lineTo(i+h,0);x.stroke();}},true)}),
+  well:new THREE.MeshStandardMaterial({color:lin('#08080a'),roughness:0.9,side:THREE.DoubleSide}),
+  tub:new THREE.MeshStandardMaterial({color:lin('#121214'),roughness:0.9,side:THREE.BackSide}),
+  lens:new THREE.MeshPhysicalMaterial({color:lin('#0d1014'),roughness:0.08,metalness:0.6,clearcoat:1}),
+  led:new THREE.MeshStandardMaterial({color:'#f4f8ff',emissive:'#e8f0ff',emissiveIntensity:1.6,roughness:0.2}),
+  chrome:MATS.mirror,
+  tail:new THREE.MeshStandardMaterial({color:'#300',emissive:'#ff2020',emissiveIntensity:0.6})};
+ const C=p9Build();
+ for(const pt of C.merged)add(pt.g,M[pt.k],pt.cast);
+ const lightM=M.tail;
+ // adentro (lo que se ve desde afuera): tablero, volante y el piloto con casco, del lado izquierdo
+ const stock=[add(new THREE.BoxGeometry(1.2,0.12,0.3),M.dark)];stock[0].position.set(0,0.8,0.4);
+ const sw=add(new THREE.TorusGeometry(0.17,0.02,8,24),M.dark);sw.position.set(P9_OX,0.84,0.04);sw.rotation.x=-0.42;stock.push(sw);
+ const hm=team.helm?helmMat(team):new THREE.MeshPhysicalMaterial({color:lin(own?team.c2:'#e8e8e8'),roughness:0.3,clearcoat:1});
  const helmet=[add(new THREE.SphereGeometry(0.13,16,12),hm),add(new THREE.BoxGeometry(0.2,0.06,0.04),MATS.visor)];
- helmet[0].position.set(0,0.98,-0.32);helmet[1].position.set(0,0.99,-0.2);
- // ruedas: cubierta, llanta de 5 rayos y disco de freno que se pone al rojo
+ helmet[0].position.set(P9_OX,1.0,-0.52);helmet[1].position.set(P9_OX,1.01,-0.4);
+ // ruedas: llanta negra de 10 rayos con tuerca central, disco de freno y caliper; atras mas grandes y anchas
  const brakeM=new THREE.MeshStandardMaterial({map:T_DISC,roughness:0.6,metalness:0.2,emissive:'#ff4a12',emissiveIntensity:0});
- const rimMat=new THREE.MeshStandardMaterial({metalness:0.85,roughness:0.28,map:tex(256,256,(x,w,h)=>{const c=w/2;x.fillStyle='#16171a';x.fillRect(0,0,w,h);
-  x.fillStyle='#c9ced6';x.beginPath();x.arc(c,c,c*0.97,0,7);x.arc(c,c,c*0.84,0,7,true);x.fill();
-  for(let k=0;k<5;k++){x.save();x.translate(c,c);x.rotate(k*PI*2/5);x.beginPath();x.moveTo(-14,0);x.lineTo(-26,-c*0.86);x.lineTo(26,-c*0.86);x.lineTo(14,0);x.fill();x.restore();}
-  x.fillStyle=team.ui;x.beginPath();x.arc(c,c,c*0.17,0,7);x.fill();})});
- const tyreG=new THREE.CylinderGeometry(0.36,0.36,1,32,1,true),rimG=new THREE.CircleGeometry(0.3,32);
+ const rimMat=new THREE.MeshStandardMaterial({metalness:0.75,roughness:0.32,map:p9RimTex()});
+ const calM=new THREE.MeshStandardMaterial({color:lin('#26282d'),roughness:0.4,metalness:0.4});
  const wheels=[],fronts=[],keep=new Set();
- const wheel=(x,z,w,front)=>{const s=Math.sign(x),pv=new THREE.Group();pv.position.set(x,0.36,z);root.add(pv);const sp=new THREE.Group();pv.add(sp);
-  const t=new THREE.Mesh(tyreG,MATS.tire);t.scale.set(1,w,1);t.rotation.z=PI/2;t.castShadow=true;sp.add(t);keep.add(t);
-  for(const side of [s,-s]){const cap=new THREE.Mesh(new THREE.RingGeometry(0.29,0.36,32),MATS.tire);cap.rotation.y=side*PI/2;cap.position.x=side*w/2;sp.add(cap);}
-  const rim=new THREE.Mesh(rimG,rimMat);rim.rotation.y=s*PI/2;rim.position.x=s*(w/2-0.005);sp.add(rim);keep.add(rim);
-  const inner=new THREE.Mesh(rimG,MATS.rimIn);inner.rotation.y=-s*PI/2;inner.position.x=-s*(w/2-0.02);sp.add(inner);
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.03,24),brakeM);disc.rotation.z=PI/2;disc.position.x=s*(w/2-0.09);sp.add(disc);
+ const wheel=(x,z,R,w,front)=>{const s=Math.sign(x),pv=new THREE.Group();pv.position.set(x,R,z);root.add(pv);const sp=new THREE.Group();pv.add(sp);
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(R,R,1,36,1,true),MATS.tire);t.scale.set(1,w,1);t.rotation.z=PI/2;t.castShadow=true;sp.add(t);keep.add(t);
+  for(const side of [s,-s]){const cap=new THREE.Mesh(new THREE.RingGeometry(R*0.72,R,36),MATS.tire);cap.rotation.y=side*PI/2;cap.position.x=side*w/2;sp.add(cap);}
+  const rim=new THREE.Mesh(C.rim,rimMat);rim.scale.set(R*0.74,R*0.74,1);rim.rotation.y=s*PI/2;rim.position.x=s*(w/2-0.005);sp.add(rim);keep.add(rim);
+  const inner=new THREE.Mesh(C.rim,MATS.rimIn);inner.scale.set(R*0.74,R*0.74,1);inner.rotation.y=-s*PI/2;inner.position.x=-s*(w/2-0.02);sp.add(inner);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(R*0.6,R*0.6,0.03,28),brakeM);disc.rotation.z=PI/2;disc.position.x=s*(w/2-0.09);sp.add(disc);
+  const cal=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.13,0.2),calM);cal.position.set(s*(w/2-0.07),R*0.42,-0.1);pv.add(cal);
   wheels.push(sp);if(front)fronts.push(pv);};
- for(const s of [-1,1]){wheel(s*0.84,1.35,0.27,true);wheel(s*0.84,-1.35,0.33,false);}
- const blob=new THREE.Mesh(new THREE.PlaneGeometry(2.6,5.4),MATS.blob);blob.rotation.x=-PI/2;blob.position.y=0.03;root.add(blob);keep.add(blob);
- body.traverse(o=>{if(o.isMesh&&o.geometry.type==='BufferGeometry')keep.add(o);});
+ for(const s of [-1,1])for(const [wx,wz,R,w] of P9_WH)wheel(s*wx,wz,R,w,wz>0);
+ const blob=new THREE.Mesh(new THREE.PlaneGeometry(2.6,5.2),MATS.blob);blob.rotation.x=-PI/2;blob.position.y=0.03;root.add(blob);keep.add(blob);
+ body.traverse(o=>{if(o.isMesh)keep.add(o);});
  const detail=[];root.traverse(o=>{if(o.isMesh&&!keep.has(o))detail.push(o);});
  const ci=RAIN?3:0;
- return {root,body,wheels,fronts,lightM,brakeM,faces:[],spokes:[],blurs:[],covers:[],team,helmet,ci,blur:false,detail,far:false,gt:true,stock};
+ return {root,body,wheels,fronts,lightM,brakeM,faces:[],spokes:[],blurs:[],covers:[],team,helmet,ci,blur:false,detail,far:false,gt:true,p911:true,stock};
 }
 // codigo 2009: hiperauto inspirado en el Chiron Super Sport 300+: cola larga, parrilla en herradura, linea en "C" al costado,
 // carbono negro con franjas naranjas y cuatro escapes. La butaca va a la izquierda como en el de verdad; anda igual que el F1.
@@ -2173,7 +2348,7 @@ function aiLapTime(sk){const {N,ds}=track,vT=RAIN?track.vTw:track.vT,ac=RAIN?0.8
 /* ---------------- cabina del jugador ---------------- */
 // solo en tu auto: volante que gira con pantalla en vivo, luces de cambio, botones, perillas y levas; guantes y brazos que lo siguen;
 // espejos que reflejan de verdad (una camara trasera a baja resolucion, solo con las camaras de adentro).
-// En el deportivo ademas: tablero con pantalla, parantes, techo por dentro, jaula antivuelco, paneles de puerta y espejo interior
+// En el 911 y el hiperauto ademas: tablero con pantalla, parantes, techo por dentro, jaula antivuelco, paneles de puerta y espejo interior
 const MIR={rt:null,cam:null,n:0,a:new V3(),b:new V3()};
 function mirrorRT(){if(!MIR.rt){const w=isTouch?320:640,h=isTouch?96:192;MIR.rt=new THREE.WebGLRenderTarget(w,h,{encoding:THREE.sRGBEncoding});MIR.rt.texture.userData={shared:true};
  MIR.cam=new THREE.PerspectiveCamera(34,w/h,0.3,330);}return MIR.rt;}
@@ -2261,36 +2436,67 @@ function f1Cockpit(m,team){const M=ckMats(),K={grp:new THREE.Group(),mirrors:[],
  // espejos con reflejo de verdad (izquierdo: lado +x)
  for(const s of [-1,1])ckMirror(K,new THREE.CircleGeometry(1,32),s>0?0.5:0,s>0?1:0.5,K.grp,[s*0.56,0.745,0.5482],[0,PI,0]).scale.set(0.072,0.027,1);
  return K;}
-function gtCockpit(m,team){const M=ckMats(),K={grp:new THREE.Group(),mirrors:[],t:0,ledN:-1,lock:1.6,eye:[0,1.38,0]};m.body.add(K.grp);const G=K.grp;
- // el volante queda abajo de la linea de vista: se ve la parte de arriba con las luces de cambio y, atras, la pantalla del tablero
- const tilt=new THREE.Group();tilt.position.set(0,0.785,0.37);tilt.rotation.x=0.42;G.add(tilt);K.tilt=tilt;
- // volante tipo GT3: cuerpo rectangular con hueco arriba, grips de gamuza, pantallita al medio
- const rr=(s,x0,y0,x1,y1,r)=>{s.moveTo(x0+r,y0);s.lineTo(x1-r,y0);s.quadraticCurveTo(x1,y0,x1,y0+r);s.lineTo(x1,y1-r);s.quadraticCurveTo(x1,y1,x1-r,y1);s.lineTo(x0+r,y1);s.quadraticCurveTo(x0,y1,x0,y1-r);s.lineTo(x0,y0+r);s.quadraticCurveTo(x0,y0,x0+r,y0);};
- const sw=new THREE.Shape();rr(sw,-0.165,-0.1,0.165,0.1,0.055);const hole=new THREE.Path();rr(hole,-0.105,0.022,0.105,0.078,0.02);sw.holes.push(hole);
- const bg=new THREE.ExtrudeGeometry(sw,{depth:0.026,bevelEnabled:true,bevelThickness:0.005,bevelSize:0.005,bevelSegments:3,curveSegments:16});bg.translate(0,0,-0.013);
+// tablero del 911: cuentavueltas redondo al medio (hasta 9000, con marcha y velocidad adentro) y dos pantallas a los costados
+function drawP9Dash(L,c){const x=L.x,w=L.cv.width,h=L.cv.height,F='"Titillium Web",sans-serif',kmh=Math.round(Math.abs(c.v)*3.6);
+ x.fillStyle='#030405';x.fillRect(0,0,w,h);
+ const cx=w/2,cy=h*0.52,r=h*0.47,a0=PI*0.75,sw=PI*1.5,rpm=clamp(1000+((c.rpm||4000)-4000)/8500*8000,0,9000);
+ x.fillStyle='#0b0c0f';x.beginPath();x.arc(cx,cy,r,0,7);x.fill();x.strokeStyle='#3a3e46';x.lineWidth=2;x.stroke();
+ x.strokeStyle='#d0281f';x.lineWidth=5;x.beginPath();x.arc(cx,cy,r*0.86,a0+sw*8/9,a0+sw);x.stroke();
+ x.fillStyle='#e8ecf2';x.strokeStyle='#e8ecf2';x.textAlign='center';x.textBaseline='middle';x.font='700 '+Math.round(r*0.2)+'px '+F;
+ for(let v=0;v<=9;v+=0.5){const a=a0+sw*v/9,big=v%1===0;x.lineWidth=big?3:1.5;x.beginPath();x.moveTo(cx+Math.cos(a)*r*0.92,cy+Math.sin(a)*r*0.92);x.lineTo(cx+Math.cos(a)*r*(big?0.76:0.83),cy+Math.sin(a)*r*(big?0.76:0.83));x.stroke();
+  if(big)x.fillText(String(v),cx+Math.cos(a)*r*0.6,cy+Math.sin(a)*r*0.6);}
+ const a=a0+sw*rpm/9000;x.strokeStyle='#ff4d1a';x.lineWidth=4;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.cos(a)*r*0.88,cy+Math.sin(a)*r*0.88);x.stroke();
+ x.fillStyle='#16181c';x.beginPath();x.arc(cx,cy,r*0.3,0,7);x.fill();
+ const g=c.v<-0.5?'R':c.gear?String(c.gear):'N';x.fillStyle='#ffffff';x.font='900 '+Math.round(r*0.38)+'px '+F;x.fillText(g,cx,cy);
+ x.font='700 '+Math.round(r*0.2)+'px '+F;x.fillText(kmh,cx,cy+r*0.62);
+ // pantalla de la izquierda: ERS y gomas; la de la derecha: puesto, mejor vuelta o diferencia
+ const pw=w*0.3,ph=h*0.62,py=h*0.2;x.fillStyle='#07090c';x.fillRect(w*0.02,py,pw,ph);x.fillRect(w*0.68,py,pw,ph);
+ x.textAlign='left';x.fillStyle='#7d8794';x.font='600 '+Math.round(h*0.1)+'px '+F;x.fillText('ERS',w*0.05,py+ph*0.2);x.fillText('GOMAS',w*0.05,py+ph*0.62);
+ const bw=pw*0.86,ers=c.cheat?1:c.ers,tw=Math.max(0,1-c.tw);x.fillStyle='#1a1d22';x.fillRect(w*0.05,py+ph*0.33,bw,ph*0.1);x.fillRect(w*0.05,py+ph*0.75,bw,ph*0.1);
+ x.fillStyle=c.ersOn?'#fff36b':'#ffcc00';x.fillRect(w*0.05,py+ph*0.33,bw*ers,ph*0.1);x.fillStyle=COMPOUNDS[c.m.ci];x.fillRect(w*0.05,py+ph*0.75,bw*tw,ph*0.1);
+ let rt='',rc='#e6ebf2';
+ if(sess.type==='tt'){const dl=TT.delta;rt=dl==null?'--':(dl<0?'-':'+')+Math.abs(dl).toFixed(2);rc=dl==null?'#7d8794':dl<0?'#34c759':'#ff453a';}
+ else if(sess.type==='quali')rt=c.best<Infinity?fmt(c.best).replace(/^0:/,''):'--';
+ else rt='P'+(standings().indexOf(c)+1);
+ x.textAlign='center';x.fillStyle='#7d8794';x.font='600 '+Math.round(h*0.1)+'px '+F;x.fillText(sess.type==='tt'?'DELTA':sess.type==='quali'?'MEJOR':'POS',w*0.83,py+ph*0.22);
+ x.fillStyle=rc;x.font='800 '+Math.round(h*0.22)+'px '+F;x.fillText(rt,w*0.83,py+ph*0.62);
+ L.t.needsUpdate=true;}
+// cabina del 911 GT3 RS: volante redondo de tres rayos con la marca amarilla arriba, tablero con capucha sobre los relojes y luces
+// de cambio, consola, butaca del acompañante, paneles de puerta, parantes, techo y la jaula antivuelco atras; piloto a la izquierda
+function p9Cockpit(m,team){const M=ckMats(),OX=P9_OX,K={grp:new THREE.Group(),mirrors:[],t:0,ledN:-1,lock:1.6,eye:[OX,1.2,-0.45],dashFn:drawP9Dash};m.body.add(K.grp);const G=K.grp;
+ const tilt=new THREE.Group();tilt.position.set(OX,0.84,0.04);tilt.rotation.x=0.42;G.add(tilt);K.tilt=tilt;
+ const ring=new THREE.Shape();ring.absarc(0,0,0.185,0,PI*2,false);const hole=new THREE.Path();hole.absarc(0,0,0.155,0,PI*2,true);ring.holes.push(hole);
+ const bar=(x0,y0,x1,y1,t)=>{const s=new THREE.Shape(),dx=x1-x0,dy=y1-y0,l=Math.hypot(dx,dy),nx=-dy/l*t,ny=dx/l*t;s.moveTo(x0+nx,y0+ny);s.lineTo(x1+nx,y1+ny);s.lineTo(x1-nx,y1-ny);s.lineTo(x0-nx,y0-ny);s.closePath();return s;};
+ const hub=new THREE.Shape();hub.absarc(0,0,0.055,0,PI*2,false);
+ const ex=sh=>{const g=new THREE.ExtrudeGeometry(sh,{depth:0.028,bevelEnabled:true,bevelThickness:0.005,bevelSize:0.005,bevelSegments:3,curveSegments:32});g.translate(0,0,-0.014);return g;};
+ const bg=mergeGeos([ex(ring),ex(hub),ex(bar(-0.16,0.0,-0.05,0.0,0.022)),ex(bar(0.05,0.0,0.16,0.0,0.022)),ex(bar(0,-0.05,0,-0.16,0.02))]);
+ const leather=new THREE.MeshStandardMaterial({color:new THREE.Color('#141414').convertSRGBToLinear(),roughness:0.85});
  const cuff=new THREE.MeshStandardMaterial({color:new THREE.Color(team.ui).convertSRGBToLinear(),roughness:0.6});
- ckWheel(K,tilt,{body:bg,bodyMat:MATS.carbon,d:0.026,gripMat:M.suede,gx:0.146,gy:-0.01,gs:[0.03,0.078,0.034],cuff,sw:0.1,sh:0.052,sy:-0.03,lw:0.17,ly:0.09,
-  btn:[[-0.078,-0.012],[0.078,-0.012],[-0.078,-0.04],[0.078,-0.04],[-0.078,-0.066],[0.078,-0.066]],knobs:[[-0.04,-0.078,0.009],[0,-0.08,0.009],[0.04,-0.078,0.009]],
-  padMat:M.alu,pw:0.075,ph:0.05,px:0.105,py:0.0,clutch:false,col:0.024});
- ckArms(K,G,new THREE.MeshStandardMaterial({color:new THREE.Color(team.c1).convertSRGBToLinear().multiplyScalar(0.55),roughness:0.85}),[0.19,0.69,-0.26]);
- // tablero con borde redondeado, capucha y pantalla (revoluciones, marcha, velocidad) asomando arriba del volante
- ckMesh(new THREE.BoxGeometry(1.1,0.14,0.32),M.dash,G,[0,0.77,0.66]);ckMesh(new THREE.CylinderGeometry(0.07,0.07,1.1,24),M.dash,G,[0,0.77,0.5],[0,0,PI/2]);
- ckMesh(new THREE.BoxGeometry(0.34,0.022,0.13),M.dash,G,[0,0.93,0.63]);ckMesh(new THREE.BoxGeometry(0.3,0.1,0.03),M.dash,G,[0,0.885,0.625],[0.15,0,0]);
- const D=ckCanvas(320,120);K.dash=D;ckMesh(new THREE.PlaneGeometry(0.26,0.085),new THREE.MeshBasicMaterial({map:D.t,toneMapped:false}),G,[0,0.885,0.609],[0.15,PI,0]);
- // parantes, travesaño del parabrisas, techo por dentro, jaula antivuelco y paneles de puerta
- const tube=new THREE.CylinderGeometry(1,1,1,16),bar=(mat,r,a,b)=>{const t=ckMesh(tube,mat,G);ckSeg(t,new V3(...a),new V3(...b));t.scale.x=t.scale.z=r;};
- for(const s of [-1,1]){bar(M.dash,0.03,[s*0.6,0.84,0.84],[s*0.5,1.13,0.28]);
-  bar(M.cage,0.022,[s*0.52,0.32,-0.55],[s*0.46,1.1,-0.55]);bar(M.cage,0.022,[s*0.46,1.1,-0.55],[s*0.49,1.115,0.26]);bar(M.cage,0.02,[s*0.49,1.115,0.26],[s*0.56,0.84,0.8]);
-  bar(M.cage,0.02,[s*0.55,0.66,0.74],[s*0.53,0.66,-0.55]);bar(M.cage,0.018,[s*0.55,0.45,0.62],[s*0.53,0.86,-0.5]);
-  ckMesh(new THREE.PlaneGeometry(1.3,0.34),M.door,G,[s*0.565,0.62,0.05],[0,-s*PI/2,0]);}
- bar(M.dash,0.03,[-0.5,1.13,0.28],[0.5,1.13,0.28]);bar(M.cage,0.022,[-0.46,1.1,-0.55],[0.46,1.1,-0.55]);bar(M.cage,0.02,[-0.46,1.1,-0.55],[0.5,0.32,-0.55]);
- ckMesh(new THREE.PlaneGeometry(1.06,0.9),M.liner,G,[0,1.104,-0.14],[PI/2,0,0]);
- // espejo interior arriba al medio (centro de la imagen) y espejos de afuera (cada costado)
- bar(M.dash,0.007,[0,1.128,0.56],[0,1.105,0.545]);ckMesh(new THREE.BoxGeometry(0.175,0.055,0.016),M.dash,G,[0,1.09,0.54],[0.1,0,0]);
- ckMirror(K,new THREE.PlaneGeometry(0.16,0.042),0.32,0.68,G,[0,1.09,0.531],[0.1,PI,0]);
- for(const s of [-1,1])ckMirror(K,new THREE.PlaneGeometry(0.17,0.085),s>0?0.55:0,s>0?1:0.45,G,[s*0.88,0.95,0.548],[0,PI,0]);
+ ckWheel(K,tilt,{body:bg,bodyMat:leather,d:0.028,gripMat:M.suede,gx:0.17,gy:0.0,gs:[0.022,0.065,0.03],cuff,sw:0.03,sh:0.02,sy:0,lw:0.001,ly:-0.03,
+  btn:[[-0.1,0.012],[0.1,0.012],[-0.1,-0.012],[0.1,-0.012]],knobs:[[0,-0.105,0.011]],padMat:M.alu,pw:0.07,ph:0.045,px:0.12,py:0.02,clutch:false,col:0.026});
+ // marca amarilla a las 12
+ ckMesh(new THREE.BoxGeometry(0.03,0.03,0.05),new THREE.MeshStandardMaterial({color:new THREE.Color('#f2c200').convertSRGBToLinear(),roughness:0.6}),K.spin,[0,0.17,0]);
+ ckArms(K,G,new THREE.MeshStandardMaterial({color:new THREE.Color(own(team)?team.c1:'#1c1d22').convertSRGBToLinear(),roughness:0.85}),[0.2,0.72,-0.62],OX);
+ // tablero de lado a lado, mas bajo que los guardabarros (se ven las dos jorobas de adelante) y capucha sobre los relojes
+ ckMesh(new THREE.BoxGeometry(1.3,0.12,0.32),leather,G,[0,0.82,0.4]);ckMesh(new THREE.CylinderGeometry(0.06,0.06,1.3,24),leather,G,[0,0.82,0.24],[0,0,PI/2]);
+ ckMesh(new THREE.BoxGeometry(0.46,0.025,0.17),leather,G,[OX,0.925,0.34]);ckMesh(new THREE.BoxGeometry(0.44,0.13,0.03),M.dash,G,[OX,0.86,0.31],[0.15,0,0]);
+ const D=ckCanvas(384,128);K.dash=D;ckMesh(new THREE.PlaneGeometry(0.4,0.13),new THREE.MeshBasicMaterial({map:D.t,toneMapped:false}),G,[OX,0.86,0.294],[0.15,PI,0]);
+ const E=ckCanvas(240,16);K.leds2=E;ckMesh(new THREE.PlaneGeometry(0.2,0.012),new THREE.MeshBasicMaterial({map:E.t,toneMapped:false}),G,[OX,0.912,0.325],[0.15,PI,0]);
+ // consola del medio con la palanca, butaca del acompañante y paneles de puerta
+ ckMesh(new THREE.BoxGeometry(0.2,0.14,0.8),leather,G,[0,0.62,-0.05]);ckMesh(new THREE.CylinderGeometry(0.018,0.022,0.09,14),M.alu,G,[0,0.73,-0.15]);
+ ckMesh(new THREE.BoxGeometry(0.48,0.6,0.12),leather,G,[-OX,0.74,-0.7],[-0.18,0,0]);
+ const tube=new THREE.CylinderGeometry(1,1,1,16),rod=(mat,r,a,b)=>{const t=ckMesh(tube,mat,G);ckSeg(t,new V3(...a),new V3(...b));t.scale.x=t.scale.z=r;};
+ for(const s of [-1,1]){rod(M.dash,0.03,[s*0.67,0.86,0.56],[s*0.62,1.25,-0.09]);ckMesh(new THREE.PlaneGeometry(1.3,0.34),M.door,G,[s*0.66,0.68,-0.3],[0,-s*PI/2,0]);
+  // jaula antivuelco detras de las butacas
+  rod(M.cage,0.022,[s*0.6,0.4,-0.98],[s*0.52,1.2,-0.98]);rod(M.cage,0.02,[s*0.52,1.2,-0.98],[s*0.42,0.96,-1.45]);}
+ rod(M.dash,0.03,[-0.62,1.25,-0.09],[0.62,1.25,-0.09]);rod(M.cage,0.022,[-0.52,1.2,-0.98],[0.52,1.2,-0.98]);rod(M.cage,0.02,[-0.52,1.2,-0.98],[0.6,0.4,-0.98]);
+ ckMesh(new THREE.PlaneGeometry(1.15,0.85),M.liner,G,[0,1.285,-0.5],[PI/2,0,0]);
+ // espejo interior y espejos de afuera que reflejan
+ rod(M.dash,0.007,[0,1.25,-0.08],[0,1.22,-0.09]);ckMesh(new THREE.BoxGeometry(0.175,0.055,0.016),M.dash,G,[0,1.2,-0.1],[0.1,0,0]);
+ ckMirror(K,new THREE.PlaneGeometry(0.16,0.042),0.32,0.68,G,[0,1.2,-0.109],[0.1,PI,0]);
+ for(const s of [-1,1])ckMirror(K,new THREE.PlaneGeometry(0.17,0.075),s>0?0.55:0,s>0?1:0.45,G,[s*0.92,0.99,0.288],[0,PI,0]);
  return K;}
-function addCockpit(car){const m=car.m;if(m.kit)return;m.kit=m.hyper?hyCockpit(m,m.team):m.gt?gtCockpit(m,m.team):f1Cockpit(m,m.team);m.kit.tilt.updateMatrix();for(const s of m.stock)s.visible=false;}
+function addCockpit(car){const m=car.m;if(m.kit)return;m.kit=m.hyper?hyCockpit(m,m.team):m.p911?p9Cockpit(m,m.team):f1Cockpit(m,m.team);m.kit.tilt.updateMatrix();for(const s of m.stock)s.visible=false;}
 // camara trasera para los espejos: arriba de la cabeza mirando para atras (cada 2 cuadros; en el celu cada 4)
 function updateMirrors(){const c=player;if(!c||!c.m.kit||!(camMode===1||camMode===2)||!(state==='race'||state==='countdown'||state==='finished'))return;
  if((MIR.n++)%(isTouch?4:2))return;const K=c.m.kit,cam=MIR.cam,b=c.m.body;mirrorRT();b.updateMatrixWorld();
@@ -2313,7 +2519,7 @@ function buildRace0(){
  else{const ais=L.filter(c=>!c.isPlayer).sort((a,b)=>b.skill-a.skill);order=ais.slice();order.splice(5,0,me);}
  const {N,P,NL,H}=track;
  order.forEach((c,slot)=>{
-  // con el codigo 2011 tu auto es un deportivo
+  // con el codigo 1705 tu auto es un Porsche 911 GT3 RS
   const nm=sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop(),m=(c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm);carsGroup.add(m.root);
   const q=solo();const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
   const car=Object.assign(c,{m,s:gi-N,s0:gi-N,prog:gi-N,idx:gi,lane:lat,laneT:lat,lat:lat,startLane:lat,pref:rnd(-1.4,1.4),v:0,steer:0,head:H[gi],pos:new V3(P[gi].x+NL[gi].x*lat,P[gi].y,P[gi].z+NL[gi].z*lat),
@@ -2558,11 +2764,11 @@ function updateCamera(dt){
  let p,l,kk;
  if(camMode===0){p=c.pos.clone().addScaledVector(f,-8.8);p.y=c.pos.y+3.1;l=c.pos.clone().addScaledVector(fc,5);l.y=hA(c,5)+1.1;kk=1-Math.exp(-dt*9);}
  // TV Pod: justo arriba de la cabeza, mirando 8 grados hacia abajo: el halo cruza la pantalla y abajo se ven el volante, los espejos y las ruedas
- // en el deportivo: camara 1 arriba del techo y camara 2 en la butaca (al medio)
+ // en los autos de calle: camara 1 arriba del techo y camara 2 en la butaca
  else if(camMode===1){p=c.pos.clone().addScaledVector(fc,c.m.gt?-0.2:-0.1);p.y=c.pos.y+(c.m.gt?1.5:1.18);l=c.pos.clone().addScaledVector(fc,14);l.y=hA(c,14)-0.79;kk=1;}
- else if(camMode===2){p=c.pos.clone().addScaledVector(fc,c.m.gt?-0.1:-0.08);p.y=c.pos.y+(c.m.gt?1.0:0.88);l=c.pos.clone().addScaledVector(fc,30);l.y=hA(c,30)+0.78;kk=1;
-  // en el hiperauto el piloto va sentado a la izquierda
-  if(c.m.hyper){const rx=Math.cos(c.head)*HY_OX,rz=-Math.sin(c.head)*HY_OX;p.x+=rx;p.z+=rz;l.x+=rx;l.z+=rz;}}
+ else if(camMode===2){p=c.pos.clone().addScaledVector(fc,c.m.p911?-0.45:c.m.gt?-0.1:-0.08);p.y=c.pos.y+(c.m.p911?1.06:c.m.gt?1.0:0.88);l=c.pos.clone().addScaledVector(fc,30);l.y=hA(c,30)+0.78;kk=1;
+  // en el hiperauto y en el 911 el piloto va sentado a la izquierda
+  const ox=c.m.hyper?HY_OX:c.m.p911?P9_OX:0;if(ox){const rx=Math.cos(c.head)*ox,rz=-Math.sin(c.head)*ox;p.x+=rx;p.z+=rz;l.x+=rx;l.z+=rz;}}
  else{p=c.pos.clone().addScaledVector(f,-14);p.y=c.pos.y+9.5;l=c.pos.clone().addScaledVector(fc,8);l.y=hA(c,8)+0.5;kk=1-Math.exp(-dt*6);}
  camPos.lerp(p,kk);camLook.lerp(l,onb?1:1-Math.exp(-dt*12));
  camera.position.copy(camPos);
@@ -2851,7 +3057,7 @@ function startRace(){$('olNet').classList.add('hidden');ONL.netT=0;
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(solo()){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg(SNAME[sess.type]+' · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
- if(player.cheat||player.m.gt||player.assist||player.grass)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.hyper?"Código 2009 · Chiron Super Sport 300+":player.m.gt?"Código 2011 · auto deportivo":"",player.assist?"Código 0900 · ayudas":"",player.grass?"Código 0800 · el pasto no frena":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
+ if(player.cheat||player.m.gt||player.assist||player.grass)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.hyper?"Código 2009 · Chiron Super Sport 300+":player.m.gt?"Código 1705 · Porsche 911 GT3 RS":"",player.assist?"Código 0900 · ayudas":"",player.grass?"Código 0800 · el pasto no frena":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
  $('pEnd').classList.toggle('hidden',!solo());$('pEnd').textContent=sess.type==='tt'?'Terminar tanda':'Terminar clasificación';$('boxPanel').classList.add('hidden');
  $('c').focus();
 }
@@ -3095,7 +3301,7 @@ peSync();
 
 /* ---------------- codigo secreto ---------------- */
 // 1312: gomas que no se gastan, auto que no se rompe, ERS infinito y mucha mas aceleracion
-// 2011: corres con un auto deportivo (solo vos; anda igual que el F1)
+// 1705: corres con un Porsche 911 GT3 RS (solo vos; anda igual que el F1)
 // 0900: ayudas de manejo (frena solo antes de las curvas y ayuda a doblar)
 // 0800: el pasto y la grava son como la pista (no frenan); esas vueltas no cuentan para récords ni ranking
 // 2009: corres con el hiperauto (Chiron Super Sport 300+); anda igual que el F1, asi que las vueltas cuentan
@@ -3103,7 +3309,7 @@ peSync();
 const CODE={on:false,sport:false,assist:false,grass:false,hyper:false,buf:'',t:0};
 function setCode(k,v){if(k===false)CODE.on=CODE.sport=CODE.assist=CODE.grass=CODE.hyper=false;else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist||CODE.grass||CODE.hyper;
  $('codeBtn').classList.toggle('on',any);$('codeOn').classList.toggle('hidden',!any);
- $('codeOn').textContent=[CODE.on?'Código 1312 activo: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.':'',CODE.sport?'Código 2011 activo: corrés con un auto deportivo.':'',CODE.assist?'Código 0900 activo: ayudas para frenar y doblar.':'',CODE.grass?'Código 0800 activo: el pasto y la grava no te frenan (esas vueltas no cuentan para récords).':'',CODE.hyper?'Código 2009 activo: corrés con el hiperauto Chiron Super Sport 300+.':''].filter(Boolean).join(' ')+' Vale para la próxima carrera.';}
+ $('codeOn').textContent=[CODE.on?'Código 1312 activo: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.':'',CODE.sport?'Código 1705 activo: corrés con un Porsche 911 GT3 RS.':'',CODE.assist?'Código 0900 activo: ayudas para frenar y doblar.':'',CODE.grass?'Código 0800 activo: el pasto y la grava no te frenan (esas vueltas no cuentan para récords).':'',CODE.hyper?'Código 2009 activo: corrés con el hiperauto Chiron Super Sport 300+.':''].filter(Boolean).join(' ')+' Vale para la próxima carrera.';}
 function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textContent=CODE.buf[i]||'';s.classList.toggle('f',i<CODE.buf.length);});
  if(msg!==undefined){const m=$('codeMsg');m.textContent=msg;m.className='padmsg'+(cls?' '+cls:'');}}
 function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');$('codePad').classList.remove('hidden');}
@@ -3116,7 +3322,7 @@ function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');ret
  if(CODE.buf==='0800'){setCode('grass',true);codeSync('¡El pasto ya no te frena en la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==="0900"){setCode("assist",true);codeSync("¡Ayudas activadas para la próxima carrera!","ok");CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='2009'){setCode('hyper',true);if(state==='menu')buildRace();codeSync('¡Chiron Super Sport 300+ para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
- if(CODE.buf==='2011'){setCode('sport',true);if(state==='menu')buildRace();codeSync('¡Auto deportivo para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ if(CODE.buf==='1705'){setCode('sport',true);if(state==='menu')buildRace();codeSync('¡Porsche 911 GT3 RS para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  CODE.buf='';codeSync('Código incorrecto','bad');const p=$('codePad').querySelector('.pad');p.classList.remove('shake');void p.offsetWidth;p.classList.add('shake');}
 for(const k of ['1','2','3','4','5','6','7','8','9','del','0','ok']){const b=document.createElement('button');b.textContent=k==='del'?'⌫':k==='ok'?'OK':k;if(k==='ok')b.className='ok';
  if(k==='del')b.setAttribute('aria-label','Borrar');b.onclick=()=>codeKey(k);$('keypad').appendChild(b);}
@@ -3297,7 +3503,7 @@ function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''})
 // jugadores que se escucharon en los ultimos 12 s (y vos)
 function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
 function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
- const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · Chiron':p.gt?' · deportivo':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
+ const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · Chiron':p.gt?' · 911 GT3 RS':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
  $('olNetHint').classList.toggle('hidden',!L.some(p=>!p.me&&p2pState(p.u)==='sb'));$('olHostCfg').classList.toggle('hidden',!ONL.host);
  if(ONL.host){$('olCirc').textContent=CIRCUITS[ONL.cfg.ci].name;for(const b of $('olLaps').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.laps);for(const b of $('olW').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.rain);
   $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
