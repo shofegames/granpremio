@@ -3795,7 +3795,7 @@ async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
  const q=await rpc('gp_online_quota',{p_token:NET.sess.t});
  if(q.error==='sesion'){NET.sess=null;netSave();acctSync();olView('noacc');return;}
  if(q.error){$('olQuota').textContent=NET_ERR.red;return;}
- ONL.quota=q;$('olCreate').classList.toggle('hidden',!q.vip);$('olJoinHint').textContent=q.vip?'¿Te pasaron un código? Ponelo acá:':'Las salas las crea filcman: pedile el código y ponelo acá, o tocá el botón cuando aparezca.';$('olQuota').textContent=q.vip?'Sin límite de carreras online por día.':'Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';vipCheck();}
+ ONL.quota=q;$('olCreate').classList.remove('hidden');$('olJoinHint').textContent='¿Te pasaron un código? Ponelo acá:';$('olQuota').textContent=q.vip?'Sin límite de carreras online por día.':'Te quedan '+q.day_left+' de '+q.per_day+' carreras online hoy · quedan '+q.month_left+' este mes entre todos.';vipCheck();}
 // boton raro "Jugar conmigo": solo aparece mientras filcman tiene una sala abierta, y te mete directo en ella
 let vipT=0;
 async function vipCheck(){clearTimeout(vipT);const b=$('olVip');if(!NET.sess||ONL.code||$('onlinePad').classList.contains('hidden')){b.classList.add('hidden');return;}
