@@ -125,6 +125,39 @@ body.touch #lights{top:24%;gap:8px;padding:8px 12px}
 body.touch #lights i{width:26px;height:26px}
 #rotate{display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 120px);left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;white-space:nowrap}
 @media (orientation:portrait){body.touch #rotate{display:block}}
+/* tablets (iPad): la pantalla es grande, asi que el tablero, los botones y los textos van mas grandes que en el celu */
+body.touch.tab .tl{top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(env(safe-area-inset-left,0px) + 14px);gap:8px}
+body.touch.tab .posbox{padding:7px 16px 8px 14px;border-radius:14px 4px 4px 14px}
+body.touch.tab .posbox b{font-size:44px}
+body.touch.tab .posbox small{font-size:14px}
+body.touch.tab .timebox{padding:8px 15px;column-gap:16px;border-radius:4px 14px 14px 4px}
+body.touch.tab .timebox span{font-size:13px}
+body.touch.tab .timebox em{font-size:19px}
+body.touch.tab #map{top:calc(env(safe-area-inset-top,0px) + 14px);right:calc(env(safe-area-inset-right,0px) + 14px);width:160px;height:160px;border-radius:14px}
+body.touch.tab #topbtns{top:calc(env(safe-area-inset-top,0px) + 14px);right:calc(env(safe-area-inset-right,0px) + 188px);gap:10px}
+body.touch.tab .ibtn{height:48px;padding:0 18px;font-size:16px;border-radius:12px}
+body.touch.tab #dash{transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);gap:18px;padding:12px 22px;border-radius:16px}
+body.touch.tab #gear{font-size:52px;width:44px}
+body.touch.tab .spd{min-width:120px}
+body.touch.tab .spd b{font-size:46px}
+body.touch.tab .spd small{font-size:13px}
+body.touch.tab .bars{width:170px;gap:5px}
+body.touch.tab .bar{height:9px}
+body.touch.tab .barlbl{font-size:12px}
+body.touch.tab #touch{bottom:calc(env(safe-area-inset-bottom,0px) + 22px);padding:0 calc(env(safe-area-inset-right,0px) + 24px) 0 calc(env(safe-area-inset-left,0px) + 24px)}
+body.touch.tab #touch .grp{gap:18px}
+body.touch.tab .tbtn.big{width:min(150px,19vh);height:min(150px,19vh);font-size:30px}
+body.touch.tab #touch .grp:last-child{gap:14px 18px}
+body.touch.tab #tErs{width:min(100px,13vh);height:min(100px,13vh);font-size:18px}
+body.touch.tab #tBrake{width:min(130px,17vh);height:min(130px,17vh);font-size:21px}
+body.touch.tab #tGas{width:min(170px,22vh);height:min(170px,22vh);font-size:21px}
+body.touch.tab #msg{font-size:34px}
+body.touch.tab #boxPanel{top:calc(env(safe-area-inset-top,0px) + 74px);right:calc(env(safe-area-inset-right,0px) + 188px);padding:8px 10px 8px 14px;gap:10px}
+body.touch.tab #boxPanel b{font-size:16px}
+body.touch.tab #boxPanel .cmp{gap:8px}
+body.touch.tab #boxPanel .cmp button{height:48px;padding:0 14px;font-size:16px}
+body.touch.tab #lights{gap:12px;padding:12px 16px}
+body.touch.tab #lights i{width:40px;height:40px}
 @media (max-width:760px){#tower{display:none}#map{width:118px;height:118px}.posbox b{font-size:32px}.timebox em{font-size:15px}#topbtns{top:calc(env(safe-area-inset-top,0px) + 140px)}#msg{font-size:26px}#lights i{width:28px;height:28px}}
 
 /* overlays */
@@ -245,6 +278,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .net.dir{color:#34c759}.net.sb{color:#ffcc00}.net.con{color:var(--muted)}.net.mix{color:#ff9f0a}
 #olNet{position:absolute;right:calc(env(safe-area-inset-right,0px) + 12px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
 body.touch #olNet{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 106px);right:calc(env(safe-area-inset-right,0px) + 8px);padding:3px 8px;font-size:11px}
+body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(env(safe-area-inset-right,0px) + 14px);padding:5px 12px;font-size:14px}
 #onlinePad h3{margin:14px 0 8px}
 @media (max-width:760px){#menu{background:rgba(6,7,11,.9)}.mp{padding-left:calc(env(safe-area-inset-left,0px) + 18px);padding-right:18px}}
 @media (prefers-reduced-motion: reduce){#msg{transition:none}.pad.shake{animation:none}}
@@ -466,6 +500,8 @@ const $=id=>document.getElementById(id);
 if(typeof THREE==='undefined'){$('loading').textContent='No se pudo cargar el motor 3D. Revisá la conexión y recargá la página.';return;}
 const isTouch=matchMedia('(pointer: coarse)').matches;
 if(isTouch)document.body.classList.add('touch');
+// tablet (iPad y parecidos): pantalla tactil grande; el lado mas corto de la pantalla del celu nunca llega a 700
+if(isTouch&&Math.min(screen.width,screen.height)>=700)document.body.classList.add('tab');
 const V3=THREE.Vector3, PI=Math.PI;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
