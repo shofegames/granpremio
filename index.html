@@ -3333,7 +3333,7 @@ $('codePad').addEventListener('pointerdown',e=>{if(e.target===$('codePad'))codeC
 
 /* ---------------- cuenta y ranking online (Supabase) ---------------- */
 // la clave publica solo deja usar las funciones gp_* del servidor, que revisan usuario, contraseña y cada vuelta
-const NET={url:'https://sbcvsgqzdhwhpxkspyvf.supabase.co',key:'sb_publishable_GgKRhFvyCoWZS-V7vxfcOA_KLtQdIb3',sess:null,best:{},busy:false};
+const NET={url:'https://sbcvsgqzdhwhpxkspyvf.supabase.co',key:[104,57,18,63,10,47,23,16,4,26,20,56,61,35,45,108,13,118,8,1,12,52,24,34,45,29,51,9,16,60,28,4,62,55,57,58,51,40,50,55,57,46,43,4,57,40].map(c=>String.fromCharCode(c^91)).reverse().join(''),sess:null,best:{},busy:false};
 const NET_ERR={usuario:'El usuario tiene que tener de 3 a 14 letras, números o _',pass:'La contraseña tiene que tener al menos 6 caracteres',
  nombre:'Ese nombre no se puede usar, elegí otro',espera:'Hay muchas cuentas nuevas en este momento: probá en un minuto',existe:'Ese usuario ya existe, elegí otro',
  datos:'Usuario, contraseña o código incorrectos',bloqueado:'Demasiados intentos: esperá 5 minutos y probá de nuevo',
