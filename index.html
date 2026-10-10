@@ -2657,11 +2657,13 @@ function playerStep(dt){
  // limites de pista: con las 4 ruedas afuera del asfalto y los pianos mas de medio segundo, la vuelta se anula
  if(live&&!c.grass&&!c.lapBad&&(c.timing||!solo())&&a>HALF+(track.kerb[i]?1.8:0.2)+1.0){c.offT+=dt;if(c.offT>0.5){c.lapBad=true;showMsg('Vuelta anulada · límites de pista',1800);}}
  c.ersOn=inp.ers&&thr>0&&c.ers>0.01&&live&&!c.pit;
- const vmax=((surf==='asf'||surf==='kerb'?93:surf==='pasto'?45:28)+(c.ersOn?7:0))*(1-0.12*c.dmg);
+ // online: si filcman mantiene la F y vas adelante, tu auto rinde un poco menos (12% menos de velocidad maxima, 30% menos de empuje)
+ const slow=c.slowT>0&&performance.now()<c.slowT;
+ const vmax=((surf==='asf'||surf==='kerb'?93:surf==='pasto'?45:28)+(c.ersOn?7:0))*(1-0.12*c.dmg)*(slow?0.88:1);
  let acc=0;
  // con el codigo 1312 acelera mucho mas fuerte
  // acelerador analogico (gatillo del control): a medio pie empuja menos y frena un poco con el motor
- if(thr>0){acc+=thr*(15.5*(c.cheat?1.8:1)*(1-Math.pow(Math.max(c.v,0)/vmax,2))*(c.spinT>0?0.7:1)*(RAIN?0.85:1)+(c.ersOn?5:0));if(thr<1)acc-=(1-thr)*(1.5+c.v*Math.abs(c.v)*0.0011);}
+ if(thr>0){acc+=thr*(15.5*(c.cheat?1.8:1)*(slow?0.7:1)*(1-Math.pow(Math.max(c.v,0)/vmax,2))*(c.spinT>0?0.7:1)*(RAIN?0.85:1)+(c.ersOn?5:0));if(thr<1)acc-=(1-thr)*(1.5+c.v*Math.abs(c.v)*0.0011);}
  else acc-=1.5+c.v*Math.abs(c.v)*0.0011;
  if(brk>0){if(c.v>0.5)acc-=brk*(12+0.36*c.v)*(0.6+0.4*grip);else if(live)acc-=7;else acc-=4;}
  if(surf==='grava')acc-=c.v*0.6;else if(surf==='pasto')acc-=c.v*0.15;
@@ -3429,7 +3431,8 @@ function p2pDc(u,q,dc){q.dc=dc;
  dc.onopen=()=>{q.heard=performance.now();P2P.tries.set(u,0);olRender();};
  dc.onclose=()=>{if(P2P.peers.get(u)===q){p2pDrop(u);olRender();}};
  dc.onmessage=e=>{if(typeof e.data!=='string'||e.data.length>600)return;let m;try{m=JSON.parse(e.data);}catch(x){return;}
-  if(m&&m.p&&typeof m.p==='object'&&m.p.u===u){q.heard=performance.now();olOnMsg('p',m.p);}};}
+  if(m&&m.p&&typeof m.p==='object'&&m.p.u===u){q.heard=performance.now();olOnMsg('p',m.p);}
+  else if(m&&m.z&&typeof m.z==='object'&&m.z.u===u)olOnMsg('z',m.z);};}
 // esperar los caminos posibles (asi va todo en un solo mensaje, sin mandar candidatos sueltos)
 function iceDone(pc){return new Promise(r=>{if(pc.iceGatheringState==='complete')return r();
  const f=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',f);r();}};pc.addEventListener('icegatheringstatechange',f);setTimeout(r,2500);});}
@@ -3457,6 +3460,10 @@ function olNetHud(now){const el=$('olNet');if(!sess.online){el.classList.add('hi
  const d=S.filter(s=>s==='dir').length,k=d===S.length?'dir':d?'mix':S.includes('con')?'con':'sb';
  el.className='glass net '+k;el.textContent='● '+(k==='mix'?'Directo '+d+'/'+S.length:NETTXT[k]);}
 // mandar mi posicion: directo a cada uno; si a alguno no le llega directo (o hace rato que no se lo escucha), tambien por Supabase
+// filcman manteniendo la F: avisa a los demas por donde va; el que esta adelante anda un poco mas lento (sin ningun cartel)
+function p2pSendZ(z){const s=JSON.stringify({z});let all=true;
+ for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){all=false;}}else all=false;}
+ if(!all)rtSend('z',z);}
 function p2pSendP(p,now){const s=JSON.stringify({p});let all=true;
  for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);
   if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){all=false;}if(now-q.heard>1500)all=false;}else all=false;}
@@ -3539,6 +3546,8 @@ function olOnMsg(ev,p){
   if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||!p.a.every(isNum))return;
   // puede llegar dos veces (directo y por Supabase): se usa solo el mas nuevo
   if(Number.isInteger(p.n)){if(isNum(c.lastN)&&p.n<=c.lastN&&p.n>c.lastN-1000)return;c.lastN=p.n;}c.snap.push({t:performance.now(),a:p.a});if(c.snap.length>4)c.snap.shift();c.heard=performance.now();return;}
+ if(ev==='z'){if(!ONL.inRace||p.u!=='filcman'||!NET.sess||NET.sess.u==='filcman'||!isNum(p.g)||!player||player.finished)return;
+  if(player.prog>p.g+0.5)player.slowT=performance.now()+700;return;}
  if(ev==='fin'){const c=cars.find(o=>o.remote&&o.driver===p.u);if(!c||!isNum(p.t)||p.t<10||p.t>7200)return;c.finished=true;c.finishTime=p.t;if(isNum(p.best)&&p.best>0)c.best=p.best;
   if(finishShown&&ONL.inRace)olResults();return;}}
 // grilla online: solo los jugadores de la sala, en el orden sorteado (vos con tu escuderia, los demas con la suya)
@@ -3551,6 +3560,8 @@ function olGo(g){const t0=performance.now();ONL.inRace=true;ONL.finSent=false;$(
  withCircuit(g.ci,()=>{startRace();lightsOutAt=g.lo;lightsT=-Math.max(0,(t0+3500-performance.now())/1000);});}
 // mi auto: 10 veces por segundo en carrera (2 por segundo en la largada y despues de llegar)
 function olSend(now){if(!ONL.inRace||!player)return;
+ // filcman: mientras mantiene la F, 4 veces por segundo manda por donde va
+ if(NET.sess&&NET.sess.u==='filcman'&&keys.KeyF&&state==='race'&&!player.finished&&now-(ONL.zT||0)>250){ONL.zT=now;p2pSendZ({u:'filcman',g:Math.round(player.prog*100)/100});}
  // al llegar se avisa una vez el tiempo final
  if(player.finished&&!ONL.finSent&&RT.joined){ONL.finSent=true;rtSend("fin",{u:NET.sess.u,t:Math.round(player.finishTime*1000)/1000,best:isFinite(player.best)?Math.round(player.best*1000)/1000:0});}const fast=state==='race'&&!player.finished;if(now-ONL.lastSend<(fast?100:500))return;ONL.lastSend=now;
  const c=player,r2=v=>Math.round(v*100)/100;
