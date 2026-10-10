@@ -306,7 +306,7 @@ body.touch #olNet{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 106px);rig
     <div id="fmtRow"><h3>Formato del fin de semana</h3><div class="seg" id="segFmt"><button data-v="0">Clasif + Carrera</button><button data-v="1">Clasif + Sprint + Carrera</button></div></div>
     <h3>Tu piloto</h3>
     <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
-    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button></div></div>
+    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button><button class="btn sm" id="olBtn">Online</button></div></div>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
     <button class="btn wide" id="paintBtn">Pintar mi auto y casco</button>
@@ -420,7 +420,7 @@ body.touch #olNet{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 106px);rig
     <div id="olLobby" class="hidden">
       <div class="roomcode"><span>Código de la sala</span><b id="olRoom"></b><button class="btn sm" id="olCopy">Copiar</button></div>
       <div class="olplayers" id="olPlayers"></div>
-      <p class="hint hidden" id="olNetHint">Supabase = el WiFi no deja conectarse directo con ese jugador. La carrera anda igual.</p>
+      <p class="hint hidden" id="olNetHint">Sin directa = el WiFi no deja conectarse directo con ese jugador, así que no va a poder correr. Pueden probar con otra red o con los datos del celu.</p>
       <div id="olHostCfg">
         <div class="rkhead"><button class="btn sm" id="olCPrev" aria-label="Circuito anterior">◀</button><b id="olCirc"></b><button class="btn sm" id="olCNext" aria-label="Circuito siguiente">▶</button></div>
         <div class="row2"><div><h3>Vueltas</h3><div class="seg" id="olLaps"><button data-v="3">3</button><button data-v="5">5</button><button data-v="8">8</button></div></div>
@@ -3762,21 +3762,18 @@ async function p2pSig(p){const me=NET.sess&&NET.sess.u;if(!hasRTC||!me||!ONL.cod
 function p2pState(u,race){const q=P2P.peers.get(u),now=performance.now(),pl=ONL.players.get(u);
  if(q&&q.dc&&q.dc.readyState==='open'&&(!race||now-q.heard<2000))return 'dir';
  if(hasRTC&&((pl&&now-pl.seen<15000)||(q&&now-q.t0<12000)))return 'con';return 'sb';}
-const NETTXT={dir:'Directo',con:'Conectando…',sb:'Supabase'};
+const NETTXT={dir:'Directo',con:'Conectando…',sb:'Sin directa'};
 // cartel en carrera (abajo del mapa en el celu)
 function olNetHud(now){const el=$('olNet');if(!sess.online){el.classList.add('hidden');return;}if(now-(ONL.netT||0)<500)return;ONL.netT=now;
  const S=cars.filter(c=>c.remote&&!c.gone&&!c.finished).map(c=>p2pState(c.driver,true));if(!S.length){el.classList.add('hidden');return;}
  const d=S.filter(s=>s==='dir').length,k=d===S.length?'dir':d?'mix':S.includes('con')?'con':'sb';
  el.className='glass net '+k;el.textContent='● '+(k==='mix'?'Directo '+d+'/'+S.length:NETTXT[k]);}
-// mandar mi posicion: directo a cada uno; si a alguno no le llega directo (o hace rato que no se lo escucha), tambien por Supabase
 // filcman manteniendo la F: avisa a los demas por donde va; el que esta adelante anda un poco mas lento (sin ningun cartel)
-function p2pSendZ(z){const s=JSON.stringify({z});let all=true;
- for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){all=false;}}else all=false;}
- if(!all)rtSend('z',z);}
-function p2pSendP(p,now){const s=JSON.stringify({p});let all=true;
- for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);
-  if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){all=false;}if(now-q.heard>1500)all=false;}else all=false;}
- if(!all)rtSend('p',p);}
+function p2pSendZ(z){const s=JSON.stringify({z});
+ for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){}}}}
+// en carrera la posicion va solo directo (sin Supabase, para no gastar mensajes): si con alguien no hay conexion directa, no le llega
+function p2pSendP(p,now){const s=JSON.stringify({p});
+ for(const c of cars){if(!c.remote||c.gone)continue;const q=P2P.peers.get(c.driver);if(q&&q.dc&&q.dc.readyState==='open'){try{q.dc.send(s);}catch(e){}}}}
 
 // estado de la sala: los jugadores se reconocen por su usuario (unico)
 const ONL={code:null,host:false,hostName:'',players:new Map(),cfg:{ci:0,laps:5,rain:0},quota:null,inRace:false,lastSend:0,seq:0,hbT:0,closedMsg:''};
@@ -3785,7 +3782,7 @@ const isNum=v=>typeof v==='number'&&isFinite(v);
 function olMsg(t,cls){const m=$('olMsg');m.textContent=t||'';m.className='padmsg'+(cls?' '+cls:'');}
 function olView(v){if(v==='home')setTimeout(vipCheck,0);$('olNoAcc').classList.toggle('hidden',v!=='noacc');$('olHome').classList.toggle('hidden',v!=='home');$('olLobby').classList.toggle('hidden',v!=='lobby');
  $('olClose').textContent=v==='lobby'?'Salir de la sala':'Cerrar';}
-function myInfo(){return {u:NET.sess.u,ti:sel.team,num:playerNum(),gt:!!(CODE.sport||CODE.hyper||CODE.sc4),hy:!!CODE.hyper,sc:!!CODE.sc4,host:ONL.host,cfg:ONL.host?ONL.cfg:undefined};}
+function myInfo(){return {d:[...P2P.peers.keys()].filter(p2pOk),u:NET.sess.u,ti:sel.team,num:playerNum(),gt:!!(CODE.sport||CODE.hyper||CODE.sc4),hy:!!CODE.hyper,sc:!!CODE.sc4,host:ONL.host,cfg:ONL.host?ONL.cfg:undefined};}
 async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
  if(ONL.code){olView('lobby');olRender();return;}
  if(!NET.sess){olView('noacc');return;}
@@ -3812,7 +3809,7 @@ function olEnter(code,host,hostName){p2pCloseAll();ONL.code=code;ONL.enterT=perf
  if(sel.q!==0){sel.q=0;refreshMenu();applyQuality();buildWorld(sel.circuit);buildRace();}
  olView('lobby');olMsg('Conectando…');olRender();
  rtConnect(code,olOnMsg);
- clearInterval(ONL.hbT);ONL.hbT=setInterval(()=>{if(RT.joined)rtSend('hola',myInfo());olRender();},4000);}
+ clearInterval(ONL.hbT);ONL.hbT=setInterval(()=>{if(RT.joined&&!ONL.inRace)rtSend('hola',myInfo());olRender();},4000);}
 function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});
  if(NET.sess)rpc('gp_room_leave',{p_token:NET.sess.t,p_code:ONL.code});
  clearInterval(ONL.hbT);ONL.code=null;ONL.host=false;ONL.players.clear();ONL.inRace=false;p2pCloseAll();setTimeout(rtClose,150);}
@@ -3825,14 +3822,19 @@ function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
   $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
  else{const c=ONL.cfg;$('olWait').textContent='Esperando que '+(ONL.hostName||'el que creó la sala')+' largue · '+CIRCUITS[c.ci].name+' · '+c.laps+' vueltas · '+(c.rain?'Lluvia':'Seco');}}
 function olCfgSet(k,v){if(!ONL.host)return;ONL.cfg[k]=v;rtSend('hola',myInfo());olRender();}
-async function olStart(){if(!ONL.host||NET.busy)return;const L=olPresent();if(L.length<2){olMsg('Tiene que haber al menos 2 jugadores en la sala','bad');return;}
+async function olStart(){if(!ONL.host||NET.busy)return;const L0=olPresent();if(L0.length<2){olMsg('Tiene que haber al menos 2 jugadores en la sala','bad');return;}
+ // solo corren los que tienen conexion directa con todos los demas (la carrera no usa Supabase: asi casi no gasta mensajes)
+ const L=[L0.find(p=>p.me)],out=[];
+ for(const p of L0){if(p.me)continue;const ok=p2pOk(p.u)&&L.every(q=>q.me||(Array.isArray(q.d)&&q.d.includes(p.u))||(Array.isArray(p.d)&&p.d.includes(q.u)));(ok?L:out).push(p);}
+ if(L.length<2){olMsg('Todavía nadie tiene conexión directa (tiene que decir Directo). Esperá unos segundos o probá con otra red.','bad');return;}
+ const outN=out.map(p=>p.u).join(', ');
  NET.busy=true;olMsg('Largando…');const c=ONL.cfg;
  const r=await rpc('gp_room_start',{p_token:NET.sess.t,p_code:ONL.code,p_players:L.filter(p=>!p.me).map(p=>p.u),p_circuit:CIRCUITS[c.ci].name,p_laps:c.laps});NET.busy=false;
  if(!r.ok){olMsg(r.error==='mes'?'Se terminaron las carreras online de este mes. El 1º se reinician.':r.error==='dia'?'Ya usaron sus carreras online de hoy: '+(Array.isArray(r.nombres)?r.nombres.map(String).join(', '):''):
   r.error==='solo'?'Tiene que haber al menos 2 jugadores en la sala':r.error==='llena'?'Hay demasiados jugadores en la sala':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  // la grilla se sortea; todos reciben lo mismo y largan a la vez
  const order=L.map(p=>p.u);for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
- const go={race:r.race,ci:c.ci,laps:c.laps,rain:c.rain,order,lo:+(5*0.9+rnd(0.5,1.5)).toFixed(2)};rtSend('go',go);olGo(go);}
+ const go={race:r.race,ci:c.ci,laps:c.laps,rain:c.rain,order,lo:+(5*0.9+rnd(0.5,1.5)).toFixed(2)};rtSend('go',go);olGo(go);if(outN)setTimeout(()=>showMsg('No corren (sin conexión directa): '+outN,2600),1500);}
 // mensajes de los demas
 function olOnMsg(ev,p){
  if(ev==='_on'){olMsg('');rtSend('hola',myInfo());olRender();return;}
@@ -3841,16 +3843,16 @@ function olOnMsg(ev,p){
  if(!p||typeof p!=='object')return;
  if(ev==='hola'){if(!OK_NAME.test(p.u)||!NET.sess||p.u===NET.sess.u)return;if(!ONL.players.has(p.u)&&ONL.players.size>=8)return;
   const isNew=!ONL.players.has(p.u),ti=Number.isInteger(p.ti)&&p.ti>=0&&p.ti<TEAMS.length?p.ti:0;
-  ONL.players.set(p.u,{u:p.u,ti,seen:isNew?performance.now():ONL.players.get(p.u).seen,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,sc:p.sc===true,host:p.host===true,last:performance.now()});
+  ONL.players.set(p.u,{u:p.u,ti,seen:isNew?performance.now():ONL.players.get(p.u).seen,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,sc:p.sc===true,d:Array.isArray(p.d)?p.d.filter(u=>typeof u==='string'&&OK_NAME.test(u)).slice(0,8):[],host:p.host===true,last:performance.now()});
   if(p.host===true&&!ONL.host&&p.cfg&&typeof p.cfg==='object'){const c=p.cfg;if(Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1))ONL.cfg={ci:c.ci,laps:c.laps,rain:c.rain};ONL.hostName=p.u;}
   p2pCall(p.u);
   if(isNew){rtSend("hola",myInfo());if(!ONL.inRace)olMsg(performance.now()-ONL.enterT>3000?p.u+" entró a la sala":"Estás en la sala de "+(ONL.host?"vos":ONL.hostName||p.u),"ok");}
   olRender();return;}
  if(ev==='sig'){p2pSig(p);return;}
- if(ev==='chau'){if(OK_NAME.test(p.u)){ONL.players.delete(p.u);p2pDrop(p.u);const c=cars.find(o=>o.remote&&o.driver===p.u);if(c){c.gone=true;c.m.root.visible=false;}if(ONL.inRace)showMsg(p.u+" se fue",1500);else olMsg(p.u+" salió de la sala");olRender();}return;}
+ if(ev==='chau'){if(OK_NAME.test(p.u)){ONL.players.delete(p.u);p2pDrop(p.u);const c=cars.find(o=>o.remote&&o.driver===p.u);if(c){c.gone=c.left=true;c.m.root.visible=false;}if(ONL.inRace)showMsg(p.u+" se fue",1500);else olMsg(p.u+" salió de la sala");olRender();}return;}
  if(ev==='cerrada'){if(ONL.host)return;ONL.closedMsg='La sala se cerró porque se fue '+(ONL.hostName||'el que la creó');if(!ONL.inRace){olLeave();olView(NET.sess?'home':'noacc');olMsg(ONL.closedMsg,'bad');}return;}
  if(ev==='go'){if(ONL.host||ONL.inRace)return;if(!Array.isArray(p.order)||!p.order.every(u=>OK_NAME.test(u))||!Number.isInteger(p.ci)||p.ci<0||p.ci>=CIRCUITS.length||![3,5,8].includes(p.laps)||!isNum(p.lo)||p.lo<4||p.lo>7)return;
-  if(!NET.sess||!p.order.includes(NET.sess.u)){olMsg('Largaron sin vos: esperá la próxima','bad');return;}olGo(p);return;}
+  if(!NET.sess||!p.order.includes(NET.sess.u)){olMsg(ONL.players.size&&![...ONL.players.keys()].some(p2pOk)?'No pudiste correr: tu conexión no es directa (el WiFi la bloquea). Probá con otra red o con datos del celu.':'Largaron sin vos: esperá la próxima','bad');return;}olGo(p);return;}
  if(ev==='p'){const c=cars.find(o=>o.remote&&o.driver===p.u);const pl=ONL.players.get(p.u);if(pl)pl.last=performance.now();
   if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||!p.a.every(isNum))return;
   // puede llegar dos veces (directo y por Supabase): se usa solo el mas nuevo
@@ -3864,17 +3866,23 @@ function olRoster(){const me=NET.sess?NET.sess.u:"";return sess.online.order.map
  if(u===me)return {id:"ME",ti:sel.team,driver:u,num:playerNum(),isPlayer:true,team:TEAMS[sel.team],code};
  const p=ONL.players.get(u)||{ti:0,num:1,gt:false};return {id:"R"+i,ti:p.ti,driver:u,num:p.num,remote:true,gtR:!!p.gt,hyR:!!p.hy,scR:!!p.sc,team:TEAMS[p.ti],code};});}
 // largada: todos arrancan el semaforo al mismo tiempo (3,5 s despues de que el anfitrion toca Largar)
-function olGo(g){const t0=performance.now();ONL.inRace=true;ONL.finSent=false;$('onlinePad').classList.add('hidden');olMsg('');
+function olGo(g){const t0=performance.now();ONL.inRace=true;ONL.finSent=false;ONL.lostT=0;for(const q of P2P.peers.values())q.heard=t0;$('onlinePad').classList.add('hidden');olMsg('');
  sess={type:'race',laps:g.laps,grid:null,online:{race:g.race,order:g.order.slice(),rain:!!g.rain}};
  withCircuit(g.ci,()=>{startRace();lightsOutAt=g.lo;lightsT=-Math.max(0,(t0+3500-performance.now())/1000);});}
 // mi auto: 10 veces por segundo en carrera (2 por segundo en la largada y despues de llegar)
 function olSend(now){if(!ONL.inRace||!player)return;
+ // sin conexion directa con nadie durante 6 s: abandonas la carrera (no se sigue por Supabase)
+ if(state==='race'&&!player.finished){const act=cars.filter(c=>c.remote&&!c.left&&!c.finished);
+  const ok=act.some(c=>{const q=P2P.peers.get(c.driver);return q&&q.dc&&q.dc.readyState==='open'&&now-q.heard<6000;});
+  if(act.length&&!ok){if(!ONL.lostT)ONL.lostT=now;else if(now-ONL.lostT>6000){olAbandon();return;}}else ONL.lostT=0;}
  // filcman: mientras mantiene la F, 4 veces por segundo manda por donde va
  if(NET.sess&&NET.sess.u==='filcman'&&keys.KeyF&&state==='race'&&!player.finished&&now-(ONL.zT||0)>250){ONL.zT=now;p2pSendZ({u:'filcman',g:Math.round(player.prog*100)/100});}
  // al llegar se avisa una vez el tiempo final
  if(player.finished&&!ONL.finSent&&RT.joined){ONL.finSent=true;rtSend("fin",{u:NET.sess.u,t:Math.round(player.finishTime*1000)/1000,best:isFinite(player.best)?Math.round(player.best*1000)/1000:0});}const fast=state==='race'&&!player.finished;if(now-ONL.lastSend<(fast?100:500))return;ONL.lastSend=now;
  const c=player,r2=v=>Math.round(v*100)/100;
  p2pSendP({u:NET.sess.u,n:++ONL.seq,a:[r2(c.pos.x),r2(c.pos.z),r2(c.pos.y),Math.round(c.head*1000)/1000,Math.round(c.v*10)/10,r2(c.prog),Math.round(c.steer*100)/100,(c.ersOn?1:0)|(c.braking?2:0)|(c.m.ci<<2)]},now);}
+function olAbandon(){const code=ONL.code;ONL.inRace=false;olLeave();goMenu();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');
+ olMsg('Se cortó la conexión directa y abandonaste la carrera'+(code?' (sala '+code+')':'')+'. La carrera online solo se juega con conexión directa.','bad');}
 // autos de los demas: se dibujan 0,12 s atras interpolando entre los ultimos mensajes (si faltan, se estira el ultimo hasta 0,4 s)
 function olCarStep(c,now){const S=c.snap;if(!S.length)return;if(!c.gone)c.m.root.visible=true;
  const rt=now-120;let a=S[S.length-1].a,b=null,f=0;
@@ -3883,7 +3891,7 @@ function olCarStep(c,now){const S=c.snap;if(!S.length)return;if(!c.gone)c.m.root
  else{const L=S[S.length-1],dt=Math.min(0.4,(rt-L.t)/1000);a=L.a;c.head=a[3];c.v=a[4];c.steer=a[6];c.pos.set(a[0]+Math.sin(a[3])*a[4]*Math.max(0,dt),a[2],a[1]+Math.cos(a[3])*a[4]*Math.max(0,dt));c.prog=a[5]+(dt>0?a[4]*dt/track.ds:0);}
  const fl=a[7]|0;c.ersOn=!!(fl&1);c.acc=fl&2?-30:0;const ci=(fl>>2)&3;if(ci!==c.m.ci)setCompound(c,ci);
  c.idx=nearest(c.pos,c.idx,40);
- if(now-c.heard>10000&&!c.finished&&!c.gone){c.gone=true;c.m.root.visible=false;showMsg(c.driver+' se desconectó',1600);}}
+ if(now-c.heard>6000&&!c.finished&&!c.gone){c.gone=true;c.m.root.visible=false;showMsg(c.driver+' se desconectó',1600);}}
 // resultados online: los que llegaron por tiempo y despues los que siguen en pista (se actualiza cuando llega cada uno)
 function olResults(){const fin=cars.filter(c=>c.finished).sort((a,b)=>a.finishTime-b.finishTime),run=cars.filter(c=>!c.finished).sort((a,b)=>b.prog-a.prog);
  const L=fin.concat(run),pos=L.indexOf(player)+1;$('rPos').textContent='P'+pos;
@@ -3895,7 +3903,7 @@ function olBackToRoom(){const msg=ONL.closedMsg;ONL.inRace=false;goMenu();
  if(msg){olLeave();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');olMsg(msg,'bad');return;}
  if(ONL.code){$('onlinePad').classList.remove('hidden');olView('lobby');olRender();rtSend('hola',myInfo());}}
 // el online esta escondido: se abre tocando 3 veces seguidas el "3D" del titulo
-{let n=0,t=0;$("t3d").addEventListener("click",()=>{const now=performance.now();n=now-t<700?n+1:1;t=now;if(n>=3){n=0;olOpen();}});}$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olVip').onclick=()=>{const c=$('olVip').dataset.code;if(!c)return;$('olCode').value=c;olJoin();};$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
+{let n=0,t=0;$("t3d").addEventListener("click",()=>{const now=performance.now();n=now-t<700?n+1:1;t=now;if(n>=3){n=0;olOpen();}});}$('olBtn').onclick=olOpen;$('olClose').onclick=olClose;$('olCreate').onclick=olCreate;$('olVip').onclick=()=>{const c=$('olVip').dataset.code;if(!c)return;$('olCode').value=c;olJoin();};$('olJoin').onclick=olJoin;$('olStart').onclick=olStart;
 $('olAcc').onclick=()=>{$('onlinePad').classList.add('hidden');acOpen();};
 $('olCopy').onclick=()=>{const t=ONL.code||'';try{navigator.clipboard.writeText(t).then(()=>olMsg('Código copiado: pegalo en WhatsApp','ok'),()=>olMsg('Copialo a mano: '+t));}catch(e){olMsg('Copialo a mano: '+t);}};
 $('olCPrev').onclick=()=>olCfgSet('ci',(ONL.cfg.ci-1+CIRCUITS.length)%CIRCUITS.length);$('olCNext').onclick=()=>olCfgSet('ci',(ONL.cfg.ci+1)%CIRCUITS.length);
