@@ -2545,8 +2545,8 @@ function placeAI(c,dt){
 /* ---------------- gomas, daños y boxes ---------------- */
 // compuestos: 0 medias, 1 duras, 2 blandas, 3 lluvia: cuantas vueltas duran y cuanto agarre extra dan
 const TYRE={life:[6,9,4,7],grip:[0,-0.03,0.04,0],name:['MEDIAS','DURAS','BLANDAS','LLUVIA']};
-// boxes: limitador a 80 km/h en la calle de boxes y 2,4 s de parada (mas el arreglo del daño)
-const PIT={limit:22,stop:2.4};
+// boxes: limitador a 100 km/h en la calle de boxes y 1,8 s de parada (mas el arreglo del daño)
+const PIT={limit:27.8,stop:1.8};
 function lapPos(c){const {N,ds}=track;const p=c.isPlayer?c.prog:c.s;return ((p%N)+N)%N*ds;}
 function tyreGrip(c){return (1+TYRE.grip[c.m.ci])*(1-0.28*Math.pow(clamp(c.tw,0,1.15),1.6));}
 function wearTyres(c,dt,f){if(c.cheat)return;c.tw=Math.min(1.15,c.tw+Math.abs(c.v)*dt/(track.L*TYRE.life[c.m.ci])*f);
@@ -2576,14 +2576,14 @@ function pitPlace(c,dt){const {P,NL,H,N}=track,pp=track.pit;const s=(((c.isPlaye
 function pitDrive(c,dt){const pp=track.pit,was=c.ps,ds=track.ds;
  if(c.pit===3){c.v=0;c.acc=0;c.stopT-=dt;
   if(c.stopT<=0){c.tw=0;c.twWarn=false;c.dmg=0;setCompound(c,c.pitCi);c.pitReq=false;c.stops++;c.pit=4;if(c.isPlayer)showMsg('Parada '+c.stopTot.toFixed(1)+' s · '+TYRE.name[c.pitCi],1800);}}
- else{// frena hasta 80 km/h para la linea del limitador, despues frena justo en su parada; al salir acelera
+ else{// frena hasta 100 km/h para la linea del limitador, despues frena justo en su parada; al salir acelera
   let t=c.pit===2?Math.min(c.ps<pp.eB?Math.sqrt(PIT.limit*PIT.limit+40*(pp.eB-c.ps)):PIT.limit,Math.sqrt(18*Math.max(0,c.box-c.ps))+0.4):c.ps<pp.xA?PIT.limit:90;
   // en fila: nadie se lleva puesto al de adelante (ni al compañero que esta parado en el garaje)
   for(const o of cars){if(o===c||o.pit<2)continue;const g=o.ps-c.ps;if(g>0&&g<11&&Math.abs(o.pitL-c.pitL)<2.6)t=Math.min(t,Math.max(0,(g-6.3)*2.5));}
-  const v0=c.v;if(c.v<t)c.v=Math.min(t,c.v+(c.ps<pp.xA?9:13)*dt);else c.v=Math.max(t,c.v-28*dt);c.acc=(c.v-v0)/Math.max(dt,1e-4);
-  let d=c.v*dt;if(c.pit===2&&c.ps+d>=c.box-0.06){d=Math.max(0,c.box-c.ps);c.v=0;c.acc=0;c.pit=3;c.stopT=c.stopTot=PIT.stop+c.dmg*4+rnd(-0.2,0.4);if(c.isPlayer)$('boxPanel').classList.add('hidden');}
+  const v0=c.v;if(c.v<t)c.v=Math.min(t,c.v+(c.ps<pp.xA?18:20)*dt);else c.v=Math.max(t,c.v-28*dt);c.acc=(c.v-v0)/Math.max(dt,1e-4);
+  let d=c.v*dt;if(c.pit===2&&c.ps+d>=c.box-0.06){d=Math.max(0,c.box-c.ps);c.v=0;c.acc=0;c.pit=3;c.stopT=c.stopTot=PIT.stop+c.dmg*2.5+rnd(-0.15,0.3);if(c.isPlayer)$('boxPanel').classList.add('hidden');}
   c.ps+=d;if(c.isPlayer)c.prog+=d/ds;else{c.s+=d/ds;c.prog=c.s;}
-  if(c.isPlayer){if(was<pp.eB&&c.ps>=pp.eB)showMsg('Limitador · 80 km/h',1200);else if(was<pp.xA&&c.ps>=pp.xA)showMsg('Fin del limitador',1000);}}
+  if(c.isPlayer){if(was<pp.eB&&c.ps>=pp.eB)showMsg('Limitador · 100 km/h',1200);else if(was<pp.xA&&c.ps>=pp.xA)showMsg('Fin del limitador',1000);}}
  pitPlace(c,dt);
  // al final de la salida vuelve a la pista: los rivales siguen solos, vos retomas el control
  if(c.pit===4&&c.ps>=pp.xB){c.pit=0;if(c.isPlayer)showMsg('Salida de boxes · manejás vos',1400);else c.overT=0;}}
