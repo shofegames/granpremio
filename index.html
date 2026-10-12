@@ -200,6 +200,13 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .seg button{flex:1;border:0;background:none;color:var(--muted);font-weight:700;font-size:15px;padding:8px 6px;border-radius:9px;cursor:pointer}
 .seg button.sel{background:var(--accent);color:var(--ink)}
 .row2{display:grid;grid-template-columns:1fr 1.5fr;gap:12px}
+#visBtn{flex:0 0 auto;min-width:0;padding:0 14px}
+.vis{text-align:left;font-size:15px;max-height:60vh;overflow:auto}
+.vis h4{margin:14px 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.vis p{margin:4px 0}
+.vis .r{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+.vis .r b{flex:1;font-weight:700}
+.vis .r span{color:var(--muted);font-size:14px}
 .olbig{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;margin-top:18px;min-height:78px;padding:10px 14px;border:0;border-radius:16px;background:linear-gradient(135deg,#1d5cff,#17b6ff);color:#fff;cursor:pointer;box-shadow:0 14px 40px -14px #1e8bff;font-family:inherit;touch-action:manipulation;transition:transform .15s ease,filter .15s ease}
 .olbig b{font-weight:900;font-style:italic;font-size:28px;letter-spacing:.02em;line-height:1}
 .olbig small{font-size:14px;font-weight:600;opacity:.92}
@@ -350,7 +357,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <div id="fmtRow"><h3>Formato del fin de semana</h3><div class="seg" id="segFmt"><button data-v="0">Clasif + Carrera</button><button data-v="1">Clasif + Sprint + Carrera</button></div></div>
     <h3>Tu piloto</h3>
     <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
-    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button></div></div>
+    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button><button class="btn sm hidden" id="visBtn" aria-label="Quién está jugando">👁</button></div></div>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
     <button class="btn wide" id="paintBtn">Pintar mi auto y casco</button>
@@ -437,6 +444,13 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
   </div>
 </div>
 
+<div id="visPad" class="overlay modalwrap hidden">
+  <div class="modal glass" role="dialog" aria-label="Quién está jugando">
+    <h2>En el juego</h2>
+    <div class="vis" id="visBody"></div>
+    <button class="btn wide" id="visClose">Cerrar</button>
+  </div>
+</div>
 <div id="rankPad" class="overlay modalwrap hidden">
   <div class="modal glass" role="dialog" aria-label="Ranking online">
     <h2>Ranking online</h2>
@@ -4200,7 +4214,9 @@ async function rpc(fn,args){const ctl=new AbortController(),t=setTimeout(()=>ctl
  catch(e){return {error:'red'};}finally{clearTimeout(t);}}
 function netSave(){try{if(NET.sess)localStorage.setItem('gp3d_cuenta',JSON.stringify(NET.sess));else localStorage.removeItem('gp3d_cuenta');}catch(e){}}
 function acctSync(){const s=NET.sess;$('acctTxt').textContent=s?'Conectado como '+s.u+' · tus mejores vueltas van al ranking online':'Sin cuenta: tus vueltas no van al ranking online';
- $('acctBtn').textContent=s?'Salir de la cuenta':'Entrar / crear cuenta';}
+ $('acctBtn').textContent=s?'Salir de la cuenta':'Entrar / crear cuenta';
+ // visitas: que el servidor sepa con que cuenta se esta jugando; a filcman se le muestra el ojo
+ if(VIS.id)visPing();visAdmin(false);}
 // al abrir el juego: si habia una sesion guardada, se revisa que siga valiendo
 function netLoad(){try{const s=JSON.parse(localStorage.getItem('gp3d_cuenta')||'null');if(s&&typeof s.u==='string'&&/^[A-Za-z0-9_]{3,14}$/.test(s.u)&&typeof s.t==='string'&&/^[0-9a-f]{64}$/.test(s.t))NET.sess={u:s.u,t:s.t};}catch(e){}
  acctSync();if(NET.sess)rpc('gp_me',{p_token:NET.sess.t}).then(r=>{if(!NET.sess)return;if(r.error==='sesion'){NET.sess=null;netSave();acctSync();}else if(r.user){NET.sess.u=r.user;netSave();acctSync();}});}
@@ -4253,7 +4269,37 @@ async function rkLoad(){const ci=rkCi,name=CIRCUITS[ci].name;$('rkCirc').textCon
 $('rankBtn').onclick=rkOpen;$('rkClose').onclick=()=>$('rankPad').classList.add('hidden');
 $('rkPrev').onclick=()=>{rkCi=(rkCi-1+CIRCUITS.length)%CIRCUITS.length;rkLoad();};$('rkNext').onclick=()=>{rkCi=(rkCi+1)%CIRCUITS.length;rkLoad();};
 $('rankPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('rankPad').classList.add('hidden');});
-netLoad();
+/* ---------------- visitas ----------------
+ El juego avisa al servidor que esta abierto: al entrar y despues cada minuto mientras la pestaña se ve (celu/tablet/compu y si esta
+ en el menu, corriendo o corriendo online). Si hay cuenta, el servidor saca el nombre de la sesion. Solo filcman ve quien esta jugando
+ (boton chiquito con un ojo al lado de "Ranking online"). No se guardan IPs ni datos personales. */
+const VIS={id:null,key:null,t:null,busy:false};
+function visDev(){return isTouch?(document.body.classList.contains('tab')?'tablet':'celu'):'compu';}
+function visSt(){return /^(race|countdown|finished|paused)/.test(state)?(sess&&sess.online?'online':'carrera'):'menu';}
+async function visPing(){if(VIS.busy)return;VIS.busy=true;
+ const r=await rpc('gp_visit',{p_id:VIS.id,p_key:VIS.key,p_token:NET.sess?NET.sess.t:null,p_dev:visDev(),p_st:visSt()});
+ if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}VIS.busy=false;}
+function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,60000);}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();});
+// panel de filcman: quien esta ahora, cuantas entradas hoy y las ultimas
+const VST={menu:'en el menú',carrera:'corriendo',online:'corriendo online'};
+function visMine(){return !!(NET.sess&&NET.sess.u.toLowerCase()==='filcman');}
+function visHM(t){const d=new Date(t);return isNaN(d)?'':d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});}
+async function visAdmin(render){const b=$('visBtn');if(!visMine()){b.classList.add('hidden');return;}
+ const r=await rpc('gp_visits_admin',{p_token:NET.sess.t});if(!r||r.error||!visMine()){b.classList.add('hidden');return;}
+ const ah=Array.isArray(r.ahora)?r.ahora:[];b.classList.remove('hidden');b.textContent='👁 '+ah.length;
+ if(!render)return;
+ const nm=u=>typeof u==='string'?esc(u):'<i>sin cuenta</i>',dv=d=>esc(String(d||''));
+ let h='<h4>Ahora ('+ah.length+')</h4>'+(ah.length?ah.map(v=>'<div class="r"><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(VST[v.st]||'')+' · desde '+visHM(v.desde)+'</span></div>').join(''):'<p class="hint">No hay nadie.</p>');
+ h+='<h4>Hoy</h4><p>'+(r.hoy|0)+' entradas · '+(r.hoyCuentas|0)+' con cuenta</p>';
+ const ul=Array.isArray(r.ultimas)?r.ultimas:[];
+ h+='<h4>Últimas entradas</h4>'+(ul.length?ul.map(v=>'<div class="r"><span>'+visHM(v.t)+'</span><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(v.min|0)+' min</span></div>').join(''):'<p class="hint">Todavía no hay.</p>');
+ $('visBody').innerHTML=h;}
+$('visBtn').onclick=()=>{$('visPad').classList.remove('hidden');$('visBody').innerHTML='<p class="hint">Cargando…</p>';visAdmin(true);};
+$('visClose').onclick=()=>$('visPad').classList.add('hidden');
+$('visPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('visPad').classList.add('hidden');});
+setInterval(()=>{if(visMine()&&state==='menu')visAdmin(!$('visPad').classList.contains('hidden'));},30000);
+netLoad();visLoop();
 
 /* ---------------- online: salas con codigo (Supabase Realtime) ---------------- */
 // conexion en vivo: cada sala es un canal; los mensajes de los demas se validan siempre (nunca se confia en ellos)
