@@ -1193,6 +1193,7 @@ function applyWeather(){const night=sel.tod===2,dusk=sel.tod===1;applySky(night?
  sun.castShadow=!night;
  skyTint(night,dusk);nightLights(night);
  MATS.road.roughness=RAIN?0.3:ROADDRY.r;MATS.road.metalness=RAIN?0.12:0;MATS.road.color.copy(ROADDRY.c).multiplyScalar(RAIN?0.6:1);
+ PAINTU.wet.value=RAIN?0.8:0;// gotas sobre la pintura del F1
  RAINFX.mesh.visible=RAIN;if(!RAIN)return;
  const gy=new THREE.Color(night?'#1a1f28':'#8b949c').convertSRGBToLinear();for(const k of ['uTop','uHor','uGnd'])skyMat.uniforms[k].value.lerp(gy,0.75);skyMat.uniforms.uSun.value.multiplyScalar(0.1);
  scene.fog=new THREE.Fog(new THREE.Color(night?'#161b24':'#9aa2aa'),45,night?520:700);sun.intensity*=night?0.6:0.3;hemi.intensity*=0.9;renderer.toneMappingExposure*=0.92;
@@ -1745,7 +1746,7 @@ function helmTex(hl){return tex(512,256,(x,w,h)=>{const [a,b,p]=hl;x.fillStyle=a
   for(let k=0;k<11;k++)st((k*0.618%1)*w,h*(0.2+((k*0.37)%1)*0.24),h*0.085);}
  else if(p===4){x.beginPath();x.moveTo(0,h);for(let k=0;k<=16;k++){const fx=k/16*w;x.lineTo(fx,h*(k%2?0.42+0.08*Math.sin(k*1.7):0.66));}x.lineTo(w,h);x.closePath();x.fill();}
  else if(p===5){const s=w/24;for(let i=0;i<24;i++)for(let j=0;j*s<h*0.45;j++)if((i+j)%2===0)x.fillRect(i*s,j*s,s,s);}});}
-function helmMat(t){return new THREE.MeshPhysicalMaterial({map:helmTex(t.helm),roughness:0.3,metalness:0.2,clearcoat:1,clearcoatRoughness:0.06});}
+/* ---------------- el F1 de la v42 (se usa en calidad Alta, es mas liviano) ---------------- */
 let CARG=null;
 function carGeos(){if(CARG)return CARG;const C={};
  // carroceria con livery: monocasco+nariz, cubierta de motor, pontones
@@ -1875,7 +1876,7 @@ function carGeos(){if(CARG)return CARG;const C={};
  C.face=new THREE.CircleGeometry(1,40);
  for(const k in C)if(C[k].isBufferGeometry)C[k].userData.shared=true;
  CARG=C;return C;}
-function makeCar(team,num,name){
+function makeCarV42(team,num,name){
  const C=carGeos();
  const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
  const mLiv=new THREE.MeshPhysicalMaterial({map:liveryTex(team),metalness:0.3,roughness:0.32,clearcoat:1,clearcoatRoughness:0.06});
@@ -1915,6 +1916,498 @@ function makeCar(team,num,name){
  for(const cv of covers)keep.add(cv);keep.add(blob);const detail=[];root.traverse(o=>{if(o.isMesh&&!keep.has(o))detail.push(o);});
  return {root,body,wheels,fronts,lightM,brakeM,faces,spokes,blurs,covers,team,helmet,ci,blur:false,detail,far:false,stock};
 }
+function helmMat(t){return new THREE.MeshPhysicalMaterial({map:helmTex(t.helm),roughness:0.3,metalness:0.2,clearcoat:1,clearcoatRoughness:0.06});}
+/* ---------------- forma de cada escuderia (v43: el F1 de Ultra) ----------------
+ Cada equipo tiene su propio concepto aerodinamico (nariz, pontones, alerones, toma de aire) y su diseño de pintura.
+ aero: nose = [largo, alto de la punta, ancho de la punta]; pod = 'down' | 'tub' | 'zero'; rw = 'twin' | 'mono'; plate = endplates; ab = toma de aire */
+const TEAM_ULTRA=[
+ {design:'condor',aero:{nose:[1.02,0.02,1.0],pod:'down',podW:0.79,inlet:'wide',rw:'twin',plate:'round',ab:'oval',fin:0,beam:0,fwCurl:1.0}},
+ {design:'volta',aero:{nose:[0.96,0.05,1.45],pod:'tub',podW:0.8,inlet:'square',rw:'mono',plate:'square',ab:'tri',fin:0.4,beam:0,fwCurl:0.7}},
+ {design:'krait',aero:{nose:[1.08,-0.02,0.75],pod:'zero',podW:0.66,inlet:'tall',rw:'twin',plate:'swept',ab:'split',fin:0,beam:0,fwCurl:1.2}},
+ {design:'aurora',aero:{nose:[1.0,0.07,0.95],pod:'down',podW:0.76,inlet:'wide',rw:'mono',plate:'round',ab:'tri',fin:0.2,beam:0,fwCurl:0.9}},
+ {design:'titan',aero:{nose:[0.9,0.0,1.2],pod:'tub',podW:0.82,inlet:'wide',rw:'twin',plate:'square',ab:'oval',fin:0,beam:1,fwCurl:0.8}},
+ {design:'polar',aero:{nose:[1.05,0.04,0.9],pod:'down',podW:0.74,inlet:'tall',rw:'mono',plate:'swept',ab:'tri',fin:0.6,beam:0,fwCurl:1.1}},
+ {design:'sahara',aero:{nose:[0.98,0.03,1.05],pod:'tub',podW:0.84,inlet:'wide',rw:'twin',plate:'round',ab:'oval',fin:0,beam:1,fwCurl:0.85}},
+ {design:'nova',aero:{nose:[0.92,0.06,1.35],pod:'zero',podW:0.7,inlet:'square',rw:'mono',plate:'square',ab:'split',fin:0.3,beam:0,fwCurl:1.0}},
+];
+TEAMS.forEach((t,i)=>Object.assign(t,TEAM_ULTRA[i]));
+function teamOf(t){return t&&t.base&&typeof t.base==='object'?t.base:t;}
+/* ---------------- pintura de los autos (Ultra) ----------------
+ La carroceria no usa coordenadas UV: la pintura se proyecta desde el costado y desde arriba (en el espacio del auto) y el shader
+ mezcla las dos segun hacia donde mira cada punto. Asi los numeros y sponsors no se estiran sobre las curvas.
+ Atlas del costado: mitad de arriba = lado derecho (-x), mitad de abajo = lado izquierdo (+x, dibujado espejado para que los textos se lean bien).
+ Atlas de arriba: z a lo ancho, x a lo alto. Cada atlas tiene una mascara de terminacion: rojo = brillante (1) / mate (0,5) / carbono a la vista (0),
+ verde = escamas metalicas. */
+const LZ0=-2.6,LZ1=3.4,LZL=6.0,LYH=1.25,LXH=1.05;
+const LIV_W=isTouch?1024:2048;
+const liveryCache={};
+function hexA(h,a){const c=new THREE.Color(h);return 'rgba('+Math.round(c.r*255)+','+Math.round(c.g*255)+','+Math.round(c.b*255)+','+a+')';}
+function shade(h,k){const c=new THREE.Color(h);if(k>=0)c.lerp(new THREE.Color(1,1,1),k);else c.multiplyScalar(1+k);return '#'+c.getHexString();}
+// API de dibujo en metros del auto: X(z), Y(y) para el costado; text() compensa la distinta escala de x e y del atlas
+function livApi(x,W,H,kind,left,mask){
+ const half=kind==='side'?H/2:H,oy=kind==='side'&&left?H/2:0;
+ const X=kind==='side'?(z=>left?(LZ1-z)/LZL*W:(z-LZ0)/LZL*W):(z=>(z-LZ0)/LZL*W);
+ const Y=kind==='side'?(y=>oy+(1-y/LYH)*half):(v=>(1-(v+LXH)/(2*LXH))*H);
+ const pxZ=W/LZL,pxV=kind==='side'?half/LYH:H/(2*LXH),kx=pxZ/pxV;
+ const A={x,W,H,X,Y,pxZ,pxV,kx,left,kind,mask,
+  poly(pts,fill){x.beginPath();pts.forEach((p,i)=>{const a=X(p[0]),b=Y(p[1]);if(i)x.lineTo(a,b);else x.moveTo(a,b);});x.closePath();if(fill)x.fillStyle=fill;x.fill();},
+  // curva suave por puntos (catmull a bezier)
+  path(pts,close){x.beginPath();const P=pts.map(p=>[X(p[0]),Y(p[1])]);x.moveTo(P[0][0],P[0][1]);
+   for(let i=0;i<P.length-1;i++){const p0=P[Math.max(0,i-1)],p1=P[i],p2=P[i+1],p3=P[Math.min(P.length-1,i+2)];x.bezierCurveTo(p1[0]+(p2[0]-p0[0])/6,p1[1]+(p2[1]-p0[1])/6,p2[0]-(p3[0]-p1[0])/6,p2[1]-(p3[1]-p1[1])/6,p2[0],p2[1]);}if(close)x.closePath();},
+  rect(z0,y0,z1,y1,fill){const a=X(z0),b=X(z1),c=Y(y0),d=Y(y1);x.fillStyle=fill;x.fillRect(Math.min(a,b),Math.min(c,d),Math.abs(b-a),Math.abs(d-c));},
+  // texto centrado en (z,y) de alto h metros y ancho maximo w metros; rot: 0 a lo largo del auto, 1 = cruzado (en el atlas de arriba)
+  text(s,z,y,h,w,fill,o){o=o||{};x.save();x.translate(X(z),Y(y));if(o.rot)x.rotate(o.rot);if(!o.rot)x.scale(kx,1);else x.scale(1,kx);
+   const fs=h*pxV;x.font=(o.font||'italic 900 ')+fs+'px '+FONT;x.textAlign='center';x.textBaseline='middle';let sx=1;const mw=(w||99)*pxV;const tw=x.measureText(s).width;if(tw>mw)sx=mw/tw;x.scale(sx,1);
+   if(o.stroke){x.lineWidth=o.stroke*pxV;x.strokeStyle=o.strokeC||'#000';x.lineJoin='round';x.strokeText(s,0,fs*0.04);}x.fillStyle=fill;x.fillText(s,0,fs*0.04);x.restore();},
+  grad(z0,z1,c0,c1){const g=x.createLinearGradient(X(z0),0,X(z1),0);g.addColorStop(0,c0);g.addColorStop(1,c1);return g;},
+  vgrad(y0,y1,c0,c1){const g=x.createLinearGradient(0,Y(y0),0,Y(y1));g.addColorStop(0,c0);g.addColorStop(1,c1);return g;}};
+ return A;}
+// logos de cada equipo (dibujados en un cuadrado de lado s centrado en 0,0)
+function teamLogo(x,d,s,c1,c2){x.save();x.lineJoin='round';x.lineCap='round';
+ if(d==='condor'){x.fillStyle=c1;x.beginPath();x.moveTo(-s*0.5,-s*0.05);x.quadraticCurveTo(-s*0.2,-s*0.35,0,-s*0.08);x.quadraticCurveTo(s*0.2,-s*0.35,s*0.5,-s*0.05);x.quadraticCurveTo(s*0.2,-s*0.12,0,s*0.25);x.quadraticCurveTo(-s*0.2,-s*0.12,-s*0.5,-s*0.05);x.fill();}
+ else if(d==='volta'){x.fillStyle=c1;x.beginPath();x.moveTo(s*0.1,-s*0.45);x.lineTo(-s*0.25,s*0.05);x.lineTo(-s*0.02,s*0.05);x.lineTo(-s*0.12,s*0.45);x.lineTo(s*0.25,-s*0.08);x.lineTo(s*0.02,-s*0.08);x.closePath();x.fill();}
+ else if(d==='krait'){x.strokeStyle=c1;x.lineWidth=s*0.1;x.beginPath();x.moveTo(-s*0.4,s*0.3);x.bezierCurveTo(-s*0.4,-s*0.1,s*0.1,s*0.2,s*0.05,-s*0.15);x.bezierCurveTo(0,-s*0.4,s*0.35,-s*0.4,s*0.38,-s*0.2);x.stroke();x.fillStyle=c1;x.beginPath();x.arc(s*0.38,-s*0.2,s*0.09,0,7);x.fill();}
+ else if(d==='aurora'){for(let k=0;k<3;k++){x.strokeStyle=k===1?c2:c1;x.lineWidth=s*0.07;x.beginPath();x.arc(0,s*0.35,s*(0.22+k*0.13),PI*1.1,PI*1.9);x.stroke();}}
+ else if(d==='titan'){x.fillStyle=c1;x.fillRect(-s*0.4,-s*0.38,s*0.8,s*0.18);x.fillRect(-s*0.1,-s*0.38,s*0.2,s*0.76);x.fillStyle=c2;x.fillRect(-s*0.4,-s*0.2,s*0.3,s*0.04);}
+ else if(d==='polar'){x.fillStyle=c1;for(let k=0;k<6;k++){x.save();x.rotate(k*PI/3);x.beginPath();x.moveTo(0,0);x.lineTo(s*0.06,-s*0.3);x.lineTo(0,-s*0.46);x.lineTo(-s*0.06,-s*0.3);x.closePath();x.fill();x.restore();}x.fillStyle=c2;x.beginPath();x.arc(0,0,s*0.08,0,7);x.fill();}
+ else if(d==='sahara'){x.fillStyle=c1;x.beginPath();x.arc(0,s*0.05,s*0.22,PI,0);x.fill();x.strokeStyle=c1;x.lineWidth=s*0.05;for(let k=0;k<7;k++){const a=PI+k*PI/6;x.beginPath();x.moveTo(Math.cos(a)*s*0.28,s*0.05+Math.sin(a)*s*0.28);x.lineTo(Math.cos(a)*s*0.42,s*0.05+Math.sin(a)*s*0.42);x.stroke();}x.fillRect(-s*0.45,s*0.1,s*0.9,s*0.05);}
+ else{x.fillStyle=c1;x.beginPath();for(let k=0;k<10;k++){const a=k*PI/5-PI/2,r=k%2?s*0.18:s*0.45;x.lineTo(Math.cos(a)*r,Math.sin(a)*r);}x.closePath();x.fill();}
+ x.restore();}
+// diseños: cada uno pinta el costado (A.kind==='side') y arriba; M = misma api sobre la mascara
+const LIV={
+ condor(A,M,t){const {X,Y}=A,s=A.kind==='side';
+  if(s){A.x.fillStyle=t.c2;A.path([[3.3,0.2],[2.4,0.36],[1.2,0.6],[0.45,0.7],[-0.1,0.66],[-0.9,0.52],[-1.6,0.44],[-2.6,0.44],[-2.6,0.9],[-1.6,0.98],[-0.6,1.05],[0.6,0.95],[1.6,0.7],[3.3,0.42]],true);A.x.fill();
+   A.x.strokeStyle=t.txt;A.x.lineWidth=0.012*A.pxV;A.path([[3.3,0.2],[2.4,0.36],[1.2,0.6],[0.45,0.7],[-0.1,0.66],[-0.9,0.52],[-1.6,0.44],[-2.6,0.44]]);A.x.stroke();
+   M.rect(LZ0,0,LZ1,0.3,'rgb(0,0,0)');}
+  else{A.rect(LZ0,-0.12,LZ1,0.12,t.c2);A.rect(LZ0,-0.135,LZ1,-0.12,t.txt);A.rect(LZ0,0.12,LZ1,0.135,t.txt);}},
+ volta(A,M,t){const s=A.kind==='side';M.rect(LZ0,-2,LZ1,2,'rgb(128,0,0)');
+  if(s){const bolt=[[2.9,0.33],[1.6,0.52],[1.1,0.4],[0.2,0.6],[-0.2,0.46],[-1.4,0.66],[-1.25,0.56],[-0.3,0.38],[0.05,0.5],[0.95,0.28],[1.45,0.42]];A.poly(bolt,t.c2);M.poly(bolt,'rgb(255,0,0)');
+   A.rect(2.6,0,LZ1,1.2,t.c2);M.rect(2.6,0,LZ1,1.2,'rgb(255,0,0)');}
+  else{A.rect(2.6,-1,LZ1,1,t.c2);A.poly([[1.4,0.04],[-2.6,0.03],[-2.6,-0.03],[1.4,-0.04]],t.c2);}},
+ krait(A,M,t){const s=A.kind==='side';M.rect(LZ0,-2,LZ1,2,'rgb(128,0,0)');
+  if(s){for(let k=0;k<9;k++){const z=-1.7+k*0.32,y=0.66-k*0.012;const ch=[[z,y],[z+0.22,y+0.09],[z+0.26,y+0.06],[z+0.06,y-0.02],[z+0.26,y-0.1],[z+0.22,y-0.13]];A.poly(ch,k%2?t.c2:shade(t.c2,-0.45));M.poly(ch,'rgb(255,0,0)');}
+   A.x.strokeStyle=t.c2;A.x.lineWidth=0.01*A.pxV;A.path([[3.3,0.24],[2.0,0.42],[0.6,0.72],[-0.6,0.95],[-2.4,0.62]]);A.x.stroke();
+   M.rect(LZ0,0,LZ1,0.36,'rgb(0,0,0)');M.rect(2.1,0,LZ1,1.2,'rgb(0,0,0)');}
+  else{A.x.strokeStyle=t.c2;A.x.lineWidth=0.025*A.pxV;for(const sg of [1,-1]){A.path([[3.2,0.0],[2.0,sg*0.12],[0.6,sg*0.3],[-0.8,sg*0.18],[-2.4,sg*0.06]]);A.x.stroke();}}},
+ aurora(A,M,t){const s=A.kind==='side';A.x.fillStyle=A.grad(-2.6,2.2,t.c2,t.c1);A.x.fillRect(0,0,A.W,A.H);
+  const cy='#7ff3ff';A.x.strokeStyle=cy;A.x.globalAlpha=0.85;A.x.lineWidth=(s?0.018:0.02)*A.pxV;
+  if(s){for(let k=0;k<3;k++){A.path([[3.2,0.28+k*0.03],[1.8,0.42+k*0.05],[0.6,0.62+k*0.04],[-0.4,0.5+k*0.06],[-1.6,0.7+k*0.03],[-2.6,0.6+k*0.04]]);A.x.stroke();}}
+  else{for(let k=-1;k<=1;k++){A.path([[3.2,k*0.04],[1.6,k*0.12+0.05],[0,k*0.2-0.04],[-1.6,k*0.12+0.03],[-2.6,k*0.05]]);A.x.stroke();}}A.x.globalAlpha=1;},
+ titan(A,M,t){const s=A.kind==='side';M.rect(LZ0,-2,LZ1,2,'rgb(255,200,0)');
+  if(s){const lo=[[LZ1,0],[LZ1,0.36],[1.8,0.44],[0.6,0.5],[-0.6,0.46],[-2.6,0.36],[LZ0,0]];A.poly(lo,t.c2);M.poly(lo,'rgb(255,0,0)');
+   for(let k=0;k<4;k++){const z=-1.3+k*0.22;A.poly([[z,0.6],[z+0.12,0.68],[z+0.24,0.6],[z+0.18,0.6],[z+0.12,0.64],[z+0.06,0.6]],'#121317');}}
+  else{A.rect(2.2,-1,LZ1,1,t.c2);for(const sg of [1,-1])A.rect(LZ0,sg*0.4,LZ1,sg*1.05,t.c2);A.poly([[1.0,0.05],[-1.9,0.05],[-1.9,-0.05],[1.0,-0.05]],'#121317');}},
+ polar(A,M,t){const s=A.kind==='side';
+  if(s){const ar=[[3.3,0.22],[2.2,0.3],[1.0,0.42],[0.2,0.38],[-0.5,0.56],[-1.5,0.66],[-2.6,0.72],[-2.6,0.92],[-1.4,0.86],[-0.4,0.78],[0.4,0.62],[1.0,0.58],[2.2,0.4],[3.3,0.3]];
+   A.x.fillStyle=t.c2;A.path(ar,true);A.x.fill();A.x.strokeStyle='#1b1d24';A.x.lineWidth=0.01*A.pxV;A.path(ar.slice(0,7));A.x.stroke();
+   M.rect(LZ0,0,LZ1,0.2,'rgb(0,0,0)');}
+  else{A.poly([[3.3,0.06],[1.0,0.2],[-2.6,0.12],[-2.6,-0.12],[1.0,-0.2],[3.3,-0.06]],t.c2);A.rect(LZ0,-0.012,LZ1,0.012,'#1b1d24');}},
+ sahara(A,M,t){const s=A.kind==='side';M.rect(LZ0,-2,LZ1,2,'rgb(255,255,0)');
+  A.x.strokeStyle=t.c1;A.x.lineWidth=0.008*A.pxV;
+  if(s){A.x.fillStyle=t.c2;A.x.fillRect(0,0,A.W,A.H);A.rect(2.3,0,LZ1,1.2,t.c1);
+   for(const o of [0,0.025,0.05]){A.path([[2.3,0.3+o],[1.2,0.5+o],[0.2,0.6+o],[-1,0.62+o],[-2.6,0.62+o]]);A.x.stroke();}
+   for(let k=0;k<6;k++){const z=-1.5+k*0.18;A.poly([[z,0.78],[z+0.06,0.84],[z+0.12,0.78],[z+0.06,0.72]],t.c1);}}
+  else{A.x.fillStyle=t.c2;A.x.fillRect(0,0,A.W,A.H);A.rect(2.3,-1,LZ1,1,t.c1);A.rect(LZ0,-0.03,2.3,0.03,t.c1);}},
+ nova(A,M,t){const s=A.kind==='side';
+  if(s){const bk=[[0.2,0],[-0.6,1.2],[LZ0,1.2],[LZ0,0]];A.poly(bk,t.c2);
+   for(let k=0;k<5;k++){const z=0.3+k*0.12;A.poly([[z,0.08],[z+0.06,0.08],[z-0.2,0.9],[z-0.26,0.9]],k%2?t.c2:t.c1);}
+   M.poly(bk,'rgb(128,0,0)');}
+  else{A.poly([[0.3,-1],[-0.5,1],[LZ0,1],[LZ0,-1]],t.c2);}},
+ // pinturas propias del editor (PAINT.pat 1..6)
+ custom(A,M,t){const s=A.kind==='side',p=t.pat;
+  if(p===2){if(s)A.rect(LZ0,0.58,LZ1,0.66,t.c2);else A.rect(LZ0,-0.08,LZ1,0.08,t.c2);}
+  else if(p===3){if(s)A.poly([[1.6,0],[2.4,0],[0.4,1.2],[-0.4,1.2]],t.c2);else A.poly([[1.4,-1],[2.2,-1],[0.2,1],[-0.6,1]],t.c2);}
+  else if(p===4){A.x.fillStyle=s?A.vgrad(0.2,0.95,t.c1,t.c2):A.grad(-2.6,3.0,t.c2,t.c1);A.x.fillRect(0,0,A.W,A.H);}
+  else if(p===5){for(let k=0;k<5;k++){const z=-1.4+k*0.45;if(s)A.poly([[z,0.3],[z+0.25,0.55],[z,0.8],[z-0.12,0.8],[z+0.13,0.55],[z-0.12,0.3]],t.c2);else A.poly([[z,-0.3],[z+0.25,0],[z,0.3],[z-0.12,0.3],[z+0.13,0],[z-0.12,-0.3]],t.c2);}}
+  else if(p===6){const q=0.09;for(let i=0;i<70;i++)for(let j=0;j<14;j++)if((i+j)%2===0){if(s){const z=LZ0+i*q,y=0.62+j*q*0.6;if(y<0.95)A.rect(z,y,z+q,y+q*0.6,t.c2);}else{const z=-1.6+i*q,v=-0.6+j*q;if(z<1.4)A.rect(z,v,z+q,v+q,t.c2);}}}
+  if(p>=1&&s)A.rect(LZ0,0.19,LZ1,0.2,t.ui);}
+};
+// capa comun: numeros, nombre, sponsors, logo; detalles que tiene todo auto de F1
+function livCommon(A,M,t,num,name,ti){const s=A.kind==='side',sp=t.sponsor,ad=ADS[(ti*3+2)%ADS.length][0],ad2=ADS[(ti*5+7)%ADS.length][0],lc=t.txt,d=teamOf(t).design||'nova';
+ const nStr=String(num);
+ if(s){
+  // sponsor grande en el pontón y en la cubierta del motor
+  A.text(sp,0.08,0.47,0.13,0.95,lc,{});A.text(sp,-0.95,0.74,0.1,0.75,lc,{});
+  // numero y sponsor en los endplates del aleron trasero
+  A.text(nStr,-2.1,0.94,0.16,0.28,lc,{stroke:0.01,strokeC:t.c1});A.text(ad,-2.1,0.7,0.055,0.4,lc,{});
+  // costado de la nariz, el codigo del piloto con la bandera y el numero chico
+  A.text(ad2,2.25,0.37,0.055,0.5,lc,{});A.text(nStr,1.5,0.5,0.1,0.2,lc,{});
+  if(name)A.text(String(name).toUpperCase(),0.52,0.62,0.045,0.38,lc,{font:'700 '});
+  // endplate del ala delantera
+  A.text(ad,2.98,0.17,0.05,0.4,lc,{});
+  // logo del equipo arriba del pontón
+  A.x.save();A.x.translate(A.X(-0.42),A.Y(0.66));A.x.scale(A.kx,1);teamLogo(A.x,d,0.14*A.pxV,lc,t.c2);A.x.restore();}
+ else{
+  // numero grande arriba de la nariz (se lee viniendo de frente) y sponsor sobre la cubierta del motor y el aleron
+  A.text(nStr,2.62,0,0.2,0.24,lc,{rot:-PI/2,stroke:0.01,strokeC:t.c1});
+  A.text(ad2,2.05,0,0.07,0.32,lc,{rot:-PI/2});
+  A.text(sp,-2.12,0,0.12,0.9,lc,{rot:PI/2});
+  A.x.save();A.x.translate(A.X(-0.55),A.Y(0));A.x.rotate(PI/2);A.x.scale(1,A.kx);teamLogo(A.x,d,0.16*A.pxV,lc,t.c2);A.x.restore();}}
+function makeLivery(team,num,name,hi){const W=hi?LIV_W:Math.min(1024,LIV_W),key=team.name+"|"+num+"|"+(name||"")+"|"+W;if(liveryCache[key])return liveryCache[key];
+ const tb=teamOf(team),ti=Math.max(0,TEAMS.indexOf(tb));
+ const mk=(w,h)=>{const c=cvs(w,h);return [c,c.getContext('2d')];};
+ const [cs,xs]=mk(W,W/2),[ct,xt]=mk(W,W/4),[ms,xms]=mk(W/2,W/4),[mt,xmt]=mk(W/2,W/8);
+ const design=team.pat?'custom':(tb.design||'nova');
+ const fill=(x,w,h,c)=>{x.fillStyle=c;x.fillRect(0,0,w,h);};
+ fill(xs,W,W/2,team.c1);fill(xt,W,W/4,team.c1);fill(xms,W/2,W/4,'rgb(255,0,0)');fill(xmt,W/2,W/8,'rgb(255,0,0)');
+ // los autos de pintura propia con diseño 0 usan el diseño del equipo con tus colores
+ const dz=design==='custom'&&team.pat===0?(tb.design||'nova'):design;
+ for(const left of [false,true]){const A=livApi(xs,W,W/2,'side',left),Mk=livApi(xms,W/2,W/4,'side',left,true);xs.save();xs.beginPath();xs.rect(0,left?W/4:0,W,W/4);xs.clip();xms.save();xms.beginPath();xms.rect(0,left?W/8:0,W/2,W/8);xms.clip();
+  LIV[dz](A,Mk,team);livCommon(A,Mk,team,num,name,ti);xs.restore();xms.restore();}
+ {const A=livApi(xt,W,W/4,'top',false),Mk=livApi(xmt,W/2,W/8,'top',false,true);LIV[dz](A,Mk,team);livCommon(A,Mk,team,num,name,ti);}
+ const T=(c,srgb)=>{const t=new THREE.CanvasTexture(c);if(srgb)t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANI;t.userData={shared:true};return t;};
+ const L={side:T(cs,true),top:T(ct,true),mside:T(ms),mtop:T(mt)};liveryCache[key]=L;return L;}
+// textura de carbono (normal) para el tejido que se ve en el piso, las alas y las partes sin pintar
+const T_WEAVE=(()=>{const S=256,c=cvs(S,S),x=c.getContext('2d'),n=16,q=S/n;const hc=cvs(S,S),hx=hc.getContext('2d');
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){const d=(i+j)%2;const g=d?x.createLinearGradient(i*q,0,i*q+q,0):x.createLinearGradient(0,j*q,0,j*q+q);
+  g.addColorStop(0,'#16171a');g.addColorStop(0.5,'#25272c');g.addColorStop(1,'#151619');x.fillStyle=g;x.fillRect(i*q,j*q,q,q);
+  const h=d?hx.createLinearGradient(i*q,0,i*q+q,0):hx.createLinearGradient(0,j*q,0,j*q+q);h.addColorStop(0,'#404040');h.addColorStop(0.5,'#d0d0d0');h.addColorStop(1,'#404040');hx.fillStyle=h;hx.fillRect(i*q,j*q,q,q);}
+ const t=ctex(c,true);return {map:t,nrm:normalFrom(hc,0.8)};})();
+// material de la pintura: proyeccion lateral/superior, terminacion (brillo, mate, carbono), escamas metalicas, agua y raspones
+const PAINTU={wet:{value:0},time:{value:0}};
+function paintMat(L,o){o=o||{};const m=new THREE.MeshPhysicalMaterial({map:L.side,color:'#ffffff',metalness:0.0,roughness:0.28,clearcoat:1,clearcoatRoughness:0.05,envMapIntensity:1.15});
+ m.userData.liv=L;m.userData.dmg={value:0};
+ m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,{tTop:{value:L.top},tMS:{value:L.mside},tMT:{value:L.mtop},uWet:PAINTU.wet,uDmg:m.userData.dmg});
+  sh.vertexShader='varying vec3 vOP;varying vec3 vON;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOP=position;vON=normal;');
+  sh.fragmentShader='varying vec3 vOP;varying vec3 vON;uniform sampler2D tTop,tMS,tMT;uniform float uWet,uDmg;float lFin=1.;float lFl=0.;\n'+
+   'float lh(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}\n'+
+   sh.fragmentShader.replace('#include <map_fragment>',[
+   'vec3 lan=abs(normalize(vON));vec3 lw=pow(lan,vec3(6.0));lw/=(lw.x+lw.y+lw.z+1e-5);',
+   'float lu=(vOP.z-('+LZ0.toFixed(2)+'))/'+LZL.toFixed(2)+';bool lft=vON.x>0.0;',
+   'vec2 luvS=vec2(lft?1.0-lu:lu,clamp(vOP.y/'+LYH.toFixed(2)+',0.0,1.0)*0.5+(lft?0.0:0.5));',
+   'vec2 luvT=vec2(lu,clamp(vOP.x/'+(LXH*2).toFixed(2)+'+0.5,0.0,1.0));',
+   'vec4 lcol=mapTexelToLinear(texture2D(map,luvS))*(lw.x+lw.z)+mapTexelToLinear(texture2D(tTop,luvT))*lw.y;',
+   'vec4 lmk=texture2D(tMS,luvS)*(lw.x+lw.z)+texture2D(tMT,luvT)*lw.y;lFin=lmk.r;lFl=lmk.g;',
+   // carbono a la vista: tejido sargado de 2x2 sacado de la posicion
+   'if(lFin<0.25){vec2 q=(lan.x>lan.y&&lan.x>lan.z?vOP.zy:lan.y>lan.z?vOP.xz:vOP.xy)*95.0;vec2 c=floor(q),f=fract(q);float d=mod(c.x+c.y,2.0);float s=d<0.5?sin(f.x*3.14159):sin(f.y*3.14159);lcol.rgb=vec3(0.018+0.045*s*s);}',
+   // raspones con el daño
+   'if(uDmg>0.0){float sc=lh(floor(vOP*vec3(40.0,90.0,6.0)));if(sc>1.0-uDmg*0.35)lcol.rgb=mix(lcol.rgb,vec3(0.05),0.7);}',
+   'diffuseColor*=lcol;'].join('\n'))
+   .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=lFin<0.25?0.32:lFin<0.75?0.62:roughnessFactor;roughnessFactor=mix(roughnessFactor,0.12,uWet*0.6);')
+   .replace('#include <metalnessmap_fragment>','#include <metalnessmap_fragment>\nmetalnessFactor=max(metalnessFactor,lFl*0.55);')
+   .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nif(lFl>0.05){vec3 fp=floor(vOP*1400.0);normal=normalize(normal+(vec3(lh(fp),lh(fp+1.7),lh(fp+3.1))-0.5)*0.22*lFl);}')
+   .replace('#include <clearcoat_normal_fragment_maps>','#include <clearcoat_normal_fragment_maps>\nif(uWet>0.0){vec3 wp=floor(vOP*vec3(60.0,60.0,60.0));float dr=step(0.82,lh(wp));clearcoatNormal=normalize(clearcoatNormal+(vec3(lh(wp+0.3),lh(wp+0.9),0.0)-0.5)*dr*uWet*0.8);}')
+   .replace('#include <lights_physical_fragment>','#include <lights_physical_fragment>\nmaterial.clearcoat*=lFin<0.25?1.0:lFin<0.75?0.0:1.0;');};
+ m.customProgramCacheKey=()=>'liv';return m;}
+// goma slick: negro mate parejo, hombros mas oscuros, la zona de apoyo con un brillo leve y granos muy finos (sin dibujo)
+const T_SLICK=(()=>{const c=cvs(512,128),x=c.getContext('2d');x.fillStyle='#141416';x.fillRect(0,0,512,128);
+ const g=x.createLinearGradient(0,0,0,128);g.addColorStop(0,'rgba(0,0,0,.6)');g.addColorStop(0.18,'rgba(0,0,0,0)');g.addColorStop(0.5,'rgba(255,255,255,.035)');g.addColorStop(0.82,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.6)');x.fillStyle=g;x.fillRect(0,0,512,128);
+ for(let i=0;i<3000;i++){x.fillStyle='rgba(255,255,255,'+rnd(0.008,0.02)+')';x.fillRect(rnd(0,512),rnd(20,108),rnd(2,10),rnd(0.5,1.2));}
+ const t=ctex(c,true);t.repeat.set(4,1);return t;})();
+/* ---------------- geometria del F1 (Ultra) ----------------
+ Medidas 2026: 5,6 m de punta a punta, 1,9 m de ancho, 3,4 m entre ejes. +z adelante, +x izquierda, y arriba (piso a 4 cm).
+ Cada escuderia tiene su variante (nariz, pontones, toma de aire, alerones). Tres niveles de detalle: 0 = cerca/garage, 1 = medio, 2 = lejos.
+ Devuelve geometrias juntadas por material ("canales") y piezas sueltas para los daños y el DRS. */
+const F1G={};
+// loft de anillos cerrados: secs = [[z, anillo [[x,y],...]], ...] con la misma cantidad de puntos; se suaviza a lo largo y alrededor
+function loftRing(secs,ss,rs,caps){const cr=(p0,p1,p2,p3,t)=>{const t2=t*t,t3=t2*t;return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);};
+ const ringS=pts=>{const n=pts.length,o=[];for(let i=0;i<rs;i++){const t=i/rs*n,k=Math.floor(t),f=t-k,a=pts[(k-1+n)%n],b=pts[k%n],c=pts[(k+1)%n],d=pts[(k+2)%n];o.push([cr(a[0],b[0],c[0],d[0],f),cr(a[1],b[1],c[1],d[1],f)]);}return o;};
+ const P=secs.map(([z,pts])=>[z,ringS(pts)]),R=[],k=P.length;
+ for(let i=0;i<k-1;i++){const a=P[Math.max(0,i-1)],b=P[i],c=P[i+1],d=P[Math.min(k-1,i+2)];
+  for(let j=0;j<ss;j++){const t=j/ss;R.push([cr(a[0],b[0],c[0],d[0],t),b[1].map((_,q)=>[cr(a[1][q][0],b[1][q][0],c[1][q][0],d[1][q][0],t),cr(a[1][q][1],b[1][q][1],c[1][q][1],d[1][q][1],t)])]);}}
+ R.push(P[k-1]);const pos=[],idx=[],L=rs;
+ for(const [z,h] of R)for(const [x,y] of h)pos.push(x,y,z);
+ for(let i=0;i<R.length-1;i++)for(let j=0;j<L;j++){const a=i*L+j,b=i*L+(j+1)%L,c=a+L,d=b+L;idx.push(a,b,c,b,d,c);}
+ if(caps)for(const [ri,dir] of [[0,1],[R.length-1,-1]]){const base=pos.length/3,[z,h]=R[ri];let cx=0,cy=0;for(const p of h){cx+=p[0];cy+=p[1];}pos.push(cx/h.length,cy/h.length,z);
+  for(let j=0;j<L;j++){const a=ri*L+j,b=ri*L+(j+1)%L;if(dir>0)idx.push(base,b,a);else idx.push(base,a,b);}}
+ // cada triangulo mira hacia afuera: respecto del centro del anillo (o hacia adelante/atras en las tapas)
+ const cen=R.map(([z,h])=>{let cx=0,cy=0;for(const p of h){cx+=p[0];cy+=p[1];}return [cx/h.length,cy/h.length,z];}),zs=R.map(r=>r[0]),zMid=(zs[0]+zs[zs.length-1])/2;
+ const near=z=>{let b=0,bd=1e9;for(let i=0;i<zs.length;i++){const d=Math.abs(zs[i]-z);if(d<bd){bd=d;b=i;}}return cen[b];};
+ const v=(i)=>[pos[i*3],pos[i*3+1],pos[i*3+2]];
+ for(let t=0;t<idx.length;t+=3){const a=v(idx[t]),b=v(idx[t+1]),c=v(idx[t+2]);const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],w=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+  const n=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]],m=[(a[0]+b[0]+c[0])/3,(a[1]+b[1]+c[1])/3,(a[2]+b[2]+c[2])/3];
+  const cap=Math.abs(a[2]-b[2])<1e-6&&Math.abs(a[2]-c[2])<1e-6&&(Math.abs(a[2]-zs[0])<1e-6||Math.abs(a[2]-zs[zs.length-1])<1e-6);
+  let d;if(cap)d=n[2]*(m[2]-zMid);else{const q=near(m[2]);d=n[0]*(m[0]-q[0])+n[1]*(m[1]-q[1]);}
+  if(d<0){const tmp=idx[t+1];idx[t+1]=idx[t+2];idx[t+2]=tmp;}}
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(pos.length/3*2),2));g.setIndex(idx);g.computeVertexNormals();return g;}
+// medio perfil simetrico (de abajo al centro, por el costado +x, hasta arriba al centro) -> anillo completo
+function symRing(h){const r=h.slice();for(let q=h.length-2;q>=1;q--)r.push([-h[q][0],h[q][1]]);return r;}
+// seccion tipica de chasis: base yb, techo yt, ancho maximo w a la altura yw, ancho abajo wb, ancho arriba wt y joroba central
+function chProf(yb,yt,w,wb,yw,wt,crown){return symRing([[0,yb],[wb*0.55,yb],[wb,yb+(yw-yb)*0.18],[w,yw],[w*0.96,yw+(yt-yw)*0.55],[wt,yt-crown*0.6],[wt*0.45,yt-crown*0.08],[0,yt]]);}
+// saca los triangulos cuyos tres vertices cumplen fn (para abrir el cockpit y las tomas)
+function cutTris(g,fn){const p=g.attributes.position,ix=g.index.array,keep=[];
+ for(let t=0;t<ix.length;t+=3){const a=ix[t],b=ix[t+1],c=ix[t+2];if(fn(p.getX(a),p.getY(a),p.getZ(a))&&fn(p.getX(b),p.getY(b),p.getZ(b))&&fn(p.getX(c),p.getY(c),p.getZ(c)))continue;keep.push(a,b,c);}g.setIndex(keep);return g;}
+// elemento de ala de un lado: de |x|=x0 a x1, con ataque aoa y la punta que sube (rise) y se va hacia atras (sweep)
+function wingSide(c,th,x0,x1,y,zle,aoa,rise,sweep,s,pw,seg){const w=x1-x0,g=airfoil(c,th,w,0);g.rotateX(aoa);g.translate(s*(x0+w/2),y,zle);
+ const p=g.attributes.position;for(let i=0;i<p.count;i++){const t=clamp((Math.abs(p.getX(i))-x0)/w,0,1),f=Math.pow(t,pw||2.2);p.setY(i,p.getY(i)+rise*f);p.setZ(i,p.getZ(i)-sweep*t*t);}
+ g.computeVertexNormals();return g;}
+// tubo entre dos puntos con seccion de ala (brazos de suspension)
+const _sg={};function strutGeo(r,flat,n){const k=r+'_'+flat+'_'+n;if(!_sg[k]){const g=new THREE.CylinderGeometry(r,r,1,n||8);g.scale(flat,1,1);_sg[k]=g;}return _sg[k];}
+function strut(a,b,r,flat,n){const g=strutGeo(r,flat,n).clone();
+ // la seccion chata queda acostada (paralela al piso) como en los de verdad
+ const A=new V3(...a),B=new V3(...b),d=new V3().subVectors(B,A),L=d.length();const q=new THREE.Quaternion().setFromUnitVectors(_up,d.clone().normalize());
+ const side=new V3(1,0,0).applyQuaternion(q),want=new V3().crossVectors(d,new V3(0,1,0)).normalize();if(want.lengthSq()>1e-6){const ang=Math.atan2(new V3().crossVectors(side,want).dot(d.clone().normalize()),side.dot(want));q.premultiply(new THREE.Quaternion().setFromAxisAngle(d.clone().normalize(),ang+PI/2));}
+ g.applyMatrix4(new THREE.Matrix4().compose(A.clone().addScaledVector(d,0.5),q,new V3(1,L,1)));return g;}
+// geometria de un auto: variante del equipo + nivel de detalle
+function f1Geo(team,lod){const tb=teamOf(team),A=tb.aero||TEAM_ULTRA[7].aero,key=(tb.design||'x')+'_'+lod;if(F1G[key])return F1G[key];
+ const hi=lod===0,mid=lod===1,SS=hi?7:mid?3:2,RS=hi?30:mid?16:10;
+ const C={paint:[],carbon:[],black:[],metal:[],ui:[],glass:[],inner:[],light:[],seat:[],fwL:{paint:[],carbon:[],black:[]},fwR:{paint:[],carbon:[],black:[]},rw:{paint:[],carbon:[],black:[]},drs:{paint:[],carbon:[]},
+  susp:[],swheel:null,swui:null,arms:null,gloves:null,helmet:null,visor:null,ring:null,suit:null};
+ const [nl,nh,nw]=A.nose,tipZ=2.6+0.48*nl;
+ /* --- monocasco y nariz --- */
+ {const S=[[tipZ,chProf(0.205+nh,0.29+nh,0.05*nw,0.045*nw,0.24+nh,0.04*nw,0.006)],
+   [tipZ-0.28,chProf(0.19+nh*0.8,0.34+nh*0.6,0.08*(0.6+0.4*nw),0.07*(0.6+0.4*nw),0.26+nh*0.7,0.06,0.012)],
+   [2.25,chProf(0.18,0.43,0.12,0.1,0.3,0.085,0.02)],[1.82,chProf(0.16,0.53,0.17,0.135,0.34,0.11,0.03)],
+   [1.35,chProf(0.14,0.61,0.225,0.18,0.38,0.14,0.035)],[0.9,chProf(0.11,0.675,0.27,0.22,0.42,0.165,0.04)],
+   [0.5,chProf(0.09,0.725,0.305,0.26,0.45,0.2,0.04)],[0.15,chProf(0.09,0.74,0.33,0.28,0.46,0.25,0.02)],
+   [-0.2,chProf(0.09,0.74,0.34,0.3,0.46,0.27,0.01)],[-0.42,chProf(0.09,0.72,0.33,0.3,0.46,0.26,0.01)]];
+  const mono=loftRing(S,SS,RS,true);
+  cutTris(mono,(x,y,z)=>y>0.6&&(x/0.25)**2+((z-0.17)/0.42)**2<1);C.paint.push(mono);}
+ /* --- cubierta del motor (botella de coca hasta la caja) con la toma de aire arriba de la cabeza --- */
+ {const abH=A.ab==='tri'?1.045:A.ab==='oval'?1.03:1.04;
+  const S=[[-0.08,chProf(0.1,abH-0.015,0.14,0.3,0.32,0.08,0.02)],[-0.28,chProf(0.1,abH,0.2,0.32,0.36,0.1,0.03)],[-0.58,chProf(0.1,abH-0.04,0.24,0.33,0.34,0.12,0.03)],
+   [-0.92,chProf(0.1,0.84,0.23,0.31,0.3,0.11,0.03)],[-1.28,chProf(0.1,0.69,0.19,0.26,0.26,0.09,0.02)],[-1.62,chProf(0.11,0.56,0.15,0.2,0.24,0.07,0.015)],
+   [-1.95,chProf(0.14,0.46,0.11,0.15,0.24,0.055,0.01)],[-2.22,chProf(0.2,0.4,0.075,0.08,0.28,0.045,0.005)]];
+  C.paint.push(loftRing(S,SS,RS,true));
+  // boca de la toma de aire
+  const sh=new THREE.Shape();
+  if(A.ab==='tri'){sh.moveTo(-0.075,-0.07);sh.lineTo(0.075,-0.07);sh.quadraticCurveTo(0.12,-0.07,0.095,-0.025);sh.lineTo(0.025,0.08);sh.quadraticCurveTo(0,0.11,-0.025,0.08);sh.lineTo(-0.095,-0.025);sh.quadraticCurveTo(-0.12,-0.07,-0.075,-0.07);}
+  else if(A.ab==='oval'){sh.absellipse(0,0,0.07,0.085,0,PI*2,false,0);}
+  else{for(const s of [-1,1]){const h=new THREE.Shape();h.absellipse(s*0.045,0,0.035,0.075,0,PI*2,false,0);C.black.push(G(new THREE.ShapeGeometry(h,10),M([0,abH-0.1,-0.068])));}}
+  if(A.ab!=='split')C.black.push(G(new THREE.ShapeGeometry(sh,10),M([0,abH-0.1,-0.068])));
+  // aleta de tiburon (si el equipo la usa)
+  if(A.fin>0)C.paint.push(G(plate([[-0.45,abH-0.02],[-1.75,0.62],[-1.75,0.56+0.1*A.fin],[-0.6,abH+0.05*A.fin]],0.012),M([0,0,0])));
+  // T-cam arriba de la toma y antena
+  C.ui.push(G(new THREE.BoxGeometry(0.11,0.045,0.075),M([0,abH+0.03,-0.3])));
+  if(hi){C.metal.push(G(new THREE.CylinderGeometry(0.005,0.005,0.24,6),M([0.07,abH+0.13,-0.85])));C.black.push(G(new THREE.CylinderGeometry(0.012,0.016,0.04,8),M([0.07,abH+0.0,-0.85])));}}
+ /* --- pontones --- */
+ {const pw=A.podW,tub=A.pod==='tub',zero=A.pod==='zero',yu0=A.inlet==='tall'?0.28:A.inlet==='square'?0.35:0.4;
+  const ring=(xo,xi,yt,yu,ub,yf,dip)=>{const r=[[xi,yf],[ub,yf],[ub+(xo-ub)*0.55,yu-0.03],[xo-0.025,yu],[xo,yu+0.05],[xo,yt-0.07],[xo-0.03,yt-0.015]];
+   if(tub)r.push([xo-0.08,yt+0.012],[xo-0.16,yt-dip],[(xo+xi)/2-0.05,yt-dip*0.8],[xi+0.06,yt-0.01]);else r.push([xo-0.12,yt],[(xo+xi)/2,yt+0.005],[xi+0.06,yt-0.005]);
+   r.push([xi,yt-0.04],[xi,(yt+yf)/2]);return r;};
+  for(const s of [1,-1]){const S=[[0.64,ring(pw-0.01,0.3,0.635,yu0,0.62,0.13,0)],[0.5,ring(pw+0.005,0.3,0.65,yu0-0.04,0.55,0.11,0.01)],
+    [0.15,ring(pw,0.3,zero?0.63:0.645,zero?0.3:0.24,0.42,0.09,0.03)],[-0.3,ring(pw-0.05,0.29,tub?0.62:0.58,0.22,0.36,0.09,0.035)],
+    [-0.75,ring(pw-0.17,0.27,tub?0.55:0.47,0.2,0.3,0.09,0.03)],[-1.12,ring(0.43,0.22,tub?0.43:0.37,0.17,0.26,0.09,0.02)],[-1.42,ring(0.3,0.18,0.3,0.15,0.22,0.09,0.0)]];
+   const g=loftRing(S.map(([z,r])=>[z,r.map(([x,y])=>[x*s,y])]),SS,RS+4,false);
+   C.paint.push(g);
+   // boca del ponton: tapa oscura un poco adentro
+   const fr=S[0][1].map(([x,y])=>[x*s,y]);let cx=0,cy=0;for(const p of fr){cx+=p[0];cy+=p[1];}cx/=fr.length;cy/=fr.length;
+   const sc=(k,ky)=>fr.map(([x,y])=>[cx+(x-cx)*k,cy+(y-cy)*ky]);C.inner.push(loftRing([[0.646,sc(0.93,0.9)],[0.56,sc(0.84,0.8)],[0.47,sc(0.7,0.66)]],2,RS+4,false));
+   const sh=new THREE.Shape(sc(0.7,0.66).map(([x,y])=>new THREE.Vector2(x,y)));const cap=new THREE.ShapeGeometry(sh);cap.translate(0,0,0.47);C.inner.push(cap);
+   // persianas de refrigeracion arriba del ponton
+   if(hi)for(let k=0;k<5;k++)C.black.push(G(new THREE.BoxGeometry(0.11,0.006,0.03),M([s*(pw-0.2),(tub?0.6:0.56)-k*0.012,-0.32-k*0.07],[-0.3,0,0])));}}
+ /* --- piso, bordes, aletas del piso y difusor --- */
+ {const FP=[[0.18,1.35],[0.4,1.22],[0.62,1.0],[0.78,0.62],[0.79,-0.75],[0.66,-1.02],[0.53,-1.22],[0.52,-2.32]];
+  const fl=new THREE.Shape();fl.moveTo(FP[0][0],-FP[0][1]);for(const p of FP.slice(1))fl.lineTo(p[0],-p[1]);for(const p of FP.slice().reverse())fl.lineTo(-p[0],-p[1]);fl.closePath();
+  const flg=new THREE.ExtrudeGeometry(fl,{depth:0.028,bevelEnabled:false,curveSegments:4});flg.rotateX(-PI/2);C.carbon.push(G(flg,M([0,0.045,0])));
+  // tablon de abajo
+  C.black.push(G(new THREE.BoxGeometry(0.3,0.012,3.2),M([0,0.04,-0.4])));
+  for(const s of [1,-1]){
+   // borde del piso levantado y ala de borde
+   C.carbon.push(G(plate([[0.62,0.07],[-0.75,0.07],[-0.75,0.13],[-0.2,0.15],[0.55,0.12]],0.012),M([s*0.785,0,0])));
+   if(!(lod===2))C.carbon.push(G(airfoil(0.16,0.012,0.14,0),M([s*0.72,0.1,0.2],[0.25,0,0])));
+   // aletas debajo de la entrada del piso (cuatro por lado)
+   if(lod<2)for(let k=0;k<4;k++){const fx=0.16+k*0.085;C.carbon.push(G(plateS(sh=>{sh.moveTo(1.35,0.07);sh.lineTo(0.8,0.07);sh.lineTo(0.82,0.2+k*0.012);sh.quadraticCurveTo(1.0,0.25,1.2,0.22);sh.quadraticCurveTo(1.32,0.18,1.35,0.12);},0.008),M([s*fx,0,0],[0,s*(0.05+k*0.035),0])));}
+   // paredes del difusor
+   C.carbon.push(G(plate([[-1.0,0.07],[-2.36,0.07],[-2.37,0.3],[-1.9,0.24],[-1.3,0.12]],0.01),M([s*0.515,0,0])));
+   for(const fx of [0.18,0.36])C.carbon.push(G(plate([[-1.4,0.07],[-2.34,0.07],[-2.34,0.26],[-1.9,0.2],[-1.55,0.1]],0.006),M([s*fx,0,0])));}
+  // techo del difusor (rampa) y el centro
+  {const pos=[],idx=[];const nz=lod?6:12;for(let i=0;i<=nz;i++){const t=i/nz,z=-1.0-t*1.36,y=0.07+Math.pow(t,1.6)*0.27;pos.push(-0.52,y,z,0.52,y,z);if(i<nz){const a=i*2;idx.push(a,a+2,a+1,a+1,a+2,a+3);}}
+   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(pos.length/3*2),2));g.setIndex(idx);g.computeVertexNormals();C.carbon.push(g);}}
+ /* --- ala delantera (4 elementos, la punta se curva hacia arriba) --- */
+ {const cu=A.fwCurl,els=[[0.3,0.024,0.065,3.12,0.06,0.04*cu,0.03],[0.2,0.018,0.115,2.86,0.3,0.1*cu,0.06],[0.16,0.015,0.16,2.73,0.52,0.15*cu,0.08],[0.13,0.012,0.205,2.63,0.72,0.19*cu,0.1]];
+  for(const s of [1,-1]){const D=s>0?C.fwL:C.fwR;
+   els.forEach(([c,th,y,z,aoa,rise,sw],k)=>{if(lod===2&&k>1)return;const g=wingSide(c,th,0.0,0.95,y,z,aoa,rise,sw,s,2.4);(k===0?D.carbon:D.paint).push(g);});
+   // endplate abierto hacia afuera, con pie
+   D.paint.push(G(plateS(sh=>{sh.moveTo(3.28,0.03);sh.lineTo(2.62,0.03);sh.quadraticCurveTo(2.56,0.17,2.62,0.28);sh.quadraticCurveTo(2.7,0.32,2.82,0.31);sh.quadraticCurveTo(3.08,0.24,3.28,0.1);},0.012),M([s*0.965,0,0],[0,0,-s*0.1])));
+   D.carbon.push(G(new THREE.BoxGeometry(0.1,0.01,0.6),M([s*0.92,0.035,2.95])));
+   // soportes que unen los flaps
+   if(hi)for(const fx of [0.45,0.75]){D.black.push(G(plate([[2.9,0.07],[2.62,0.13],[2.6,0.3],[2.68,0.3],[2.9,0.1]],0.006),M([s*fx,0,0])));}}
+  // pilares de la nariz al ala
+  if(nh>-0.01)for(const s of [1,-1])C.carbon.push(G(plate([[2.95,0.09],[2.75,0.09],[2.85,0.22+nh],[2.95,0.22+nh]],0.012),M([s*0.07,0,0])));}
+ /* --- aleron trasero: endplates, plano principal, flap (DRS), soportes, ala baja, luz de lluvia --- */
+ {const pf=A.plate,R=C.rw;
+  const plateFn=sh=>{if(pf==='round'){sh.moveTo(-1.86,0.6);sh.lineTo(-1.84,0.98);sh.quadraticCurveTo(-1.84,1.1,-1.98,1.1);sh.lineTo(-2.25,1.1);sh.quadraticCurveTo(-2.37,1.09,-2.37,0.97);sh.lineTo(-2.37,0.66);sh.quadraticCurveTo(-2.36,0.58,-2.26,0.56);sh.lineTo(-2.0,0.56);}
+   else if(pf==='square'){sh.moveTo(-1.86,0.58);sh.lineTo(-1.86,1.09);sh.lineTo(-2.37,1.09);sh.lineTo(-2.37,0.58);}
+   else{sh.moveTo(-1.92,0.58);sh.lineTo(-1.8,1.06);sh.quadraticCurveTo(-1.8,1.11,-1.9,1.11);sh.lineTo(-2.3,1.11);sh.quadraticCurveTo(-2.37,1.1,-2.37,1.02);sh.lineTo(-2.37,0.58);}sh.closePath();};
+  for(const s of [1,-1]){R.paint.push(G(plateS(plateFn,0.022),M([s*0.535,0,0])));
+   if(hi){// tornillos en la union del endplate con el ala
+    for(let k=0;k<5;k++)R.black.push(G(new THREE.CylinderGeometry(0.006,0.006,0.026,6),M([s*0.535,0.86+(k%2)*0.05,-1.92-k*0.06],[0,0,PI/2])));}}
+  R.paint.push(G(airfoil(0.34,0.055,1.05,0.035),M([0,0.855,-1.86],[0.2,0,0])));
+  C.drs.paint.push(G(airfoil(0.21,0.035,1.05,0.025),M([0,0,0])));
+  // actuador del DRS
+  C.drs.carbon.push(G(new THREE.BoxGeometry(0.07,0.12,0.06),M([0,-0.06,-0.04])));
+  if(A.rw==='twin')for(const s of [1,-1])R.carbon.push(G(plate([[-1.6,0.56],[-1.78,0.55],[-1.98,0.9],[-2.12,0.95],[-2.12,0.98],[-1.97,0.95],[-1.84,0.86]],0.02),M([s*0.055,0,0])));
+  else R.carbon.push(G(plate([[-1.95,0.38],[-2.25,0.38],[-2.18,0.86],[-1.98,0.86]],0.03),M([0,0,0])));
+  if(A.beam)for(const [y,z,c] of [[0.42,-2.18,0.16],[0.5,-2.3,0.12]])R.carbon.push(G(airfoil(c,0.022,0.9,0.01),M([0,y,z],[0.35,0,0])));
+  // estructura de choque trasera, escape y luz de lluvia
+  C.carbon.push(G(new THREE.BoxGeometry(0.14,0.13,0.4),M([0,0.34,-2.18])));
+  C.metal.push(G(new THREE.CylinderGeometry(0.045,0.05,0.18,16,1,true),M([0,0.5,-2.26],[PI/2-0.12,0,0])));
+  C.black.push(G(new THREE.CircleGeometry(0.044,16),M([0,0.51,-2.35],[0.12,PI,0])));
+  C.light.push(G(new THREE.BoxGeometry(0.16,0.06,0.03),M([0,0.34,-2.39])));
+  for(const s of [1,-1])C.light.push(G(new THREE.BoxGeometry(0.025,0.18,0.02),M([s*0.535,0.78,-2.415])));}
+ /* --- halo, espejos, borde del cockpit, apoyacabeza --- */
+ {const hp=[new V3(-0.31,0.72,-0.2),new V3(-0.3,0.93,0.0),new V3(-0.22,1.0,0.3),new V3(0,1.02,0.47),new V3(0.22,1.0,0.3),new V3(0.3,0.93,0.0),new V3(0.31,0.72,-0.2)];
+  C.metal.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hp),hi?64:24,0.034,hi?12:6,false));
+  // carenado del halo (pintado) y el pilar central
+  C.paint.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hp.map(p=>p.clone().add(new V3(0,0.022,0)))),hi?64:20,0.024,hi?10:5,false));
+  C.metal.push(G(new THREE.CylinderGeometry(0.026,0.034,1,10),strutM([0,1.02,0.47],[0,0.75,0.74])));
+  const mh=(()=>{const w=0.085,h=0.032,r=0.026,s=new THREE.Shape();s.moveTo(-w+r,-h);s.lineTo(w-r,-h);s.quadraticCurveTo(w,-h,w,-h+r*0.8);s.lineTo(w,h-r*0.6);s.quadraticCurveTo(w,h,w-r,h);s.lineTo(-w+r,h);s.quadraticCurveTo(-w,h,-w,h-r*0.6);s.lineTo(-w,-h+r*0.8);s.quadraticCurveTo(-w,-h,-w+r,-h);
+   const g=new THREE.ExtrudeGeometry(s,{depth:0.05,bevelEnabled:true,bevelThickness:0.018,bevelSize:0.012,bevelSegments:hi?4:1,curveSegments:hi?8:3});g.translate(0,0,0.018);return g;})();
+  for(const s of [1,-1]){C.paint.push(G(mh,M([s*0.56,0.745,0.553])));
+   C.carbon.push(G(new THREE.BoxGeometry(0.02,0.11,0.07),M([s*0.5,0.69,0.6])));C.carbon.push(G(airfoil(0.06,0.008,0.16,0),M([s*0.42,0.7,0.62])));}
+  C.glass.push(mergeGeos([-1,1].map(s=>G(new THREE.CircleGeometry(1,24),M([s*0.56,0.745,0.549],[0,PI,0],[0.074,0.028,1])))));
+  {const E=[];for(let i=0;i<32;i++){const a=i/32*PI*2;E.push(new V3(Math.cos(a)*0.25,0.765,0.17+Math.sin(a)*0.42));}C.seat.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(E,true),hi?72:32,0.028,hi?10:5,true));}
+  // apoyacabeza en U y el pozo del cockpit
+  C.seat.push(G(new THREE.BoxGeometry(0.42,0.12,0.12),M([0,0.74,-0.22])));for(const s of [1,-1])C.seat.push(G(new THREE.BoxGeometry(0.1,0.12,0.36),M([s*0.2,0.76,-0.06])));
+  C.inner.push(mergeGeos([G(new THREE.CylinderGeometry(1,1,0.44,40,1,true),M([0,0.57,0.17],0,[0.245,1,0.415])),G(new THREE.CircleGeometry(1,28),M([0,0.35,0.17],[-PI/2,0,0],[0.245,0.415,1]))]));
+  // camaras de TV a los costados de la nariz y el pitot
+  for(const s of [1,-1])C.black.push(G(new THREE.SphereGeometry(1,10,6),M([s*0.13,0.42,2.05],0,[0.03,0.025,0.07])));
+  if(hi)C.metal.push(G(new THREE.CylinderGeometry(0.004,0.004,0.3,6),M([0,0.27+nh,tipZ+0.1],[PI/2,0,0])));}
+ /* --- piloto: casco, visera, hombros; volante y brazos de serie (en tu auto se cambian por los que se mueven) --- */
+ {C.helmet=mergeGeos([G(new THREE.SphereGeometry(0.145,hi?28:12,hi?20:8),M([0,0.865,0.1],0,[1,1.03,1.08])),G(new THREE.BoxGeometry(0.16,0.05,0.06),M([0,0.79,0.2]))]);
+  C.ring=mergeGeos([G(new THREE.TorusGeometry(0.147,0.012,6,hi?32:16),M([0,0.86,0.1],[0,PI/2,0]))]);
+  C.visor=mergeGeos([G(new THREE.SphereGeometry(0.149,hi?24:10,8,-0.95,1.9,1.15,0.5),M([0,0.865,0.1],[0,PI/2,0],[1.05,1.03,1.04]))]);
+  C.suit=mergeGeos([G(new THREE.CylinderGeometry(0.15,0.17,0.22,14),M([0,0.64,-0.02],0,[1.35,1,0.7])),G(new THREE.CylinderGeometry(0.075,0.09,0.1,12),M([0,0.74,0.05]))]);
+  const sw=new THREE.Shape();sw.moveTo(-0.07,-0.045);sw.lineTo(0.07,-0.045);sw.quadraticCurveTo(0.1,-0.045,0.115,-0.06);sw.lineTo(0.135,-0.03);sw.quadraticCurveTo(0.14,0.03,0.12,0.05);sw.quadraticCurveTo(0.1,0.06,0.07,0.045);sw.lineTo(-0.07,0.045);sw.quadraticCurveTo(-0.1,0.06,-0.12,0.05);sw.quadraticCurveTo(-0.14,0.03,-0.135,-0.03);sw.lineTo(-0.115,-0.06);sw.quadraticCurveTo(-0.1,-0.045,-0.07,-0.045);
+  const g=new THREE.ExtrudeGeometry(sw,{depth:0.025,bevelEnabled:false,curveSegments:6});g.translate(0,0,-0.0125);C.swheel=mergeGeos([G(g,M([0,0.772,0.37],[0.5,0,0]))]);
+  C.swui=mergeGeos([G(new THREE.PlaneGeometry(0.075,0.04),M([0,0.772,0.37],[0.5,0,0]).multiply(M([0,0.005,-0.0135],[0,PI,0])))]);
+  const SH=[0.16,0.6,-0.02],EL=[0.2,0.6,0.21],HD=[0.122,0.775,0.36],L=[];
+  for(const s of [-1,1]){L.push(G(new THREE.CylinderGeometry(0.042,0.038,1,10),strutM([s*SH[0],SH[1],SH[2]],[s*EL[0],EL[1],EL[2]])));L.push(G(new THREE.SphereGeometry(0.04,10,8),M([s*EL[0],EL[1],EL[2]])));
+   L.push(G(new THREE.CylinderGeometry(0.035,0.03,1,10),strutM([s*EL[0],EL[1],EL[2]],[s*HD[0],HD[1],HD[2]-0.03])));}
+  C.arms=mergeGeos(L);C.gloves=mergeGeos([-1,1].map(s=>G(new THREE.SphereGeometry(0.038,12,8),M([s*HD[0],HD[1],HD[2]],0,[1,0.85,1.2]))));}
+ /* --- suspension: puntos del lado del chasis (en el auto) y del lado de la rueda (relativo al centro de la rueda) --- */
+ {const F=[[[0.2,0.62,1.62],[0.66,0.17,-0.02]],[[0.2,0.6,2.12],[0.66,0.17,0.02]],[[0.14,0.33,1.55],[0.68,-0.16,-0.03]],[[0.14,0.31,2.2],[0.68,-0.16,0.03]],[[0.2,0.66,1.68],[0.64,-0.13,-0.02]],[[0.21,0.46,2.02],[0.67,0.02,0.11]]];
+  const Rr=[[[0.14,0.56,-1.28],[0.56,0.18,0.01]],[[0.14,0.5,-1.82],[0.56,0.18,-0.01]],[[0.12,0.3,-1.24],[0.57,-0.16,0.03]],[[0.12,0.29,-1.88],[0.57,-0.16,-0.03]],[[0.14,0.28,-1.4],[0.55,0.15,0.02]],[[0.12,0.38,-1.55],[0.55,0.0,0.0]]];
+  C.susp=[F,Rr];}
+ /* --- canales finales --- */
+ const out={};const mg=L=>L.length?mergeGeos(L):null;
+ for(const k of ['paint','carbon','black','metal','ui','glass','inner','light','seat'])out[k]=mg(C[k]);
+ for(const k of ['fwL','fwR','rw','drs']){out[k]={};for(const q in C[k])out[k][q]=mg(C[k][q]);}
+ Object.assign(out,{swheel:C.swheel,swui:C.swui,arms:C.arms,gloves:C.gloves,helmet:C.helmet,visor:C.visor,ring:C.ring,suit:C.suit,susp:C.susp,tipZ});
+ for(const k in out){const v=out[k];if(v&&v.isBufferGeometry)v.userData.shared=true;else if(v&&typeof v==='object')for(const q in v)if(v[q]&&v[q].isBufferGeometry)v[q].userData.shared=true;}
+ F1G[key]=out;return out;}
+/* ---- ruedas (compartidas por todos los autos) ---- */
+let WHG=null;
+function wheelGeos(){if(WHG)return WHG;const W={};
+ const tire=(R,w,seg)=>{const ri=R*0.65,h=w/2;const pts=[[ri,-h+0.01],[ri+0.012,-h],[R-0.07,-h],[R-0.04,-h+0.006],[R-0.018,-h+0.022],[R-0.006,-h+0.048],[R,-h+0.085],[R+0.002,0],[R,h-0.085],[R-0.006,h-0.048],[R-0.018,h-0.022],[R-0.04,h-0.006],[R-0.07,h],[ri+0.012,h],[ri,h-0.01]].map(p=>new THREE.Vector2(p[0],p[1]));
+  const g=new THREE.LatheGeometry(pts,seg);g.rotateZ(PI/2);return g;};
+ for(const [k,seg] of [[0,72],[1,36],[2,16]]){W['tF'+k]=tire(0.3525,0.28,seg);W['tR'+k]=tire(0.355,0.375,seg);}
+ // flanco: anillo plano con la textura (letras y banda del compuesto)
+ const side=(R,rr,seg)=>{const pos=[],uv=[],idx=[],RS=5,ro=R-0.045;for(let i=0;i<=RS;i++){const t=i/RS,r=rr+(ro-rr)*t,z=Math.sin(PI*t)*0.014;for(let j=0;j<=seg;j++){const a=j/seg*PI*2,cx=Math.cos(a)*r,cy=Math.sin(a)*r;pos.push(cx,cy,z);uv.push(0.5+cx/(2*R),0.5+cy/(2*R));}}
+  for(let i=0;i<RS;i++)for(let j=0;j<seg;j++){const a=i*(seg+1)+j,b=a+1,c=a+seg+1,d=c+1;idx.push(a,c,b,b,c,d);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g;};
+ for(const [k,seg] of [[0,64],[1,32],[2,16]]){W['sF'+k]=side(0.3525,0.229,seg);W['sR'+k]=side(0.355,0.231,seg);}
+ // llanta de 18": aro, 10 rayos y centro; la tapa aerodinamica es solo el aro de afuera (se ven los rayos, el disco y la pinza)
+ const rimFace=(rr,n)=>{const s=new THREE.Shape();s.absarc(0,0,rr,0,PI*2,false);
+  for(let k=0;k<n;k++){const a0=k/n*PI*2+0.13,a1=(k+1)/n*PI*2-0.13,h=new THREE.Path();h.moveTo(Math.cos(a0)*0.07,Math.sin(a0)*0.07);h.lineTo(Math.cos(a0)*(rr-0.03),Math.sin(a0)*(rr-0.03));h.absarc(0,0,rr-0.03,a0,a1,false);h.lineTo(Math.cos(a1)*0.07,Math.sin(a1)*0.07);h.absarc(0,0,0.07,a1,a0,true);s.holes.push(h);}
+  const g=new THREE.ExtrudeGeometry(s,{depth:0.018,bevelEnabled:true,bevelThickness:0.004,bevelSize:0.003,bevelSegments:1,curveSegments:10});g.translate(0,0,-0.03);return g;};
+ W.rimF=rimFace(0.226,10);W.rimR=rimFace(0.228,10);
+ const cover=(ro,ri)=>{const s=new THREE.Shape();s.absarc(0,0,ro,0,PI*2,false);const h=new THREE.Path();h.absarc(0,0,ri,0,PI*2,true);s.holes.push(h);const g=new THREE.ShapeGeometry(s,48);
+  const uv=g.attributes.uv,p=g.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,0.5+p.getX(i)/(2*ro),0.5+p.getY(i)/(2*ro));g.translate(0,0,-0.008);return g;};
+ W.covF=cover(0.229,0.165);W.covR=cover(0.231,0.168);
+ W.blurDisc=new THREE.CircleGeometry(0.2,32).translate(0,0,-0.012);
+ W.barrel=(()=>{const b=new THREE.CylinderGeometry(0.222,0.222,1,36,1,true);b.rotateZ(PI/2);return b;})();
+ W.hub=(()=>{const n=new THREE.CylinderGeometry(0.034,0.034,0.05,6);n.rotateX(PI/2);return n;})();
+ W.disc=(()=>{const s=new THREE.Shape();s.absarc(0,0,0.165,0,PI*2,false);const h=new THREE.Path();h.absarc(0,0,0.09,0,PI*2,true);s.holes.push(h);const g=new THREE.ExtrudeGeometry(s,{depth:0.032,bevelEnabled:false,curveSegments:24});g.translate(0,0,-0.016);g.rotateY(PI/2);
+  const uv=g.attributes.uv,p=g.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,0.5+p.getZ(i)/0.34,0.5+p.getY(i)/0.34);return g;})();
+ W.caliper=mergeGeos([new THREE.BoxGeometry(0.06,0.11,0.17),G(new THREE.BoxGeometry(0.03,0.05,0.12),M([0.03,0.02,0]))]);
+ W.upright=mergeGeos([new THREE.BoxGeometry(0.06,0.26,0.1),G(new THREE.CylinderGeometry(0.09,0.11,0.12,18),M([0,0,0],[0,0,PI/2]))]);
+ W.duct=G(new THREE.BoxGeometry(0.08,0.07,0.12),M([0,0.1,0.14]));
+ for(const k in W)W[k].userData.shared=true;WHG=W;return W;}
+/* ---------------- el auto armado (Ultra) ----------------
+ Materiales distintos para pintura (proyectada), carbono (tejido procedural con barniz), negro satinado, titanio, goma, vidrio y luces.
+ Ruedas: goma con perfil, flanco con letras, llanta de 18" con rayos, aro aerodinamico del color del equipo, disco que se pone al rojo,
+ pinza, mango y toma de freno. Suspension con brazos que siguen a la rueda. Piezas que se rompen (ala delantera, aleron), DRS que abre.
+ Niveles de detalle: 0 (cerca), 1 (medio), 2 (lejos). Devuelve la misma interfaz que el auto viejo (root, body, wheels, fronts...). */
+const CARM=(()=>{const S=o=>sm(new THREE.MeshStandardMaterial(o));
+ const carbon=sm(new THREE.MeshPhysicalMaterial({color:'#ffffff',map:T_WEAVE.map,metalness:0.25,roughness:0.42,clearcoat:1,clearcoatRoughness:0.08,envMapIntensity:0.9}));
+ // tejido proyectado desde la posicion (las piezas no tienen UV prolijas)
+ carbon.onBeforeCompile=sh=>{sh.vertexShader='varying vec3 vCP;varying vec3 vCN;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCP=position;vCN=normal;');
+  sh.fragmentShader='varying vec3 vCP;varying vec3 vCN;\n'+sh.fragmentShader.replace('#include <map_fragment>',
+   'vec3 can=abs(vCN);vec2 cq=(can.x>can.y&&can.x>can.z?vCP.zy:can.y>can.z?vCP.xz:vCP.xy)*20.0;vec4 texelColor=mapTexelToLinear(texture2D(map,cq));diffuseColor*=texelColor;');};
+ carbon.customProgramCacheKey=()=>'cfrp';
+ return {carbon,
+  black:S({color:'#0c0d0f',roughness:0.5,metalness:0.2}),
+  ti:S({color:'#24262a',roughness:0.3,metalness:0.9,envMapIntensity:1.1}),
+  exhaust:S({color:'#8a7f72',roughness:0.35,metalness:0.95,envMapIntensity:1.0}),
+  seat:S({color:'#141518',roughness:0.95}),
+  duct:S({color:'#020203',roughness:1,metalness:0,side:THREE.DoubleSide,envMapIntensity:0.05}),
+  tire:sm(new THREE.MeshStandardMaterial({map:T_SLICK,color:'#ffffff',roughness:0.78,envMapIntensity:0.35})),
+  rim:S({color:'#26292e',roughness:0.3,metalness:0.88,envMapIntensity:1.2}),
+  barrel:S({color:'#18191c',roughness:0.5,metalness:0.6,side:THREE.DoubleSide}),
+  nut:S({color:'#d9a63a',roughness:0.25,metalness:0.95}),
+  upright:S({color:'#3b3e44',roughness:0.45,metalness:0.7}),
+  blur:sm(new THREE.MeshStandardMaterial({map:T_RIMBLUR,transparent:true,metalness:0.7,roughness:0.35,depthWrite:false})),
+  suspension:sm(new THREE.MeshPhysicalMaterial({color:'#08090a',roughness:0.45,metalness:0.1,clearcoat:0.6,clearcoatRoughness:0.25,envMapIntensity:0.4}))};})();
+const uiMatCache={};function uiMat(c){return uiMatCache[c]||(uiMatCache[c]=sm(new THREE.MeshStandardMaterial({color:new THREE.Color(c).convertSRGBToLinear(),roughness:0.4,metalness:0.3})));}
+// casco de los rivales: colores del equipo y un diseño segun el nombre
+function aiHelm(team,driver){let h=0;for(const ch of String(driver||''))h=(h*31+ch.charCodeAt(0))>>>0;return [h%2?team.c2:team.c1,h%2?team.c1:team.ui,h%6];}
+const _sv=new V3(),_sw=new V3(),_sm=new THREE.Matrix4(),_ax=new V3(),_ay=new V3(),_az=new V3();
+// el F1: en calidad Alta el de la v42 (mas liviano), en Ultra el nuevo (el de Gran Premio Ultra)
+function makeCar(team,num,name,opt){return sel.q===1?makeCarUltra(team,num,name,opt):makeCarV42(team,num,name);}
+function makeCarUltra(team,num,name,opt){opt=opt||{};
+ const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
+ const hiTex=!!opt.hero;const L=makeLivery(team,num,name,hiTex);
+ const mPaint=paintMat(L);const lin=c=>new THREE.Color(c).convertSRGBToLinear();
+ const mUi=uiMat(team.ui);
+ const lightM=new THREE.MeshStandardMaterial({color:'#200',emissive:'#ff1e1e',emissiveIntensity:0.6});
+ const brakeM=new THREE.MeshStandardMaterial({map:T_DISC,roughness:0.6,metalness:0.2,emissive:'#ff4a12',emissiveIntensity:0});
+ const suitM=new THREE.MeshStandardMaterial({color:lin(team.c1).multiplyScalar(0.7),roughness:0.85});
+ const helmT=team.helm?team:Object.assign({},team,{helm:aiHelm(team,name)});
+ const helmM=helmMat(helmT);
+ const chan={paint:mPaint,carbon:CARM.carbon,black:CARM.black,metal:CARM.ti,ui:mUi,glass:MATS.mirror,inner:CARM.duct,light:lightM,seat:CARM.seat};
+ const lods=[],parts=[],glassM=[];
+ for(let l=0;l<3;l++){const g=f1Geo(team,l),lg=new THREE.Group();body.add(lg);lods.push(lg);lg.visible=l===0;
+  for(const k in chan){if(!g[k])continue;if(l===2&&(k==='glass'||k==='seat'||k==='inner'||k==='ui'))continue;const m=new THREE.Mesh(g[k],chan[k]);if(k==='glass')glassM.push(m);m.castShadow=k==='paint'||k==='carbon'||k==='metal';m.receiveShadow=true;lg.add(m);}
+  // piezas que se pueden romper: cada una en su grupo con el punto de giro donde se engancha
+  const P={};
+  for(const [k,piv] of [['fwL',[0.45,0.1,2.95]],['fwR',[-0.45,0.1,2.95]],['rw',[0,0.6,-2.0]],['drs',[0,0.985,-2.13]]]){const pg=new THREE.Group(),inner=new THREE.Group();pg.add(inner);
+   if(k==='drs'){pg.position.set(...piv);inner.rotation.x=0.6;}else{pg.position.set(...piv);inner.position.set(-piv[0],-piv[1],-piv[2]);}
+   for(const q in g[k]){if(!g[k][q])continue;const m=new THREE.Mesh(g[k][q],chan[q]||CARM.carbon);m.castShadow=true;m.receiveShadow=true;inner.add(m);}
+   lg.add(pg);P[k]=pg;}
+  parts.push(P);}
+ // piloto (casco, visera, aro, buzo) y el volante/brazos de serie
+ const G0=f1Geo(team,0),add=(geo,mat,sh)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=!!sh;m.receiveShadow=true;body.add(m);return m;};
+ const helmet=[add(G0.helmet,helmM,true),add(G0.ring,mUi),add(G0.visor,MATS.visor)];add(G0.suit,suitM);
+ const stock=[add(G0.swheel,CARM.carbon),add(G0.swui,mUi),add(G0.glass,MATS.mirror),add(G0.arms,suitM),add(G0.gloves,MATS.glove)];
+ stock[2].visible=false;// el vidrio de los espejos ya esta en cada nivel de detalle
+ // ruedas
+ const W=wheelGeos(),ci=RAIN?3:(num*7)%3;const faces=[],spokes=[],blurs=[],covers=[],wheels=[],fronts=[],pivots=[],tires=[],smalls=[];
+ const wheel=(x,z,R,w,front)=>{const s=Math.sign(x),F=front?'F':'R';const pv=new THREE.Group();pv.position.set(x,R,z);pv.userData={x,R,z,s,front};root.add(pv);const sp=new THREE.Group();pv.add(sp);
+  const t=new THREE.Mesh(W['t'+F+'0'],CARM.tire);t.castShadow=true;t.receiveShadow=true;sp.add(t);tires.push([t,F]);
+  const out=(geo,mat,dx,inward)=>{const m=new THREE.Mesh(geo,mat);m.rotation.y=(inward?-s:s)*PI/2;m.position.x=s*dx;sp.add(m);return m;};
+  for(const sd of [1,-1]){const f=out(W['s'+F+'0'],wheelFace(ci,false),sd*(w/2+0.001),sd<0);f.userData.F=F;faces.push(f);}
+  const bar=new THREE.Mesh(W.barrel,CARM.barrel);bar.scale.set(w*0.9,1,1);sp.add(bar);smalls.push(bar);
+  spokes.push(out(front?W.rimF:W.rimR,CARM.rim,w/2-0.006));blurs.push(out(W.blurDisc,CARM.blur,w/2-0.012));blurs[blurs.length-1].visible=false;
+  covers.push(out(front?W.covF:W.covR,coverMat(team,false),w/2-0.004));
+  smalls.push(out(W.hub,CARM.nut,w/2-0.005));
+  const disc=new THREE.Mesh(W.disc,brakeM);disc.position.x=s*(w/2-0.13);sp.add(disc);smalls.push(disc);
+  const cal=new THREE.Mesh(W.caliper,mUi);cal.position.set(s*(w/2-0.13),0.13,-0.06);cal.rotation.x=0.5;pv.add(cal);smalls.push(cal);
+  const up=new THREE.Mesh(W.upright,CARM.upright);up.position.x=s*(w/2-0.2);pv.add(up);smalls.push(up);
+  if(front){const d=new THREE.Mesh(W.duct,CARM.carbon);d.position.x=s*(w/2-0.2);pv.add(d);smalls.push(d);}
+  wheels.push(sp);pivots.push(pv);if(front)fronts.push(pv);};
+ for(const s of [1,-1]){wheel(s*0.81,1.85,0.3525,0.28,true);wheel(s*0.7625,-1.55,0.355,0.375,false);}
+ // brazos de suspension: una malla instanciada que se recalcula siguiendo a cada rueda
+ const SD=[];
+ pivots.forEach((pv,pi)=>{const set=G0.susp[pv.userData.front?0:1],s=pv.userData.s;for(const [a,b] of set)SD.push({pv,a:[a[0]*s,a[1],a[2]],b:[b[0]*s,b[1],b[2]]});});
+ const susp=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.011,0.011,1,8).scale(2.6,1,1),CARM.suspension,SD.length);susp.castShadow=true;susp.frustumCulled=false;root.add(susp);
+ const blob=new THREE.Mesh(new THREE.PlaneGeometry(2.4,5.8),MATS.blob);blob.rotation.x=-PI/2;blob.position.y=0.025;root.add(blob);
+ const m={root,body,wheels,fronts,pivots,lightM,brakeM,faces,spokes,blurs,covers,team,helmet,ci,blur:false,detail:[],far:false,stock,lods,lod:0,parts,glassM,paint:mPaint,susp,SD,tires,smalls,blob,
+  dmg:{fl:0,fr:0,rw:0,lost:{}},drs:0,ride:[0,0,0,0],f1:true};
+ suspUpdate(m);return m;}
+// recalcula los brazos: el lado del chasis se mueve con la carroceria (cabeceo y rolido), el de la rueda con la rueda
+function suspUpdate(m){if(!m.susp||!m.susp.visible)return;const b=m.body;b.updateMatrix();
+ m.SD.forEach((d,i)=>{_sv.set(d.a[0],d.a[1],d.a[2]).applyMatrix4(b.matrix);const p=d.pv.position;_sw.set(d.b[0],p.y+d.b[1],p.z+d.b[2]);
+  const dir=_sw.sub(_sv),L=dir.length();dir.multiplyScalar(1/Math.max(L,1e-4));_ax.crossVectors(dir,_up);if(_ax.lengthSq()<1e-6)_ax.set(1,0,0);_ax.normalize();_az.crossVectors(_ax,dir);
+  _sm.makeBasis(_ax,_ay.copy(dir).multiplyScalar(L),_az);_sm.setPosition(_sv.addScaledVector(dir,L*0.5));m.susp.setMatrixAt(i,_sm);});
+ m.susp.instanceMatrix.needsUpdate=true;}
+// nivel de detalle segun la distancia a la camara (con margen para que no titile)
+function carLOD(m,d,force){if(!m.f1)return;let l=m.lod;
+ if(force!=null)l=force;else if(l===0&&d>42)l=1;else if(l===1&&d<34)l=0;else if(l===1&&d>130)l=2;else if(l===2&&d<115)l=1;
+ if(l===m.lod)return;m.lod=l;m.lods.forEach((g,i)=>g.visible=i===l);
+ const k=String(l);for(const [t,F] of m.tires)t.geometry=wheelGeos()['t'+F+k];
+ for(const f of m.faces)f.geometry=wheelGeos()['s'+f.userData.F+k];
+ for(const o of m.smalls)o.visible=l<2;for(const o of m.spokes)o.visible=l<2&&!m.blur;m.susp.visible=l<2;
+ for(const h of m.helmet.slice(1))h.visible=l<2&&m.helmet[0].visible;for(const s of m.stock)if(s!==m.stock[2])s.visible=l<1&&!m.kit;}
+// daños visibles: ala delantera (izq/der) que se dobla y se cae, aleron trasero que se suelta, raspones en la pintura
+function carDamageVisual(c){const m=c.m;if(!m.f1)return;const D=m.dmg;m.paint.userData.dmg.value=clamp(c.dmg*1.2,0,1);
+ for(const P of m.parts){
+  for(const [k,v] of [['fwL',D.fl],['fwR',D.fr]]){const g=P[k];const s=k==='fwL'?1:-1;g.visible=v<1;g.rotation.set(v>0.25?-0.18*v:0,0,v>0.25?s*0.3*v:0);g.position.y=0.1-(v>0.25?0.06*v:0);}
+  P.rw.visible=D.rw<1;P.rw.rotation.x=D.rw>0.3?0.25*D.rw:0;P.drs.visible=D.rw<0.6;}}
+function carDebris(c,where,n){const m=c.m,col=new THREE.Color(m.team.c1),k=Math.min(n||14,24);
+ for(let i=0;i<k;i++){const p=carPoint(c,where==='rw'?rnd(-0.5,0.5):where==='fl'?rnd(0.2,0.95):where==='fr'?rnd(-0.95,-0.2):rnd(-0.8,0.8),rnd(0.1,0.6),where==='rw'?-2.1:where==='body'?rnd(-1,1):2.9);
+  FX.emit(0,p.x,p.y,p.z,rnd(-4,4)+Math.sin(c.head)*c.v*0.4,rnd(1,4),rnd(-4,4)+Math.cos(c.head)*c.v*0.4,Math.random()<0.6?'#121315':'#'+col.getHexString(),rnd(0.08,0.16),0.07,rnd(0.8,1.6),1,9);}}
 // codigo 1705: Porsche 911 GT3 RS (992), blanco con las piezas aerodinamicas en negro. Anda igual que el F1 (solo cambia como se ve).
 // 4,57 m de largo, 1,90 m de ancho, 1,32 m de alto, 2,46 m entre ejes; volante a la izquierda. Sin escudos ni letras de la marca.
 const P9_OX=0.37;   // corrimiento de la butaca del piloto (a la izquierda del auto = +x)
@@ -2844,7 +3337,7 @@ function p9Cockpit(m,team){const M=ckMats(),OX=P9_OX,K={grp:new THREE.Group(),mi
  ckMirror(K,new THREE.PlaneGeometry(0.16,0.042),0.32,0.68,G,[0,1.2,-0.109],[0.1,PI,0]);
  for(const s of [-1,1])ckMirror(K,new THREE.PlaneGeometry(0.17,0.075),s>0?0.55:0,s>0?1:0.45,G,[s*0.92,0.99,0.288],[0,PI,0]);
  return K;}
-function addCockpit(car){const m=car.m;if(m.kit)return;m.kit=m.hyper?hyCockpit(m,m.team):m.sc4?sc4Cockpit(m,m.team):m.p911?p9Cockpit(m,m.team):f1Cockpit(m,m.team);m.kit.tilt.updateMatrix();for(const s of m.stock)s.visible=false;}
+function addCockpit(car){const m=car.m;if(m.kit)return;m.kit=m.hyper?hyCockpit(m,m.team):m.sc4?sc4Cockpit(m,m.team):m.p911?p9Cockpit(m,m.team):f1Cockpit(m,m.team);m.kit.tilt.updateMatrix();for(const s of m.stock)s.visible=false;for(const g of m.glassM||[])g.visible=false;}
 // camara trasera para los espejos: arriba de la cabeza mirando para atras (cada 2 cuadros; en el celu cada 4)
 function updateMirrors(){const c=player;if(!c||!c.m.kit||!(camMode===1||camMode===2)||!(state==='race'||state==='countdown'||state==='finished'))return;
  if((MIR.n++)%(isTouch?4:2))return;const K=c.m.kit,cam=MIR.cam,b=c.m.body;mirrorRT();b.updateMatrixWorld();
@@ -2868,7 +3361,7 @@ function buildRace0(){
  const {N,P,NL,H}=track;
  order.forEach((c,slot)=>{
   // con el codigo 1705 tu auto es un Porsche 911 GT3 RS
-  const nm=sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop(),m=(c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sc4)||c.scR?makeSuper(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm);carsGroup.add(m.root);
+  const nm=sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop(),m=(c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sc4)||c.scR?makeSuper(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm,{hero:c.isPlayer});carsGroup.add(m.root);
   const q=solo();const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
   const car=Object.assign(c,{m,s:gi-N,s0:gi-N,prog:gi-N,idx:gi,lane:lat,laneT:lat,lat:lat,startLane:lat,pref:rnd(-1.4,1.4),v:0,steer:0,head:H[gi],pos:new V3(P[gi].x+NL[gi].x*lat,P[gi].y,P[gi].z+NL[gi].z*lat),
    finished:false,finishTime:0,overT:0,react:rnd(0.18,0.5),launch:rnd(0.9,1.05),launchFx:0,started:false,lapStart:0,best:Infinity,lastLaps:0,lapsSeen:-1,timing:false,lapBad:false,offT:0,tw:0,twWarn:false,dmg:0,pit:0,pitReq:false,pitCi:0,ps:0,ps0:0,pl0:0,pitL:0,box:0,stopT:0,stopTot:0,stops:0,ers:1,ersOn:false,pitch:0,roll:0,acc:0,heat:0,spinT:0,reacted:false,grid:slot+1});
@@ -2900,7 +3393,10 @@ function tyreGrip(c){return (1+TYRE.grip[c.m.ci])*(1-0.28*Math.pow(clamp(c.tw,0,
 function wearTyres(c,dt,f){if(c.cheat)return;c.tw=Math.min(1.15,c.tw+Math.abs(c.v)*dt/(track.L*TYRE.life[c.m.ci])*f);
  if(c.isPlayer&&c.tw>0.85&&!c.twWarn){c.twWarn=true;showMsg('Gomas gastadas · apretá B para boxes',2400);}}
 function setCompound(c,ci){c.m.ci=ci;const fm=wheelFace(ci,c.m.blur);for(const f of c.m.faces)f.material=fm;}
-function addDamage(c,amt){if(amt<0.02||c.finished||c.cheat)return;const was=c.dmg;c.dmg=Math.min(1,c.dmg+amt);
+function addDamage(c,amt,zone){if(amt<0.02||c.finished||c.cheat)return;const was=c.dmg;c.dmg=Math.min(1,c.dmg+amt);
+ // el F1 muestra el golpe en la pieza que pego: el ala delantera (izq/der) o el aleron trasero se doblan, se caen y largan pedazos
+ const D=c.m.dmg;if(D&&zone){const k=zone==='fl'||zone==='fr'?2.6:zone==='rw'?2.2:0;if(k){const b=D[zone];D[zone]=Math.min(1,b+amt*k);
+   if(D[zone]>=1&&b<1)carDebris(c,zone,24);else if(D[zone]-b>0.12)carDebris(c,zone,8);}carDamageVisual(c);}
  if(c.isPlayer){if(c.dmg>=0.6&&was<0.6)showMsg('Daño fuerte · entrá a boxes',2400);else if(amt>=0.08)showMsg('Daño '+Math.round(c.dmg*100)+'%',1400);}
  for(let k=0;k<Math.min(30,Math.round(amt*70));k++)FX.emit(0,c.pos.x+rnd(-1,1),c.pos.y+rnd(0.2,0.8),c.pos.z+rnd(-1,1),rnd(-5,5),rnd(1,4),rnd(-5,5),Math.random()<0.5?'#1b1c20':c.team.c1,rnd(0.12,0.22),0.1,rnd(0.5,0.9),1,9);}
 // metros desde la linea (negativo = antes de llegar)
@@ -2923,7 +3419,7 @@ function pitPlace(c,dt){const {P,NL,H,N}=track,pp=track.pit;const s=(((c.isPlaye
  const nh=angLerp(H[i0],H[i1],f)+Math.atan(k);if(dt>0)c.steer=lerp(c.steer,clamp(wrapA(nh-c.head)/dt*0.5,-1,1),Math.min(1,dt*6));c.head=nh;}
 function pitDrive(c,dt){const pp=track.pit,was=c.ps,ds=track.ds;
  if(c.pit===3){c.v=0;c.acc=0;c.stopT-=dt;
-  if(c.stopT<=0){c.tw=0;c.twWarn=false;c.dmg=0;setCompound(c,c.pitCi);c.pitReq=false;c.stops++;c.pit=4;if(c.isPlayer)showMsg('Parada '+c.stopTot.toFixed(1)+' s · '+TYRE.name[c.pitCi],1800);}}
+  if(c.stopT<=0){c.tw=0;c.twWarn=false;c.dmg=0;if(c.m.dmg){c.m.dmg.fl=c.m.dmg.fr=c.m.dmg.rw=0;carDamageVisual(c);}setCompound(c,c.pitCi);c.pitReq=false;c.stops++;c.pit=4;if(c.isPlayer)showMsg('Parada '+c.stopTot.toFixed(1)+' s · '+TYRE.name[c.pitCi],1800);}}
  else{// frena hasta 100 km/h para la linea del limitador, despues frena justo en su parada; al salir acelera
   let t=c.pit===2?Math.min(c.ps<pp.eB?Math.sqrt(PIT.limit*PIT.limit+40*(pp.eB-c.ps)):PIT.limit,Math.sqrt(18*Math.max(0,c.box-c.ps))+0.4):c.ps<pp.xA?PIT.limit:90;
   // en fila: nadie se lleva puesto al de adelante (ni al compañero que esta parado en el garaje)
@@ -3030,7 +3526,7 @@ function playerStep(dt){
   const th=H[k];const fwd=Math.cos(wrapA(c.head-th))>=0;const tgt=fwd?th:th+PI;const imp=Math.abs(Math.sin(wrapA(c.head-tgt)));
   if(sp>8)sparkBurst(c.pos.x+NL[k].x*Math.sign(lat2)*1,c.pos.z+NL[k].z*Math.sign(lat2)*1,Math.round(6+imp*20),c.pos.y);
   // golpe contra el muro: de frente y rapido rompe mucho, rozando casi nada
-  if(live&&sp>10)addDamage(c,imp*imp*sp/55*0.5+(imp>0.5&&sp>30?0.1:0));
+  if(live&&sp>10)addDamage(c,imp*imp*sp/55*0.5+(imp>0.5&&sp>30?0.1:0),imp>0.55?(lat2>0?'fl':'fr'):'body');
   if(live&&sp>6)sndHit(imp*sp/40);
   c.v*=(1-0.6*imp)*0.97;c.head=angLerp(c.head,tgt,0.5);shake=Math.min(1,0.3+imp);}
  // choques con rivales (los autos online de otros jugadores se atraviesan)
@@ -3039,8 +3535,8 @@ function playerStep(dt){
   if(Math.abs(al)<5.0&&Math.abs(la)<1.95){const pA=5.0-Math.abs(al),pL=1.95-Math.abs(la);
    if(pL<pA){const sg=Math.sign(la)||1;c.pos.x+=rx*sg*pL;c.pos.z+=rz*sg*pL;o.lane-=sg*pL*0.4;c.v*=0.985;}
    else if(al<0){c.pos.x-=fx*pA;c.pos.z-=fz*pA;const vv=c.v;c.v=Math.min(c.v,o.v*0.95);o.v+=Math.max(0,vv-o.v)*0.25;
-    if(live&&vv-o.v>5){addDamage(c,(vv-o.v)/40*0.22);addDamage(o,(vv-o.v)/40*0.15);}}
-   else{c.pos.x+=fx*pA;c.pos.z+=fz*pA;if(live&&o.v-c.v>7)addDamage(c,(o.v-c.v)/40*0.1);o.v=Math.min(o.v,c.v*0.95);}
+    if(live&&vv-o.v>5){addDamage(c,(vv-o.v)/40*0.22,la>0?'fr':'fl');addDamage(o,(vv-o.v)/40*0.15,'rw');}}
+   else{c.pos.x+=fx*pA;c.pos.z+=fz*pA;if(live&&o.v-c.v>7)addDamage(c,(o.v-c.v)/40*0.1,'rw');o.v=Math.min(o.v,c.v*0.95);}
    if(shake<0.3&&live)sndHit(0.3);shake=Math.max(shake,0.35);}}
  k=nearest(c.pos,k);let d=k-c.idx;if(d>N/2)d-=N;if(d<-N/2)d+=N;c.prog+=d;c.idx=k;c.pos.y=groundY(c);
  if(live&&Math.cos(wrapA(c.head-H[k]))<-0.5&&c.v>3)wrongT+=dt;else wrongT=0;
@@ -3051,6 +3547,8 @@ function playerStep(dt){
  const rt=raceT();const laps=Math.floor(c.prog/N);
  if(live&&laps>c.lapsSeen){c.lapsSeen=laps;
   if(sess.type==='tt'){
+   // supera tu récord y récord mundial: cada vez que pasás por la línea se recarga el ERS al 100%
+   c.ers=1;
    if(laps===0){c.lapStart=rt;c.timing=true;c.lapBad=false;c.offT=0;ttLapStart();showMsg(sess.world?wrStartMsg():TT.rec?'Vuelta lanzada · contra tu récord '+fmt(TT.rec.t):'Vuelta lanzada · marcá tu primer récord',2000);}
    else if(c.timing){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;const gs=recLapEnd(lt),ok=lapOK(c,lt);if(ok)netLap(lt,gs);if(ok&&lt<c.best)c.best=lt;ttLap(lt,ok,gs);ttLapStart();}}
   else if(sess.type==='quali'){
@@ -3071,8 +3569,9 @@ function qualiBoard(){const L=sess.qtimes.map(q=>Object.assign({},q,{isPlayer:fa
 function qualiPos(){return qualiBoard().findIndex(q=>q.isPlayer)+1;}
 function updateCarVisual(c,dt){
  const m=c.m;m.root.position.copy(c.pos);
- // rivales a mas de 55 m: solo carroceria, casco, gomas y tapas (los detalles chicos no se distinguen)
- if(!c.isPlayer){const far=m.root.position.distanceToSquared(camera.position)>3025;if(far!==m.far){m.far=far;for(const o of m.detail)o.visible=!far;}}
+ // F1: nivel de detalle segun la distancia (tu auto siempre al maximo); otros autos a mas de 55 m: solo carroceria, casco, gomas y tapas
+ if(m.f1)carLOD(m,m.root.position.distanceTo(camera.position),c.isPlayer?0:null);
+ else if(!c.isPlayer){const far=m.root.position.distanceToSquared(camera.position)>3025;if(far!==m.far){m.far=far;for(const o of m.detail)o.visible=!far;}}
  m.root.rotation.y=c.head+(c.isPlayer?c.steer*clamp(c.v/60,0,1)*0.06:0);
  {const ti=track.T[c.idx];m.root.rotation.x=-Math.atan(track.SL[c.idx]*(Math.sin(c.head)*ti.x+Math.cos(c.head)*ti.z));}
  for(const w of m.wheels)w.rotation.x+=c.v*dt/0.354;
@@ -3081,11 +3580,13 @@ function updateCarVisual(c,dt){
  c.pitch=lerp(c.pitch,clamp(-c.acc*0.0014,-0.03,0.03),k);c.roll=lerp(c.roll,c.steer*clamp(c.v/80,0,1)*0.03,k);
  m.body.rotation.x=c.pitch;m.body.rotation.z=c.roll;
  m.lightM.emissiveIntensity=c.ersOn?(Math.sin(simT*30)>0?3:0.3):RAIN?(Math.sin(simT*9+c.grid)>0?3.2:0.5):0.6;
- const bl=Math.abs(c.v)>20;if(bl!==m.blur){m.blur=bl;const fm=wheelFace(m.ci,bl);for(const f of m.faces)f.material=fm;for(const s of m.spokes)s.visible=!bl;for(const b of m.blurs)b.visible=bl;const cm=coverMat(m.team,bl);for(const cv of m.covers)cv.material=cm;}
+ const bl=Math.abs(c.v)>20;if(bl!==m.blur){m.blur=bl;const fm=wheelFace(m.ci,bl);for(const f of m.faces)f.material=fm;for(const s of m.spokes)s.visible=!bl&&!(m.f1&&m.lod>=2);for(const b of m.blurs)b.visible=bl;const cm=coverMat(m.team,bl);for(const cv of m.covers)cv.material=cm;}
  // discos de freno al rojo
  const brk=(c.isPlayer?c.braking:c.acc<-20)&&c.v>12;c.heat=clamp((c.heat||0)+(brk?dt*1.3*Math.min(1,c.v/45):-dt*0.4),0,1);m.brakeM.emissiveIntensity=c.heat*c.heat*3;
  if(dt>0&&(state==='race'||state==='finished'))carFx(c,dt);
  if(m.kit)ckUpdate(m.kit,c,dt);
+ // brazos de suspension que siguen a las ruedas
+ if(m.f1&&m.lod<2)suspUpdate(m);
 }
 function standings(){
  return cars.slice().sort((a,b)=>{if(a.finished&&b.finished)return a.finishTime-b.finishTime;if(a.finished)return -1;if(b.finished)return 1;return b.prog-a.prog;});
@@ -3316,7 +3817,7 @@ function recLapEnd(lt){const c=player;let s=null;if(REC.lap===c.lapsSeen-1&&REC.
 function ttStart(){const W=sess.world;TT.rec=ttLoad(curCirc,RAIN);TT.ref=W?W.rec:TT.rec;TT.laps=[];TT.newRec=false;TT.newWorld=false;TT.delta=null;if(TT.ref)ttMakeGhost();
  if(player.cheat)setTimeout(()=>{if(state==='race')showMsg('Con el código 1312 los récords no se guardan',2200);},4600);}
 function ttMakeGhost(){const r=TT.ref,t0=TEAMS[r.ti],team=paintValid(r.paint)?paintTeam(t0,r.paint):t0,m=r.hy?makeHypercar(team,r.num,r.n):r.sc?makeSuper(team,r.num,r.n):r.gt?makeSportsCar(team,r.num,r.n):makeCar(team,r.num,r.n);const mats=new Map();
- const sw=mt=>{if(!mats.has(mt)){const g=mt.clone();g.userData={};g.transparent=true;g.opacity=0.38;g.depthWrite=false;mats.set(mt,g);}return mats.get(mt);};
+ const sw=mt=>{if(!mats.has(mt)){const g=mt.clone();g.userData={};if(mt.onBeforeCompile){g.onBeforeCompile=mt.onBeforeCompile;g.customProgramCacheKey=()=>mt.customProgramCacheKey()+'_g';}g.transparent=true;g.opacity=0.38;g.depthWrite=false;mats.set(mt,g);}return mats.get(mt);};
  m.root.traverse(o=>{o.castShadow=false;if(o.isMesh)o.material=Array.isArray(o.material)?o.material.map(sw):sw(o.material);});
  for(const mt of mats.keys())if(!mt.userData.shared)mt.dispose();
  m.root.visible=false;carsGroup.add(m.root);TT.ghost={m,mats:[...mats.values()],k:0,op:0.38,idx:0,on:false,pos:new V3(),ti:r.ti,gt:!!r.gt,hy:!!r.hy,sc:!!r.sc,n:r.n,pk:team.name};}
