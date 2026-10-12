@@ -3837,7 +3837,7 @@ function recLapEnd(lt){const c=player;let s=null;if(REC.lap===c.lapsSeen-1&&REC.
  REC.lap=c.lapsSeen;REC.s=[];REC.d=0;REC.next=0;return s;}
 // TT.rec = tu récord guardado; TT.ref = la vuelta que corre el fantasma (tu récord, o el mundial)
 function ttStart(){const W=sess.world;TT.rec=ttLoad(curCirc,RAIN);TT.ref=W?W.rec:TT.rec;TT.laps=[];TT.newRec=false;TT.newWorld=false;TT.delta=null;if(TT.ref)ttMakeGhost();
- if(player.cheat)setTimeout(()=>{if(state==='race')showMsg('Con el código 1312 los récords no se guardan',2200);},4600);}
+ if(player.cheat)setTimeout(()=>{if(state==='race')showMsg("Con el modo turbo los récords no se guardan",2200);},4600);}
 function ttMakeGhost(){const r=TT.ref,t0=TEAMS[r.ti],team=paintValid(r.paint)?paintTeam(t0,r.paint):t0,m=r.hy?makeHypercar(team,r.num,r.n):r.sc?makeSuper(team,r.num,r.n):r.gt?makeSportsCar(team,r.num,r.n):makeCar(team,r.num,r.n);const mats=new Map();
  const sw=mt=>{if(!mats.has(mt)){const g=mt.clone();g.userData={};if(mt.onBeforeCompile){g.onBeforeCompile=mt.onBeforeCompile;g.customProgramCacheKey=()=>mt.customProgramCacheKey()+'_g';}g.transparent=true;g.opacity=0.38;g.depthWrite=false;mats.set(mt,g);}return mats.get(mt);};
  m.root.traverse(o=>{o.castShadow=false;if(o.isMesh)o.material=Array.isArray(o.material)?o.material.map(sw):sw(o.material);});
@@ -3930,7 +3930,11 @@ function startRace(){$('olNet').classList.add('hidden');ONL.netT=0;
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(solo()){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg(SNAME[sess.type]+' · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
- if(player.cheat||player.m.gt||player.assist||player.grass)setTimeout(()=>{if(state==="countdown"||state==="race")showMsg([player.cheat?"Código 1312":"",player.m.hyper?"Código 2009 · Chiron Super Sport 300+":player.m.sc4?"Código 4888 · superauto":player.m.gt?"Código 1705 · Porsche 911 GT3 RS":"",player.assist?"Código 0900 · ayudas":"",player.grass?"Código 0800 · el pasto no frena":""].filter(Boolean).join(" + ")+" activo",1800);},1900);
+ // al largar: el auto especial se anuncia solo con su nombre y el 1312 como "modo turbo" (sin los numeros, asi nadie los ve en tu pantalla)
+ if(player.cheat||player.m.gt||player.assist||player.grass)setTimeout(()=>{if(state!=="countdown"&&state!=="race")return;
+  const car=player.m.hyper?"Chiron Super Sport 300+":player.m.sc4?"Superauto":player.m.gt?"Porsche 911 GT3 RS":"";
+  const cods=[player.cheat?"Modo turbo":"",player.assist?"Código 0900 · ayudas":"",player.grass?"Código 0800 · el pasto no frena":""].filter(Boolean);
+  showMsg([car,cods.length?cods.join(" + ")+" activo":""].filter(Boolean).join(" · "),1800);},1900);
  $('pEnd').classList.toggle('hidden',!solo());$('pEnd').textContent=sess.type==='tt'?'Terminar tanda':'Terminar clasificación';$('boxPanel').classList.add('hidden');
  $('c').focus();
 }
