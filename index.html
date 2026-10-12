@@ -200,6 +200,10 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .seg button{flex:1;border:0;background:none;color:var(--muted);font-weight:700;font-size:15px;padding:8px 6px;border-radius:9px;cursor:pointer}
 .seg button.sel{background:var(--accent);color:var(--ink)}
 .row2{display:grid;grid-template-columns:1fr 1.5fr;gap:12px}
+.olbig{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;margin-top:18px;min-height:78px;padding:10px 14px;border:0;border-radius:16px;background:linear-gradient(135deg,#1d5cff,#17b6ff);color:#fff;cursor:pointer;box-shadow:0 14px 40px -14px #1e8bff;font-family:inherit;touch-action:manipulation;transition:transform .15s ease,filter .15s ease}
+.olbig b{font-weight:900;font-style:italic;font-size:28px;letter-spacing:.02em;line-height:1}
+.olbig small{font-size:14px;font-weight:600;opacity:.92}
+.olbig:hover{filter:brightness(1.08);transform:translateY(-1px)}.olbig:active{transform:scale(.98)}
 .go{margin-top:28px;width:100%;height:60px;border:0;border-radius:14px;background:var(--accent);color:var(--ink);font-weight:900;font-style:italic;font-size:26px;cursor:pointer;box-shadow:0 14px 40px -14px var(--accent)}
 .keys{margin-top:18px;font-size:13px;color:var(--muted);line-height:1.8}
 .keys kbd{display:inline-block;min-width:22px;padding:0 6px;margin:0 2px;border-radius:5px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font:700 12px 'Titillium Web',sans-serif;text-align:center}
@@ -339,13 +343,14 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <div class="title"><h1>Gran<br>Premio</h1><div class="num" id="t3d">3D</div></div>
     <div class="stripe"><i></i><i></i><i></i></div>
     <p class="lead">Elegi tu escuderia, el circuito y larga contra 9 rivales. Usa el ERS en las rectas para pasar.</p>
+    <button class="olbig" id="olBtn"><b>🌐 JUGAR ONLINE</b><small>Con amigos: creá una sala o entrá con un código</small></button>
     <h3>Modo de juego</h3>
     <div class="seg" id="segMode"><button data-v="0">Carrera rápida</button><button data-v="1">Fin de semana</button><button data-v="2">Campeonato</button><button data-v="3">Supera tu récord</button><button data-v="4">Récord mundial</button></div>
     <p class="hint" id="modeHint"></p>
     <div id="fmtRow"><h3>Formato del fin de semana</h3><div class="seg" id="segFmt"><button data-v="0">Clasif + Carrera</button><button data-v="1">Clasif + Sprint + Carrera</button></div></div>
     <h3>Tu piloto</h3>
     <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
-    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button><button class="btn sm" id="olBtn">Online</button></div></div>
+    <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button></div></div>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
     <button class="btn wide" id="paintBtn">Pintar mi auto y casco</button>
