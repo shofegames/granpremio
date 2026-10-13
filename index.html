@@ -201,6 +201,11 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .seg button.sel{background:var(--accent);color:var(--ink)}
 .row2{display:grid;grid-template-columns:1fr 1.5fr;gap:12px}
 #visBtn{flex:0 0 auto;min-width:0;padding:0 14px}
+#invBar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:14px;max-width:calc(100vw - 24px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#invBar b{color:#fff;font-style:italic;text-shadow:0 0 10px rgba(255,255,255,.5)}
+#invBar .invb{display:flex;gap:8px;flex:0 0 auto}#invBar .btn{flex:0 0 auto;min-width:0;padding:0 16px;height:38px;touch-action:manipulation}#invYes{background:var(--accent);color:var(--ink);border:0}
+.vis .r .btn{flex:0 0 auto;min-width:0;height:30px;padding:0 12px;font-size:14px}
+@media (max-width:640px){#invBar{flex-direction:column;gap:8px;text-align:center}}
 .vis{text-align:left;font-size:15px;max-height:60vh;overflow:auto}
 .vis h4{margin:14px 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .vis p{margin:4px 0}
@@ -454,6 +459,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <button class="btn wide" id="visClose">Cerrar</button>
   </div>
 </div>
+<div id="invBar" class="glass hidden" role="alertdialog" aria-label="Invitación"><b id="invTxt"></b><div class="invb"><button class="btn sm" id="invYes">Aceptar</button><button class="btn sm" id="invNo">No</button></div></div>
 <div id="rankPad" class="overlay modalwrap hidden">
   <div class="modal glass" role="dialog" aria-label="Ranking online">
     <h2>Ranking online</h2>
@@ -4285,7 +4291,7 @@ function visDev(){return isTouch?(document.body.classList.contains('tab')?'table
 function visSt(){const r=/^(race|countdown|finished|paused)/.test(state);if(ONL.code)return ONL.inRace&&r?'online':'sala';return r?'carrera':'menu';}
 async function visPing(){if(VIS.busy)return;VIS.busy=true;try{
  const r=await rpc('gp_visit',{p_id:VIS.id,p_key:VIS.key,p_token:NET.sess?NET.sess.t:null,p_dev:visDev(),p_st:visSt(),p_code:ONL.code||null});
- if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}}catch(e){}finally{VIS.busy=false;}}
+ if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}if(r&&r.inv)invShow(r.inv);if(r&&Array.isArray(r.resp))invResp(r.resp);}catch(e){}finally{VIS.busy=false;}}
 function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,60000);}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();});
 // panel de filcman: quien esta ahora, cuantas entradas hoy y las ultimas
@@ -4302,17 +4308,45 @@ async function visAdmin(render){const b=$('visBtn');if(!visMine()){b.classList.a
  let h='<h4>Salas online ('+sa.length+')</h4>'+(sa.length?sa.map(s=>{const J=Array.isArray(s.jugadores)?s.jugadores:[],aca=ONL.code===s.code;
    return '<div class="r sala"><b>'+esc(s.code)+'<small> · de '+nm(s.host)+'</small></b><span>'+J.map(j=>nm(j.u)).join(', ')+' · '+(s.corriendo?'corriendo':'esperando')+'</span>'+
     (aca?'<em>estás acá</em>':'<button class="btn sm" data-join="'+esc(s.code)+'">Unirse</button>')+'</div>';}).join(''):'<p class="hint">No hay nadie jugando online.</p>');
- h+='<h4>Ahora ('+ah.length+')</h4>'+(ah.length?ah.map(v=>'<div class="r"><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(VST[v.st]||'')+' · desde '+visHM(v.desde)+'</span></div>').join(''):'<p class="hint">No hay nadie.</p>');
+ // boton Invitar: solo a los que tienen cuenta, no estan corriendo online y no estan en tu sala
+ const canInv=v=>typeof v.u==='string'&&OK_NAME.test(v.u)&&v.u.toLowerCase()!=='filcman'&&v.st!=='online'&&(!ONL.code||v.code!==ONL.code);
+ h+='<h4>Ahora ('+ah.length+')</h4>'+(ah.length?ah.map(v=>'<div class="r"><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(VST[v.st]||'')+' · desde '+visHM(v.desde)+'</span>'+(canInv(v)?'<button class="btn sm" data-inv="'+esc(v.u)+'">Invitar</button>':'')+'</div>').join(''):'<p class="hint">No hay nadie.</p>');
  h+='<h4>Hoy</h4><p>'+(r.hoy|0)+' entradas · '+(r.hoyCuentas|0)+' con cuenta</p>';
  const ul=Array.isArray(r.ultimas)?r.ultimas:[];
  h+='<h4>Últimas entradas</h4>'+(ul.length?ul.map(v=>'<div class="r"><span>'+visHM(v.t)+'</span><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(v.min|0)+' min</span></div>').join(''):'<p class="hint">Todavía no hay.</p>');
- $('visBody').innerHTML=h;for(const j of $('visBody').querySelectorAll('[data-join]'))j.onclick=()=>visJoin(j.dataset.join);}
+ $('visBody').innerHTML=h;for(const j of $('visBody').querySelectorAll('[data-join]'))j.onclick=()=>visJoin(j.dataset.join);
+ for(const j of $('visBody').querySelectorAll('[data-inv]'))j.onclick=()=>visInvite(j.dataset.inv,j);}
 // unirse a una sala desde el panel: si estabas en otra sala salis de esa, y se abre la pantalla online entrando con el codigo
 function visJoin(code){if(!/^[A-Z0-9]{5}$/.test(code)||ONL.code===code)return;if(ONL.code)olLeave();
  $('visPad').classList.add('hidden');$('onlinePad').classList.remove('hidden');olView('home');$('olCode').value=code;olJoin();}
 $('visBtn').onclick=()=>{$('visPad').classList.remove('hidden');$('visBody').innerHTML='<p class="hint">Cargando…</p>';visAdmin(true);};
 $('visClose').onclick=()=>$('visPad').classList.add('hidden');
 $('visPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('visPad').classList.add('hidden');});
+// invitaciones de filcman: desde el ojito invita a alguien que esta jugando. Al invitado le aparece una tira arriba de la pantalla
+// (aunque este corriendo contra la compu, sin frenar la carrera); si acepta sale de esa carrera y entra a la sala de filcman.
+// La invitacion le llega con su aviso de visita (cada 60 s) y la respuesta vuelve con el de filcman.
+const INV={seen:new Set(),cur:null,t:0};
+function invShow(inv){if(!inv||!Number.isInteger(inv.id)||INV.seen.has(inv.id)||typeof inv.from!=='string'||!OK_NAME.test(inv.from)||typeof inv.code!=='string'||!/^[A-Z0-9]{5}$/.test(inv.code))return;
+ if(ONL.code||!NET.sess)return;INV.seen.add(inv.id);INV.cur=inv;
+ $('invTxt').textContent='✦ '+inv.from+' te invita a una carrera online ✦';$('invBar').classList.remove('hidden');
+ clearTimeout(INV.t);INV.t=setTimeout(()=>invAnswer(false),90000);}
+function invAnswer(yes){const inv=INV.cur;if(!inv)return;INV.cur=null;clearTimeout(INV.t);$('invBar').classList.add('hidden');
+ if(NET.sess)rpc('gp_invite_answer',{p_token:NET.sess.t,p_id:inv.id,p_yes:!!yes});
+ if(!yes||!NET.sess)return;
+ if(state!=='menu')goMenu();// estaba corriendo contra la compu: sale de esa carrera
+ $('onlinePad').classList.remove('hidden');olView('home');$('olCode').value=inv.code;olJoin();}
+// a filcman: si aceptaron o no
+function invResp(L){for(const x of L){if(!x||typeof x.u!=='string'||!OK_NAME.test(x.u))continue;
+ const t=x.st==='si'?x.u+' aceptó tu invitación: está entrando…':x.u+' no aceptó la invitación';
+ if(state==='menu')olMsg(t,x.st==='si'?'ok':'bad');else showMsg(t,2600);}}
+// filcman invita: si no esta en una sala crea una (queda esperando ahi) y le manda la invitacion
+async function visInvite(u,btn){if(!OK_NAME.test(u)||NET.busy||!visMine())return;btn.disabled=true;btn.textContent='…';
+ if(!ONL.code)await olCreate();
+ if(!ONL.code){btn.disabled=false;btn.textContent='Invitar';return;}
+ const r=await rpc('gp_invite',{p_token:NET.sess.t,p_to:u,p_code:ONL.code});
+ if(r&&r.ok){$('visPad').classList.add('hidden');$('onlinePad').classList.remove('hidden');olView('lobby');olRender();olMsg('Invitaste a '+u+': le llega en menos de 1 minuto','ok');return;}
+ btn.disabled=false;btn.textContent='Invitar';olMsg(r&&r.error==='muchas'?'Mandaste muchas invitaciones: esperá un rato':'No se pudo invitar a '+u,'bad');}
+for(const [id,yes] of [['invYes',true],['invNo',false]]){const el=$(id),fn=()=>invAnswer(yes);el.onclick=fn;el.addEventListener('touchstart',e=>{e.preventDefault();fn();},{passive:false});}
 setInterval(()=>{if(visMine()&&state==='menu')visAdmin(!$('visPad').classList.contains('hidden'));},30000);
 // las visitas arrancan cuando ya se cargo todo el juego (necesitan los datos del online, que se definen mas abajo)
 netLoad();setTimeout(visLoop,0);
