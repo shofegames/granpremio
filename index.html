@@ -205,6 +205,9 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 #invBar b{color:#fff;font-style:italic;text-shadow:0 0 10px rgba(255,255,255,.5)}
 #invBar .invb{display:flex;gap:8px;flex:0 0 auto}#invBar .btn{flex:0 0 auto;min-width:0;padding:0 16px;height:38px;touch-action:manipulation}#invYes{background:var(--accent);color:var(--ink);border:0}
 .vis .r .btn{flex:0 0 auto;min-width:0;height:30px;padding:0 12px;font-size:14px}
+.vis .r.cars{flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0 9px}.vis .r.cars .btn{height:28px;padding:0 10px;font-size:13px}
+.vis .r.cars .m{flex:1 1 100%;font-size:13px}.vis .r.cars .m.ok{color:#3ddc84}.vis .r.cars .m.bad{color:#ff6b6b}
+.vis .r.cars .yo{flex:1 1 100%;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}.vis .r.cars .yo input{width:16px;height:16px;margin:0}
 @media (max-width:640px){#invBar{flex-direction:column;gap:8px;text-align:center}}
 .vis{text-align:left;font-size:15px;max-height:60vh;overflow:auto}
 .vis h4{margin:14px 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
@@ -253,7 +256,6 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .codebtn{position:absolute;left:calc(min(580px,100%) - 54px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);width:36px;height:36px;border-radius:50%;color:var(--muted);font-weight:900;font-size:16px;cursor:pointer;opacity:.7;touch-action:manipulation}
 .codebtn:hover{opacity:1}
 .codebtn.on{background:var(--accent);color:var(--ink);border-color:transparent;opacity:1}
-.codeon{color:var(--accent);font-weight:700}
 .pad{width:min(340px,92vw);text-align:center}
 .slots{display:flex;gap:10px;justify-content:center;margin:18px 0 8px}
 .slots i{width:50px;height:60px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;font-style:normal}
@@ -384,7 +386,6 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <h3>Graficos</h3>
     <div class="seg" id="segQ"><button data-v="0">Alta (mas fluido)</button><button data-v="1">Ultra (maximo detalle)</button></div>
     <button class="go" id="go">Largar</button>
-    <p class="hint codeon hidden" id="codeOn">Código 1312 activo para la próxima carrera: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.</p>
     <button class="btn wide hidden" id="cont">Continuar campeonato</button>
     <p class="hint warn hidden" id="saveWarn">El campeonato guardado estaba dañado o modificado a mano, así que se descartó.</p>
     <div class="keys" id="keysHelp">
@@ -3954,6 +3955,12 @@ function updateMirrors(){const c=player;if(!c||!c.m.kit||!(camMode===1||camMode=
  const sp=MIR.b.copy(sky.position),ss=sky.scale.x;sky.position.copy(cam.position);sky.scale.setScalar(0.1);
  renderer.setRenderTarget(MIR.rt);renderer.render(scene,cam);renderer.setRenderTarget(null);sky.position.copy(sp);sky.scale.setScalar(ss);
  renderer.shadowMap.autoUpdate=au;for(const mm of K.mirrors)mm.visible=true;}
+// el auto de cada uno: tu codigo (o el que te puso filcman) y los rivales online con el suyo
+function carName(c){return sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop();}
+function carModel(c,nm){return (c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sc4)||c.scR?makeSuper(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sl)||c.slR?makeSL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.f6)||c.f6R?makeF6(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm,{hero:c.isPlayer});}
+// cambia el auto en el medio de la carrera (sigue en el mismo lugar, con las mismas gomas y el mismo daño)
+function swapCar(c){const old=c.m;if(!old||!carsGroup)return;const m=carModel(c,carName(c));m.root.visible=old.root.visible;carsGroup.add(m.root);
+ carsGroup.remove(old.root);disposeObj(old.root);c.m=m;setCompound(c,old.ci);if(c.isPlayer)addCockpit(c);carDamageVisual(c);updateCarVisual(c,0);}
 function buildRace(){buildRace0();prewarm();}
 function buildRace0(){
  if(carsGroup){scene.remove(carsGroup);disposeObj(carsGroup);}
@@ -3968,7 +3975,7 @@ function buildRace0(){
  const {N,P,NL,H}=track;
  order.forEach((c,slot)=>{
   // con el codigo 1705 tu auto es un Porsche 911 GT3 RS
-  const nm=sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop(),m=(c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sc4)||c.scR?makeSuper(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sl)||c.slR?makeSL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.f6)||c.f6R?makeF6(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm,{hero:c.isPlayer});carsGroup.add(m.root);
+  const m=carModel(c,carName(c));carsGroup.add(m.root);
   const q=solo();const back=q?220:10+slot*8,lat=q?0:slot%2===0?3.2:-3.2;const gi=idxAt(-back);
   const car=Object.assign(c,{m,s:gi-N,s0:gi-N,prog:gi-N,idx:gi,lane:lat,laneT:lat,lat:lat,startLane:lat,pref:rnd(-1.4,1.4),v:0,steer:0,head:H[gi],pos:new V3(P[gi].x+NL[gi].x*lat,P[gi].y,P[gi].z+NL[gi].z*lat),
    finished:false,finishTime:0,overT:0,react:rnd(0.18,0.5),launch:rnd(0.9,1.05),launchFx:0,started:false,lapStart:0,best:Infinity,lastLaps:0,lapsSeen:-1,timing:false,lapBad:false,offT:0,tw:0,twWarn:false,dmg:0,pit:0,pitReq:false,pitCi:0,ps:0,ps0:0,pl0:0,pitL:0,box:0,stopT:0,stopTot:0,stops:0,ers:1,ersOn:false,pitch:0,roll:0,acc:0,heat:0,spinT:0,reacted:false,grid:slot+1});
@@ -4516,10 +4523,12 @@ function startRace(){$('olNet').classList.add('hidden');ONL.netT=0;
  if(solo()){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg(SNAME[sess.type]+' · vuelta de salida',2400);}
  else{state='countdown';lightsT=0;lightsOutAt=5*0.9+rnd(0.5,1.5);$('lights').classList.remove('hidden');showMsg(SNAME[sess.type]+' · '+sess.laps+' vueltas',1800);}
  // al largar: el auto especial se anuncia solo con su nombre y el 1312 como "modo turbo" (sin los numeros, asi nadie los ve en tu pantalla)
- if(player.cheat||player.m.gt||player.assist||player.grass)setTimeout(()=>{if(state!=="countdown"&&state!=="race")return;
-  const car=player.m.hyper?"Chiron Super Sport 300+":player.m.sc4?"Superauto":player.m.sl?"R107 SL":player.m.f6?"Fiat 600":player.m.gt?"Porsche 911 GT3 RS":"";
+ // si te lo puso filcman y eligio que se sepa: "✦ filcman te puso el Superauto ✦"
+ if(player.cheat||player.m.gt||player.assist||player.grass||CODE.de)setTimeout(()=>{if(state!=="countdown"&&state!=="race")return;
+  let car=player.m.hyper?"Chiron Super Sport 300+":player.m.sc4?"Superauto":player.m.sl?"R107 SL":player.m.f6?"Fiat 600":player.m.gt?"Porsche 911 GT3 RS":"";
+  if(CODE.de)car='✦ '+CODE.de+' te puso el '+(car||'F1')+' ✦';
   const cods=[player.cheat?"Modo turbo":"",player.assist?"Código 0900 · ayudas":"",player.grass?"Código 0800 · el pasto no frena":""].filter(Boolean);
-  showMsg([car,cods.length?cods.join(" + ")+" activo":""].filter(Boolean).join(" · "),1800);},1900);
+  showMsg([car,cods.length?cods.join(" + ")+" activo":""].filter(Boolean).join(" · "),CODE.de?2600:1800);},1900);
  $('pEnd').classList.toggle('hidden',!solo());$('pEnd').textContent=sess.type==='tt'?'Terminar tanda':'Terminar clasificación';$('boxPanel').classList.add('hidden');
  $('c').focus();
 }
@@ -4769,10 +4778,10 @@ peSync();
 // 2009: corres con el hiperauto (Chiron Super Sport 300+); anda igual que el F1, asi que las vueltas cuentan
 // 4888: corres con el superauto rojo de franjas (diseño propio); anda igual que el F1
 // duran solo la proxima carrera y se pueden usar juntos
-const CODE={on:false,sport:false,assist:false,grass:false,hyper:false,sc4:false,sl:false,f6:false,buf:'',t:0};
-function setCode(k,v){if(k===false)CODE.on=CODE.sport=CODE.assist=CODE.grass=CODE.hyper=CODE.sc4=CODE.sl=CODE.f6=false;else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist||CODE.grass||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6;
- $('codeBtn').classList.toggle('on',any);$('codeOn').classList.toggle('hidden',!any);
- $('codeOn').textContent=[CODE.on?'Código 1312 activo: gomas y auto que no se rompen, ERS infinito y mucha más aceleración.':'',CODE.sport?'Código 1705 activo: corrés con un Porsche 911 GT3 RS.':'',CODE.assist?'Código 0900 activo: ayudas para frenar y doblar.':'',CODE.grass?'Código 0800 activo: el pasto y la grava no te frenan (esas vueltas no cuentan para récords).':'',CODE.hyper?'Código 2009 activo: corrés con el hiperauto Chiron Super Sport 300+.':'',CODE.sc4?'Código 4888 activo: corrés con el superauto rojo de franjas.':'',CODE.sl?'Código 2013 activo: corrés con el R107 SL clásico.':'',CODE.f6?'Código 0600 activo: corrés con el Fiat 600.':''].filter(Boolean).join(' ')+' Vale para la próxima carrera.';}
+const CODE={on:false,sport:false,assist:false,grass:false,hyper:false,sc4:false,sl:false,f6:false,de:'',buf:'',t:0};
+function setCode(k,v){if(k===false||['sport','hyper','sc4','sl','f6'].includes(k))CODE.de='';// de: quien te puso el auto (si quiso que se sepa)
+ if(k===false)CODE.on=CODE.sport=CODE.assist=CODE.grass=CODE.hyper=CODE.sc4=CODE.sl=CODE.f6=false;else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist||CODE.grass||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6;
+ $('codeBtn').classList.toggle('on',any);}
 function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textContent=CODE.buf[i]||'';s.classList.toggle('f',i<CODE.buf.length);});
  if(msg!==undefined){const m=$('codeMsg');m.textContent=msg;m.className='padmsg'+(cls?' '+cls:'');}}
 function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');$('codePad').classList.remove('hidden');}
@@ -4867,12 +4876,12 @@ $('rankPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('rankPad').cla
  El juego avisa al servidor que esta abierto: al entrar y despues cada minuto mientras la pestaña se ve (celu/tablet/compu y si esta
  en el menu, corriendo o corriendo online). Si hay cuenta, el servidor saca el nombre de la sesion. Solo filcman ve quien esta jugando
  (boton chiquito con un ojo al lado de "Ranking online"). No se guardan IPs ni datos personales. */
-const VIS={id:null,key:null,t:null,busy:false};
+const VIS={id:null,key:null,t:null,busy:false,yo:false};
 function visDev(){return isTouch?(document.body.classList.contains('tab')?'tablet':'celu'):'compu';}
 function visSt(){const r=/^(race|countdown|finished|paused)/.test(state);if(ONL.code)return ONL.inRace&&r?'online':'sala';return r?'carrera':'menu';}
 async function visPing(){if(VIS.busy)return;VIS.busy=true;try{
  const r=await rpc('gp_visit',{p_id:VIS.id,p_key:VIS.key,p_token:NET.sess?NET.sess.t:null,p_dev:visDev(),p_st:visSt(),p_code:ONL.code||null});
- if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}if(r&&r.inv)invShow(r.inv);if(r&&Array.isArray(r.resp))invResp(r.resp);}catch(e){}finally{VIS.busy=false;}}
+ if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}if(r&&r.inv)invShow(r.inv);if(r&&Array.isArray(r.resp))invResp(r.resp);if(r&&typeof r.car==='string')carGift(r.car,r.carDe);}catch(e){}finally{VIS.busy=false;}}
 function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,60000);}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();});
 // panel de filcman: quien esta ahora, cuantas entradas hoy y las ultimas
@@ -4891,12 +4900,15 @@ async function visAdmin(render){const b=$('visBtn');if(!visMine()){b.classList.a
     (aca?'<em>estás acá</em>':'<button class="btn sm" data-join="'+esc(s.code)+'">Unirse</button>')+'</div>';}).join(''):'<p class="hint">No hay nadie jugando online.</p>');
  // boton Invitar: solo a los que tienen cuenta, no estan corriendo online y no estan en tu sala
  const canInv=v=>typeof v.u==='string'&&OK_NAME.test(v.u)&&v.u.toLowerCase()!=='filcman'&&v.st!=='online'&&(!ONL.code||v.code!==ONL.code);
- h+='<h4>Ahora ('+ah.length+')</h4>'+(ah.length?ah.map(v=>'<div class="r"><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(VST[v.st]||'')+' · desde '+visHM(v.desde)+'</span>'+(canInv(v)?'<button class="btn sm" data-inv="'+esc(v.u)+'">Invitar</button>':'')+'</div>').join(''):'<p class="hint">No hay nadie.</p>');
+ // boton Auto: a cualquiera con cuenta (aunque este corriendo, contra la compu u online)
+ const canCar=v=>typeof v.u==='string'&&OK_NAME.test(v.u)&&v.u.toLowerCase()!=='filcman';
+ h+='<h4>Ahora ('+ah.length+')</h4>'+(ah.length?ah.map(v=>'<div class="r"><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(VST[v.st]||'')+' · desde '+visHM(v.desde)+'</span>'+(canInv(v)?'<button class="btn sm" data-inv="'+esc(v.u)+'">Invitar</button>':'')+(canCar(v)?'<button class="btn sm" data-car="'+esc(v.u)+'">Auto</button>':'')+'</div>').join(''):'<p class="hint">No hay nadie.</p>');
  h+='<h4>Hoy</h4><p>'+(r.hoy|0)+' entradas · '+(r.hoyCuentas|0)+' con cuenta</p>';
  const ul=Array.isArray(r.ultimas)?r.ultimas:[];
  h+='<h4>Últimas entradas</h4>'+(ul.length?ul.map(v=>'<div class="r"><span>'+visHM(v.t)+'</span><b>'+nm(v.u)+'</b><span>'+dv(v.dev)+' · '+(v.min|0)+' min</span></div>').join(''):'<p class="hint">Todavía no hay.</p>');
  $('visBody').innerHTML=h;for(const j of $('visBody').querySelectorAll('[data-join]'))j.onclick=()=>visJoin(j.dataset.join);
- for(const j of $('visBody').querySelectorAll('[data-inv]'))j.onclick=()=>visInvite(j.dataset.inv,j);}
+ for(const j of $('visBody').querySelectorAll('[data-inv]'))j.onclick=()=>visInvite(j.dataset.inv,j);
+ for(const j of $('visBody').querySelectorAll('[data-car]'))j.onclick=()=>visCarMenu(j.dataset.car,j);}
 // unirse a una sala desde el panel: si estabas en otra sala salis de esa, y se abre la pantalla online entrando con el codigo
 function visJoin(code){if(!/^[A-Z0-9]{5}$/.test(code)||ONL.code===code)return;if(ONL.code)olLeave();
  $('visPad').classList.add('hidden');$('onlinePad').classList.remove('hidden');olView('home');$('olCode').value=code;olJoin();}
@@ -4928,6 +4940,28 @@ async function visInvite(u,btn){if(!OK_NAME.test(u)||NET.busy||!visMine())return
  if(r&&r.ok){$('visPad').classList.add('hidden');$('onlinePad').classList.remove('hidden');olView('lobby');olRender();olMsg('Invitaste a '+u+': le llega en menos de 1 minuto','ok');return;}
  btn.disabled=false;btn.textContent='Invitar';olMsg(r&&r.error==='muchas'?'Mandaste muchas invitaciones: esperá un rato':'No se pudo invitar a '+u,'bad');}
 for(const [id,yes] of [['invYes',true],['invNo',false]]){const el=$(id),fn=()=>invAnswer(yes);el.onclick=fn;el.addEventListener('touchstart',e=>{e.preventDefault();fn();},{passive:false});}
+// filcman le pone un auto a alguien desde el ojito (boton Auto). Le llega con su aviso de visita (cada 60 s). filcman elige si dice
+// que fue el ("✦ filcman te puso el Superauto ✦") o no (solo el nombre del auto). En el menu queda para la proxima carrera (y el cartel
+// sale al largar); si esta corriendo, el auto se cambia en el momento (online tambien lo ven los demas). Dura esa carrera, como los codigos.
+const GIFT={f1:'F1',sport:'Porsche 911 GT3 RS',hyper:'Chiron Super Sport 300+',sc4:'Superauto',sl:'R107 SL',f6:'Fiat 600'};
+function giftFlags(o,k){o.sport=k==='sport';o.hyper=k==='hyper';o.sc4=k==='sc4';o.sl=k==='sl';o.f6=k==='f6';}
+function remoteFlags(o,k){o.gtR=k!=='f1';o.hyR=k==='hyper';o.scR=k==='sc4';o.slR=k==='sl';o.f6R=k==='f6';}
+function carGift(k,de){if(!Object.prototype.hasOwnProperty.call(GIFT,k)||!NET.sess)return;de=typeof de==='string'&&OK_NAME.test(de)?de:'';
+ giftFlags(CODE,k);CODE.de=de;
+ if(state==='menu'){buildRace();return;}
+ if(!player||!cars.includes(player))return;swapCar(player);showMsg('✦ '+(de?de+' te puso el '+GIFT[k]:GIFT[k])+' ✦',de?2800:2200);
+ if(ONL.inRace)rtSend('auto',{u:NET.sess.u,k,de:de||undefined});}
+// el menu chiquito con los autos, abajo del jugador
+function visCarMenu(u,btn){const row=btn.closest('.r');const nx=row.nextElementSibling;if(nx&&nx.classList.contains('cars')){nx.remove();return;}
+ for(const o of $('visBody').querySelectorAll('.r.cars'))o.remove();
+ const d=document.createElement('div');d.className='r cars';
+ d.innerHTML=Object.keys(GIFT).map(k=>'<button class="btn sm" data-k="'+k+'">'+esc(GIFT[k])+'</button>').join('')+
+  '<label class="yo"><input type="checkbox"'+(VIS.yo?' checked':'')+'> Que diga que se lo puse yo</label><span class="m"></span>';
+ row.after(d);const ck=d.querySelector('.yo input');ck.onchange=()=>{VIS.yo=ck.checked;};
+ for(const b of d.querySelectorAll('[data-k]'))b.onclick=()=>visGiveCar(u,b.dataset.k,d,ck.checked);}
+async function visGiveCar(u,k,d,yo){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
+ const r=await rpc('gp_give_car',{p_token:NET.sess.t,p_to:u,p_car:k,p_show:!!yo});for(const b of d.querySelectorAll('button'))b.disabled=false;
+ m.textContent=r&&r.ok?GIFT[k]+' para '+u+(yo?' (dice que fuiste vos)':' (no dice quién fue)')+': le llega en menos de 1 minuto':'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
 setInterval(()=>{if(visMine()&&state==='menu')visAdmin(!$('visPad').classList.contains('hidden'));},30000);
 // las visitas arrancan cuando ya se cargo todo el juego (necesitan los datos del online, que se definen mas abajo)
 netLoad();setTimeout(visLoop,0);
@@ -5086,6 +5120,10 @@ function olOnMsg(ev,p){
   if(Number.isInteger(p.n)){if(isNum(c.lastN)&&p.n<=c.lastN&&p.n>c.lastN-1000)return;c.lastN=p.n;}c.snap.push({t:performance.now(),a:p.a});if(c.snap.length>4)c.snap.shift();c.heard=performance.now();return;}
  if(ev==='z'){if(!ONL.inRace||p.u!=='filcman'||!NET.sess||NET.sess.u==='filcman'||!isNum(p.g)||!player||player.finished)return;
   if(player.prog>p.g+0.5)player.slowT=performance.now()+700;return;}
+ // a alguien de la carrera le cambiaron el auto (se lo puso filcman): se cambia tambien en tu pantalla
+ if(ev==='auto'){if(!OK_NAME.test(p.u)||!Object.prototype.hasOwnProperty.call(GIFT,p.k))return;const pl=ONL.players.get(p.u);if(pl){pl.gt=p.k!=='f1';pl.hy=p.k==='hyper';pl.sc=p.k==='sc4';pl.sl=p.k==='sl';pl.f6=p.k==='f6';}
+  const c=cars.find(o=>o.remote&&o.driver===p.u);if(c&&ONL.inRace){remoteFlags(c,p.k);swapCar(c);
+   if(typeof p.de==='string'&&OK_NAME.test(p.de))showMsg('✦ '+p.de+' le puso el '+GIFT[p.k]+' a '+p.u+' ✦',2600);}return;}
  if(ev==='fin'){const c=cars.find(o=>o.remote&&o.driver===p.u);if(!c||!isNum(p.t)||p.t<10||p.t>7200)return;c.finished=true;c.finishTime=p.t;if(isNum(p.best)&&p.best>0)c.best=p.best;
   if(finishShown&&ONL.inRace)olResults();return;}}
 // grilla online: solo los jugadores de la sala, en el orden sorteado (vos con tu escuderia, los demas con la suya)
