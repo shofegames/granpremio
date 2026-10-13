@@ -4283,9 +4283,9 @@ $('rankPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('rankPad').cla
 const VIS={id:null,key:null,t:null,busy:false};
 function visDev(){return isTouch?(document.body.classList.contains('tab')?'tablet':'celu'):'compu';}
 function visSt(){const r=/^(race|countdown|finished|paused)/.test(state);if(ONL.code)return ONL.inRace&&r?'online':'sala';return r?'carrera':'menu';}
-async function visPing(){if(VIS.busy)return;VIS.busy=true;
+async function visPing(){if(VIS.busy)return;VIS.busy=true;try{
  const r=await rpc('gp_visit',{p_id:VIS.id,p_key:VIS.key,p_token:NET.sess?NET.sess.t:null,p_dev:visDev(),p_st:visSt(),p_code:ONL.code||null});
- if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}VIS.busy=false;}
+ if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}}catch(e){}finally{VIS.busy=false;}}
 function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,60000);}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();});
 // panel de filcman: quien esta ahora, cuantas entradas hoy y las ultimas
@@ -4314,7 +4314,8 @@ $('visBtn').onclick=()=>{$('visPad').classList.remove('hidden');$('visBody').inn
 $('visClose').onclick=()=>$('visPad').classList.add('hidden');
 $('visPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('visPad').classList.add('hidden');});
 setInterval(()=>{if(visMine()&&state==='menu')visAdmin(!$('visPad').classList.contains('hidden'));},30000);
-netLoad();visLoop();
+// las visitas arrancan cuando ya se cargo todo el juego (necesitan los datos del online, que se definen mas abajo)
+netLoad();setTimeout(visLoop,0);
 
 /* ---------------- online: salas con codigo (Supabase Realtime) ---------------- */
 // conexion en vivo: cada sala es un canal; los mensajes de los demas se validan siempre (nunca se confia en ellos)
