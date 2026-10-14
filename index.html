@@ -209,6 +209,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .vis .r.cars .m{flex:1 1 100%;font-size:13px}.vis .r.cars .m.ok{color:#3ddc84}.vis .r.cars .m.bad{color:#ff6b6b}
 .vis .r.cars .yo{flex:1 1 100%;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}.vis .r.cars .yo input{width:16px;height:16px;margin:0}
 .vis .r.cars .t{flex:1 1 100%;font-size:13px;font-weight:700;color:var(--muted)}.vis .r.cars .btn.vel{border-color:#0e7490}
+.vis .r.cars input.de{flex:1 1 100%;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;font:inherit;font-size:14px;margin:-2px 0 2px 24px;max-width:240px}
 .vis i.new{font-style:normal;font-size:11px;font-weight:800;letter-spacing:.05em;background:#0e7490;color:#fff;border-radius:6px;padding:1px 6px;margin-left:7px;vertical-align:1px}
 @media (max-width:640px){#invBar{flex-direction:column;gap:8px;text-align:center}}
 .vis{text-align:left;font-size:15px;max-height:60vh;overflow:auto}
@@ -4877,7 +4878,7 @@ $('rankBtn').onclick=rkOpen;$('rkClose').onclick=()=>$('rankPad').classList.add(
 $('rkPrev').onclick=()=>{rkCi=(rkCi-1+CIRCUITS.length)%CIRCUITS.length;rkLoad();};$('rkNext').onclick=()=>{rkCi=(rkCi+1)%CIRCUITS.length;rkLoad();};
 $('rankPad').addEventListener('keydown',e=>{if(e.key==='Escape')$('rankPad').classList.add('hidden');});
 /* ---------------- visitas ----------------
- El juego avisa al servidor que esta abierto: al entrar y despues cada minuto mientras la pestaña se ve (celu/tablet/compu y si esta
+ El juego avisa al servidor que esta abierto: al entrar y despues cada 15 s (v58; antes cada minuto) mientras la pestaña se ve (celu/tablet/compu y si esta
  en el menu, corriendo o corriendo online). Si hay cuenta, el servidor saca el nombre de la sesion. Solo filcman ve quien esta jugando
  (boton chiquito con un ojo al lado de "Ranking online"). No se guardan IPs ni datos personales. */
 const VIS={id:null,key:null,t:null,busy:false,yo:false,prox:false};
@@ -4886,7 +4887,7 @@ function visSt(){const r=/^(race|countdown|finished|paused)/.test(state);if(ONL.
 async function visPing(){if(VIS.busy)return;VIS.busy=true;try{
  const r=await rpc('gp_visit',{p_id:VIS.id,p_key:VIS.key,p_token:NET.sess?NET.sess.t:null,p_dev:visDev(),p_st:visSt(),p_code:ONL.code||null});
  if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}if(r&&r.inv)invShow(r.inv);if(r&&Array.isArray(r.resp))invResp(r.resp);if(r&&typeof r.car==='string')carGift(r.car,r.carDe,r.carProx===true);if(r&&(r.vel==='turbo'||r.vel==='lento'))velGift(r.vel,r.velDe);}catch(e){}finally{VIS.busy=false;}}
-function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,60000);}
+function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,15000);}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();});
 // panel de filcman: quien esta ahora, cuantas entradas hoy y las ultimas
 const VST={menu:'en el menú',carrera:'corriendo',online:'corriendo online',sala:'en una sala online'};
@@ -4935,7 +4936,7 @@ $('visClose').onclick=visHide;
 $('visPad').addEventListener('keydown',e=>{if(e.key==='Escape')visHide();});
 // invitaciones de filcman: desde el ojito invita a alguien que esta jugando. Al invitado le aparece una tira arriba de la pantalla
 // (aunque este corriendo contra la compu, sin frenar la carrera); si acepta sale de esa carrera y entra a la sala de filcman.
-// La invitacion le llega con su aviso de visita (cada 60 s) y la respuesta vuelve con el de filcman.
+// La invitacion le llega con su aviso de visita (cada 15 s) y la respuesta vuelve con el de filcman.
 const INV={seen:new Set(),cur:null,t:0};
 function invShow(inv){if(!inv||!Number.isInteger(inv.id)||INV.seen.has(inv.id)||typeof inv.from!=='string'||!OK_NAME.test(inv.from)||typeof inv.code!=='string'||!/^[A-Z0-9]{5}$/.test(inv.code))return;
  if(ONL.code||!NET.sess)return;INV.seen.add(inv.id);INV.cur=inv;
@@ -4955,10 +4956,10 @@ async function visInvite(u,btn){if(!OK_NAME.test(u)||NET.busy||!visMine())return
  if(!ONL.code)await olCreate();
  if(!ONL.code){btn.disabled=false;btn.textContent='Invitar';return;}
  const r=await rpc('gp_invite',{p_token:NET.sess.t,p_to:u,p_code:ONL.code});
- if(r&&r.ok){visHide();$('onlinePad').classList.remove('hidden');olView('lobby');olRender();olMsg('Invitaste a '+u+': le llega en menos de 1 minuto','ok');return;}
+ if(r&&r.ok){visHide();$('onlinePad').classList.remove('hidden');olView('lobby');olRender();olMsg('Invitaste a '+u+': le llega en unos segundos','ok');return;}
  btn.disabled=false;btn.textContent='Invitar';olMsg(r&&r.error==='muchas'?'Mandaste muchas invitaciones: esperá un rato':'No se pudo invitar a '+u,'bad');}
 for(const [id,yes] of [['invYes',true],['invNo',false]]){const el=$(id),fn=()=>invAnswer(yes);el.onclick=fn;el.addEventListener('touchstart',e=>{e.preventDefault();fn();},{passive:false});}
-// filcman le pone un auto a alguien desde el ojito (boton Auto). Le llega con su aviso de visita (cada 60 s). filcman elige si dice
+// filcman le pone un auto a alguien desde el ojito (boton Auto). Le llega con su aviso de visita (cada 15 s). filcman elige si dice
 // que fue el ("✦ filcman te puso el Superauto ✦") o no (solo el nombre del auto). En el menu queda para la proxima carrera (y el cartel
 // sale al largar); si esta corriendo, el auto se cambia en el momento (online tambien lo ven los demas). Dura esa carrera, como los codigos.
 // Con "Para su proxima carrera offline" no cambia nada ahora: queda guardado (aunque recargue la pagina) y se lo pone cuando larga
@@ -4973,35 +4974,46 @@ function lsGet(k){try{const o=JSON.parse(localStorage.getItem(k)||'null');return
 function lsSet(k,o){try{if(o)localStorage.setItem(k,JSON.stringify(o));else localStorage.removeItem(k);}catch(e){}}
 function giftNextLoad(){const o=lsGet(GN_KEY);return o&&Object.prototype.hasOwnProperty.call(GIFT,o.k)?o:null;}
 function giftNextSave(o){lsSet(GN_KEY,o);}
-function velGift(v,de){if(!NET.sess||!Object.prototype.hasOwnProperty.call(VEL,v))return;lsSet(GV_KEY,{u:NET.sess.u,v,de:typeof de==='string'&&OK_NAME.test(de)?de:''});}
+// el nombre que aparece en "✦ … te puso el Superauto ✦": lo escribe filcman (letras, numeros, espacios, tildes y algunos signos; hasta 20)
+const DE_RE=/^[A-Za-z0-9 áéíóúÁÉÍÓÚñÑüÜ._!¡?¿-]{1,20}$/;
+function okDe(s){s=typeof s==='string'?s.trim():'';return DE_RE.test(s)?s:'';}
+function velGift(v,de){if(!NET.sess||!Object.prototype.hasOwnProperty.call(VEL,v))return;lsSet(GV_KEY,{u:NET.sess.u,v,de:okDe(de)});}
 // al largar una carrera offline: si hay un auto o una velocidad guardados para esta cuenta, se ponen ahora (y se borran)
-function giftNext(){if(sess.online||!NET.sess)return;const by=s=>typeof s==='string'&&OK_NAME.test(s)?s:'';
- const o=giftNextLoad();if(o&&o.u===NET.sess.u){giftNextSave(null);giftFlags(CODE,o.k);CODE.de=by(o.de);}
- const s=lsGet(GV_KEY);if(s&&s.u===NET.sess.u&&Object.prototype.hasOwnProperty.call(VEL,s.v)){lsSet(GV_KEY,null);CODE.vel=s.v;if(s.v==='turbo')CODE.on=true;CODE.velDe=by(s.de);}}
-function carGift(k,de,prox){if(!Object.prototype.hasOwnProperty.call(GIFT,k)||!NET.sess)return;de=typeof de==='string'&&OK_NAME.test(de)?de:'';
+function giftNext(){if(sess.online||!NET.sess)return;
+ const o=giftNextLoad();if(o&&o.u===NET.sess.u){giftNextSave(null);giftFlags(CODE,o.k);CODE.de=okDe(o.de);}
+ const s=lsGet(GV_KEY);if(s&&s.u===NET.sess.u&&Object.prototype.hasOwnProperty.call(VEL,s.v)){lsSet(GV_KEY,null);CODE.vel=s.v;if(s.v==='turbo')CODE.on=true;CODE.velDe=okDe(s.de);}}
+function carGift(k,de,prox){if(!Object.prototype.hasOwnProperty.call(GIFT,k)||!NET.sess)return;de=okDe(de);
  if(prox){giftNextSave({u:NET.sess.u,k,de});return;}
  giftFlags(CODE,k);CODE.de=de;
  if(state==='menu'){buildRace();return;}
  if(!player||!cars.includes(player))return;swapCar(player);showMsg('✦ '+(de?de+' te puso el '+GIFT[k]:GIFT[k])+' ✦',de?2800:2200);
  if(ONL.inRace)rtSend('auto',{u:NET.sess.u,k,de:de||undefined});}
 // el menu chiquito con los autos, abajo del jugador. next (boton Proxima de "Todas las cuentas"): siempre para su proxima carrera
-// offline, y ademas Turbo o Mas lento
+// offline, y ademas Turbo o Mas lento. Con "Que diga quién se lo puso" sale el nombre que escribas (al principio, filcman)
+function visDeName(){try{return okDe(localStorage.getItem('gp3d_nombre_regalo'))||'filcman';}catch(e){return 'filcman';}}
 function visCarMenu(u,btn,next){const row=btn.closest('.r');const nx=row.nextElementSibling;if(nx&&nx.classList.contains('cars')){nx.remove();return;}
  for(const o of $('visBody').querySelectorAll('.r.cars'))o.remove();
  const d=document.createElement('div');d.className='r cars';
  d.innerHTML=(next?'<span class="t">Para su próxima carrera offline:</span>':'')+Object.keys(GIFT).map(k=>'<button class="btn sm" data-k="'+k+'">'+esc(GIFT[k])+'</button>').join('')+
   (next?Object.keys(VEL).map(v=>'<button class="btn sm vel" data-v="'+v+'">'+esc(VEL[v])+'</button>').join(''):'')+
-  '<label class="yo"><input type="checkbox" data-o="yo"'+(VIS.yo?' checked':'')+'> Que diga que se lo puse yo</label>'+
+  '<label class="yo"><input type="checkbox" data-o="yo"'+(VIS.yo?' checked':'')+'> Que diga quién se lo puso:</label>'+
+  '<input class="de" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="filcman" value="'+esc(visDeName())+'">'+
   (next?'':'<label class="yo"><input type="checkbox" data-o="prox"'+(VIS.prox?' checked':'')+'> Para su próxima carrera offline (no ahora)</label>')+'<span class="m"></span>';
- row.after(d);const ck=d.querySelector('[data-o="yo"]'),cp=d.querySelector('[data-o="prox"]');ck.onchange=()=>{VIS.yo=ck.checked;};if(cp)cp.onchange=()=>{VIS.prox=cp.checked;};
- for(const b of d.querySelectorAll('[data-k]'))b.onclick=()=>visGiveCar(u,b.dataset.k,d,ck.checked,next||cp.checked);
- for(const b of d.querySelectorAll('[data-v]'))b.onclick=()=>visGiveSpeed(u,b.dataset.v,d,ck.checked);}
-async function visGiveSpeed(u,v,d,yo){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
- const r=await rpc('gp_give_speed',{p_token:NET.sess.t,p_to:u,p_vel:v,p_show:!!yo});for(const b of d.querySelectorAll('button'))b.disabled=false;
- m.textContent=r&&r.ok?VEL[v]+' para '+u+(yo?' (dice que fuiste vos)':' (no dice quién fue)')+': lo va a tener en su próxima carrera offline':'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
-async function visGiveCar(u,k,d,yo,prox){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
- const r=await rpc('gp_give_car',{p_token:NET.sess.t,p_to:u,p_car:k,p_show:!!yo,p_prox:!!prox});for(const b of d.querySelectorAll('button'))b.disabled=false;
- m.textContent=r&&r.ok?GIFT[k]+' para '+u+(yo?' (dice que fuiste vos)':' (no dice quién fue)')+(prox?': lo va a tener en su próxima carrera offline':': le llega en menos de 1 minuto'):'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
+ row.after(d);const ck=d.querySelector('[data-o="yo"]'),cp=d.querySelector('[data-o="prox"]'),nm=d.querySelector('input.de');
+ ck.onchange=()=>{VIS.yo=ck.checked;};if(cp)cp.onchange=()=>{VIS.prox=cp.checked;};
+ nm.oninput=()=>{if(nm.value.trim()&&!ck.checked){ck.checked=VIS.yo=true;}};
+ // el nombre: si esta marcado y no sirve, avisa; si sirve se guarda para la proxima vez
+ const who=()=>{if(!ck.checked)return '';const s=okDe(nm.value)||(nm.value.trim()?null:'filcman');if(s)try{localStorage.setItem('gp3d_nombre_regalo',s);}catch(e){}return s;};
+ const bad=()=>{const m=d.querySelector('.m');m.textContent='Ese nombre no sirve: hasta 20 letras, números o espacios';m.className='m bad';};
+ for(const b of d.querySelectorAll('[data-k]'))b.onclick=()=>{const w=who();if(w===null)return bad();visGiveCar(u,b.dataset.k,d,w,next||cp.checked);};
+ for(const b of d.querySelectorAll('[data-v]'))b.onclick=()=>{const w=who();if(w===null)return bad();visGiveSpeed(u,b.dataset.v,d,w);};}
+const visWho=w=>w?' (dice "'+w+' te puso…")':' (no dice quién fue)';
+async function visGiveSpeed(u,v,d,who){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
+ const r=await rpc('gp_give_speed',{p_token:NET.sess.t,p_to:u,p_vel:v,p_show:!!who,p_name:who||null});for(const b of d.querySelectorAll('button'))b.disabled=false;
+ m.textContent=r&&r.ok?VEL[v]+' para '+u+visWho(who)+': lo va a tener en su próxima carrera offline':'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
+async function visGiveCar(u,k,d,who,prox){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
+ const r=await rpc('gp_give_car',{p_token:NET.sess.t,p_to:u,p_car:k,p_show:!!who,p_prox:!!prox,p_name:who||null});for(const b of d.querySelectorAll('button'))b.disabled=false;
+ m.textContent=r&&r.ok?GIFT[k]+' para '+u+visWho(who)+(prox?': lo va a tener en su próxima carrera offline':': le llega en menos de 15 segundos'):'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
 // cada 30 s se actualiza (si tenes abierto el menu de un jugador no se redibuja, para no cerrartelo)
 setInterval(()=>{if(visMine()&&state==='menu')visAdmin(!$('visPad').classList.contains('hidden')&&!$('visBody').querySelector('.r.cars'));},30000);
 // las visitas arrancan cuando ya se cargo todo el juego (necesitan los datos del online, que se definen mas abajo)
@@ -5164,7 +5176,7 @@ function olOnMsg(ev,p){
  // a alguien de la carrera le cambiaron el auto (se lo puso filcman): se cambia tambien en tu pantalla
  if(ev==='auto'){if(!OK_NAME.test(p.u)||!Object.prototype.hasOwnProperty.call(GIFT,p.k))return;const pl=ONL.players.get(p.u);if(pl){pl.gt=p.k!=='f1';pl.hy=p.k==='hyper';pl.sc=p.k==='sc4';pl.sl=p.k==='sl';pl.f6=p.k==='f6';}
   const c=cars.find(o=>o.remote&&o.driver===p.u);if(c&&ONL.inRace){remoteFlags(c,p.k);swapCar(c);
-   if(typeof p.de==='string'&&OK_NAME.test(p.de))showMsg('✦ '+p.de+' le puso el '+GIFT[p.k]+' a '+p.u+' ✦',2600);}return;}
+   if(okDe(p.de))showMsg('✦ '+okDe(p.de)+' le puso el '+GIFT[p.k]+' a '+p.u+' ✦',2600);}return;}
  if(ev==='fin'){const c=cars.find(o=>o.remote&&o.driver===p.u);if(!c||!isNum(p.t)||p.t<10||p.t>7200)return;c.finished=true;c.finishTime=p.t;if(isNum(p.best)&&p.best>0)c.best=p.best;
   if(finishShown&&ONL.inRace)olResults();return;}}
 // grilla online: solo los jugadores de la sala, en el orden sorteado (vos con tu escuderia, los demas con la suya)
