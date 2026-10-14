@@ -2994,7 +2994,7 @@ function sc4Cockpit(m,team){const M=ckMats(),OX=SC_OX,K={grp:new THREE.Group(),m
  ckMirror(K,new THREE.PlaneGeometry(0.16,0.04),0.32,0.68,G,[0,1.12,0.121],[0.1,PI,0]);
  for(const s of [-1,1])ckMirror(K,new THREE.PlaneGeometry(0.12,0.08),s>0?0.55:0,s>0?1:0.45,G,[s*0.985,0.885,0.76],[0,PI,0]);
  return K;}
-// codigo 2013: descapotable clasico R107 SL (lo diseño el usuario en Claude Design: dorado champagne, cromados, interior de cuero
+// codigo 4103 (antes 2013): descapotable clasico R107 SL (lo diseño el usuario en Claude Design: dorado champagne, cromados, interior de cuero
 // marron con tablero de relojes redondos). 4,4 m de largo, 1,77 m de ancho, 2,46 m entre ejes. Anda igual que el F1 (solo cambia como se ve).
 // Se arma con el modelo del diseño (con menos triangulos) y todo lo fijo se junta por material. El diseño usa x = adelante, y = arriba,
 // z = derecha del auto; se gira para que mire a +z como los otros autos. El piloto va a la izquierda (+x).
@@ -4799,7 +4799,7 @@ function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');ret
  if(CODE.buf==='0800'){setCode('grass',true);codeSync('¡El pasto ya no te frena en la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==="0900"){setCode("assist",true);codeSync("¡Ayudas activadas para la próxima carrera!","ok");CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='4888'){setCode('sc4',true);if(state==='menu')buildRace();codeSync('¡Superauto para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
- if(CODE.buf==='2013'){setCode('sl',true);if(state==='menu')buildRace();codeSync('¡R107 SL para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ if(CODE.buf==='4103'){setCode('sl',true);if(state==='menu')buildRace();codeSync('¡R107 SL para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='0600'){setCode('f6',true);if(state==='menu')buildRace();codeSync('¡Fiat 600 para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='2009'){setCode('hyper',true);if(state==='menu')buildRace();codeSync('¡Chiron Super Sport 300+ para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='1705'){setCode('sport',true);if(state==='menu')buildRace();codeSync('¡Porsche 911 GT3 RS para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
