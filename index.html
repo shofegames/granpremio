@@ -88,6 +88,9 @@ body.pad #touch{display:none!important}
 .tbtn.big{width:96px;height:96px}
 .tbtn.sm{width:62px;height:62px;font-size:13px}
 .tbtn.act{background:var(--accent);color:var(--ink);border-color:transparent}
+.tbtn.steer{display:flex;align-items:center;justify-content:center;padding:0}
+.tbtn.steer svg{width:46%;height:46%;fill:none;stroke:currentColor;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.tbtn.steer.act svg{filter:none}
 body.touch #tower{display:none}
 /* celular: todo mas chico y ordenado para la pantalla baja en horizontal
    arriba: posicion y tiempos a la izquierda, botones y mapa a la derecha; abajo: doblar a la izquierda, tablero al medio, pedales a la derecha */
@@ -353,7 +356,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
   <div id="msg"></div>
   <div id="rotate" class="glass">Gira el celu para jugar mejor</div>
   <div id="touch">
-    <div class="grp"><button class="tbtn big" id="tLeft" aria-label="Izquierda">◀</button><button class="tbtn big" id="tRight" aria-label="Derecha">▶</button></div>
+    <div class="grp"><button class="tbtn big steer" id="tLeft" aria-label="Izquierda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5 7.5 12l7.5 7.5"/></svg></button><button class="tbtn big steer" id="tRight" aria-label="Derecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg></button></div>
     <div class="grp"><button class="tbtn sm" id="tErs">ERS</button><button class="tbtn" id="tBrake">Freno</button><button class="tbtn big" id="tGas">Acelerar</button></div>
   </div>
 </div>
