@@ -254,6 +254,9 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .inp:focus{outline:2px solid var(--accent);outline-offset:0}
 .inp::-webkit-outer-spin-button,.inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .btn.wide{width:100%;margin-top:10px;flex:none}
+.btn.rnd{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:18px}
+.btn.rnd svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8}.btn.rnd svg circle{fill:currentColor;stroke:none}
+#randMsg{margin:8px 0 0;text-align:center}
 .hint.warn{color:#ff6b62}
 .copy{margin:20px 0 0;font-size:12px;color:var(--muted);opacity:.75}
 #hTime.bad{color:#ff6b62;text-decoration:line-through}
@@ -391,6 +394,8 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <p class="hint">Con lluvia hay menos agarre: frená antes y acelerá con cuidado. Variable: cada sesión puede salir seca o mojada.</p>
     <h3>Graficos</h3>
     <div class="seg" id="segQ"><button data-v="0">Alta (mas fluido)</button><button data-v="1">Ultra (maximo detalle)</button></div>
+    <button class="btn wide rnd" id="randAll"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.4"/><circle cx="15.5" cy="8.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="8.5" cy="15.5" r="1.4"/><circle cx="15.5" cy="15.5" r="1.4"/></svg>Todo al azar</button>
+    <p class="hint hidden" id="randMsg"></p>
     <button class="go" id="go">Largar</button>
     <button class="btn wide hidden" id="cont">Continuar campeonato</button>
     <p class="hint warn hidden" id="saveWarn">El campeonato guardado estaba dañado o modificado a mano, así que se descartó.</p>
@@ -4708,7 +4713,7 @@ function buildMenu(){
  inN.addEventListener('input',()=>{sel.name=cleanName(inN.value);savePil();});
  inNum.addEventListener('input',()=>{const v=parseInt(inNum.value,10);sel.num=v>=1&&v<=99?v:0;savePil();});
  for(const el of [inN,inNum])el.addEventListener('keydown',e=>{if(e.key==='Enter')el.blur();});
- $('go').onclick=startFromMenu;$('cont').onclick=continueChamp;
+ $('go').onclick=startFromMenu;$('cont').onclick=continueChamp;$('randAll').onclick=randomAll;
  if(isTouch)$('keysHelp').textContent='Usa los botones de la pantalla: flechas para doblar, Acelerar, Freno y ERS para el boost. Box pide parada en boxes. En la largada acelerá justo cuando se apagan las luces.';
  refreshMenu();
 }
@@ -4733,6 +4738,13 @@ function refreshMenu(){
  $('saveWarn').classList.toggle('hidden',!(m===2&&champBad));
  if(sv){$('cont').textContent='Continuar campeonato · fecha '+(sv.round+1)+'/'+sv.cal.length+' ('+CIRCUITS[sv.cal[sv.round]].name+')';$('go').textContent='Empezar campeonato nuevo';}
 }
+// boton "Todo al azar": elige escuderia (distinta), pintura nueva, circuito (distinto), vueltas, clima y horario
+function randomAll(){if(state!=='menu')return;const pick=a=>a[Math.floor(Math.random()*a.length)],other=(n,cur)=>n<2?cur:(cur+1+Math.floor(Math.random()*(n-1)))%n;
+ sel.team=other(TEAMS.length,sel.team);sel.laps=pick([3,5,8,12,20]);sel.weather=pick([0,1,2]);sel.tod=pick([0,1,2]);const ci=other(CIRCUITS.length,sel.circuit);
+ setAccent();peRandom();clearTimeout(PE.t);RAIN=sel.weather===1;
+ const m=$('randMsg');m.textContent=TEAMS[sel.team].name+' · '+CIRCUITS[ci].name+' · '+sel.laps+' vueltas · '+['Seco','Lluvia','Variable'][sel.weather]+' · '+['Normal','Atardecer','Noche'][sel.tod];m.classList.remove('hidden');
+ if(ci!==sel.circuit){sel.circuit=ci;refreshMenu();$('loading').classList.remove('hidden');setTimeout(()=>{buildWorld(ci);applyWeather();buildRace();$('loading').classList.add('hidden');},30);}
+ else{refreshMenu();applyWeather();buildRace();}}
 function circInfo(c){if(!c._L){const tk=computeTrack(c);let t=0;for(let i=0;i<tk.N;i++)t+=tk.ds/Math.max(8,tk.vT[i]);c._L=tk.L;c._lap=t*1.25;}
  const km=(c._L/1000).toFixed(1).replace('.',',');const cat=c._L<3000?'corta':c._L<4500?'media':c._L<6000?'larga':'muy larga';const lt=c._lap,mm=Math.floor(lt/60),ss=Math.round(lt%60);
  return km+' km ('+cat+') \u00b7 vuelta ~'+mm+':'+String(ss).padStart(2,'0')+' \u00b7 '+sel.laps+' vueltas ~'+Math.round(lt*sel.laps/60)+' min';}
