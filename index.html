@@ -1663,9 +1663,12 @@ const LMK={tower:{make:()=>makeTower(),off:[60,150],gap:45,r:40},bull:{make:make
  mbs:{make:makeMBS,off:[220,380],gap:120,r:120,align:true,ext:[110,30]},flames:{make:makeFlames,off:[200,360],gap:80,r:70},biosphere:{make:makeBiosphere,off:[110,220],gap:55,r:45},
  sakhir:{make:makeSakhir,off:[80,160],gap:40,r:25}};
 // medanos de Zandvoort: lomas de arena con matas de pasto, alrededor de la pista
-function addDunes(world,T){const sand=new THREE.MeshStandardMaterial({color:'#d9c592',roughness:0.95}),grass=new THREE.MeshLambertMaterial({color:'#7d9a52'}),S=[],G=[];let k=0,tries=0;
+// v78: arena con granitos claros y oscuros y matas de pasto (antes eran manchas blancas lisas con el sol)
+const T_DUNE=(()=>{const t=tex(128,128,(x,w,h)=>{x.fillStyle='#a88f5e';x.fillRect(0,0,w,h);for(let i=0;i<2600;i++){const v=Math.random();x.fillStyle=v<0.45?'rgba(70,52,28,.22)':v<0.9?'rgba(255,240,205,.22)':'rgba(70,110,40,.55)';const s=v<0.9?rnd(1,2.4):rnd(2,4);x.fillRect(rnd(0,w),rnd(0,h),s,s);}},true);t.repeat.set(7,3);return t;})();
+function addDunes(world,T){const sand=new THREE.MeshStandardMaterial({map:T_DUNE,color:'#d8c8a8',roughness:1}),
+ grass=new THREE.MeshLambertMaterial({color:'#7d9a52'}),S=[],G=[];let k=0,tries=0;
  while(k<60&&tries<600){tries++;const i=(Math.random()*T.N)|0,s=Math.random()<0.5?1:-1,lat=s*rnd(40,190),x=T.P[i].x+T.NL[i].x*lat,z=T.P[i].z+T.NL[i].z*lat;
-  const rx=rnd(14,32),rz=rnd(12,28),ry=rnd(3,8);if(minDistTrack(x,z)<WALL+8+Math.max(rx,rz)*0.8)continue;if(obstacles.some(o=>(o.x-x)**2+(o.z-z)**2<(o.r+Math.max(rx,rz))**2))continue;
+  const rx=rnd(14,32),rz=rnd(12,28),ry=rnd(2.2,5);// v78: mas bajos y achatadosif(minDistTrack(x,z)<WALL+8+Math.max(rx,rz)*0.8)continue;if(obstacles.some(o=>(o.x-x)**2+(o.z-z)**2<(o.r+Math.max(rx,rz))**2))continue;
   const y=terrainH(x,z);S.push(new THREE.SphereGeometry(1,18,8,0,PI*2,0,PI/2).scale(rx,ry,rz).rotateY(rnd(0,3)).translate(x,y-0.3,z));
   for(let j=0;j<6;j++){const a=rnd(0,6.28),r=rnd(0.2,0.75),gx=x+Math.cos(a)*rx*r,gz=z+Math.sin(a)*rz*r,gy=y+ry*Math.sqrt(Math.max(0,1-r*r))-0.4;G.push(new THREE.ConeGeometry(rnd(0.6,1.1),rnd(0.8,1.6),6).translate(gx,gy+0.5,gz));}
   obstacles.push({x,z,r:Math.max(rx,rz)});k++;}
