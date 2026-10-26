@@ -114,11 +114,11 @@ body.touch .bars{width:104px;gap:3px}
 body.touch .bar{height:6px}
 body.touch .barlbl{font-size:9px}
 body.touch #touch{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:0 calc(env(safe-area-inset-right,0px) + 10px) 0 calc(env(safe-area-inset-left,0px) + 10px)}
-body.touch .tbtn.big{width:min(104px,27vh);height:min(104px,27vh);font-size:20px}
+body.touch .tbtn.big{width:min(104px,calc(var(--sh,1vh)*27));height:min(104px,calc(var(--sh,1vh)*27));font-size:20px}
 body.touch #touch .grp:last-child{display:grid;grid-template-columns:auto auto;gap:8px 10px;align-items:end}
-body.touch #tErs{grid-column:1;grid-row:1;justify-self:center;width:min(70px,18vh);height:min(70px,18vh);font-size:14px}
-body.touch #tBrake{grid-column:1;grid-row:2;width:min(92px,24vh);height:min(92px,24vh);font-size:16px}
-body.touch #tGas{grid-column:2;grid-row:1/span 2;width:min(116px,30vh);height:min(116px,30vh);font-size:16px}
+body.touch #tErs{grid-column:1;grid-row:1;justify-self:center;width:min(70px,calc(var(--sh,1vh)*18));height:min(70px,calc(var(--sh,1vh)*18));font-size:14px}
+body.touch #tBrake{grid-column:1;grid-row:2;width:min(92px,calc(var(--sh,1vh)*24));height:min(92px,calc(var(--sh,1vh)*24));font-size:16px}
+body.touch #tGas{grid-column:2;grid-row:1/span 2;width:min(116px,calc(var(--sh,1vh)*30));height:min(116px,calc(var(--sh,1vh)*30));font-size:16px}
 body.touch #msg{font-size:22px;top:36%}
 body.touch #boxPanel{top:calc(env(safe-area-inset-top,0px) + 46px);left:auto;right:calc(env(safe-area-inset-right,0px) + 108px);transform:none;padding:5px 6px 5px 10px;gap:6px}
 body.touch #boxPanel b{font-size:12px}
@@ -149,11 +149,11 @@ body.touch.tab .bar{height:9px}
 body.touch.tab .barlbl{font-size:12px}
 body.touch.tab #touch{bottom:calc(env(safe-area-inset-bottom,0px) + 22px);padding:0 calc(env(safe-area-inset-right,0px) + 24px) 0 calc(env(safe-area-inset-left,0px) + 24px)}
 body.touch.tab #touch .grp{gap:18px}
-body.touch.tab .tbtn.big{width:min(150px,19vh);height:min(150px,19vh);font-size:30px}
+body.touch.tab .tbtn.big{width:min(150px,calc(var(--sh,1vh)*19));height:min(150px,calc(var(--sh,1vh)*19));font-size:30px}
 body.touch.tab #touch .grp:last-child{gap:14px 18px}
-body.touch.tab #tErs{width:min(100px,13vh);height:min(100px,13vh);font-size:18px}
-body.touch.tab #tBrake{width:min(130px,17vh);height:min(130px,17vh);font-size:21px}
-body.touch.tab #tGas{width:min(170px,22vh);height:min(170px,22vh);font-size:21px}
+body.touch.tab #tErs{width:min(100px,calc(var(--sh,1vh)*13));height:min(100px,calc(var(--sh,1vh)*13));font-size:18px}
+body.touch.tab #tBrake{width:min(130px,calc(var(--sh,1vh)*17));height:min(130px,calc(var(--sh,1vh)*17));font-size:21px}
+body.touch.tab #tGas{width:min(170px,calc(var(--sh,1vh)*22));height:min(170px,calc(var(--sh,1vh)*22));font-size:21px}
 body.touch.tab #msg{font-size:34px}
 body.touch.tab #boxPanel{top:calc(env(safe-area-inset-top,0px) + 74px);right:calc(env(safe-area-inset-right,0px) + 188px);padding:8px 10px 8px 14px;gap:10px}
 body.touch.tab #boxPanel b{font-size:16px}
@@ -568,6 +568,8 @@ const $=id=>document.getElementById(id);
 if(typeof THREE==='undefined'){$('loading').textContent='No se pudo cargar el motor 3D. Revisá la conexión y recargá la página.';return;}
 const isTouch=matchMedia('(pointer: coarse)').matches;
 if(isTouch)document.body.classList.add('touch');
+// botones tactiles: 1% del lado corto de la pantalla (vh cambia con las barras del navegador, y en Chrome quedaban chicos)
+if(isTouch)document.documentElement.style.setProperty('--sh',Math.min(screen.width,screen.height)/100+'px');
 // tablet (iPad y parecidos): pantalla tactil grande; el lado mas corto de la pantalla del celu nunca llega a 700
 if(isTouch&&Math.min(screen.width,screen.height)>=700)document.body.classList.add('tab');
 const V3=THREE.Vector3, PI=Math.PI;
@@ -4924,7 +4926,7 @@ const keys={};
 const touchIn={left:false,right:false,gas:false,brake:false,ers:false};
 function input(){return{
  steer:(((keys.ArrowLeft||keys.KeyA||touchIn.left)?1:0)-((keys.ArrowRight||keys.KeyD||touchIn.right)?1:0))||PAD.steer,
- thr:(keys.ArrowUp||keys.KeyW||touchIn.gas)?1:PAD.thr,
+ thr:(keys.ArrowUp||keys.KeyW||touchIn.gas||(touchIn.ers&&!touchIn.brake))?1:PAD.thr,
  brk:(keys.ArrowDown||keys.KeyS||touchIn.brake)?1:PAD.brk,
  ers:!!(keys.ShiftLeft||keys.ShiftRight||keys.Space||touchIn.ers||PAD.ers)};}
 function playerStep(dt){
@@ -5490,7 +5492,7 @@ function endQuali(){if(!solo()||!state.startsWith('paused'))return;$('pause').cl
 // pausa (v68): que hace cada boton, segun con que estes jugando (pantalla tactil, control o teclado)
 function pauseHelp(){const r=a=>a.map(([k,v])=>'<div class="k"><b>'+k+'</b><span>'+v+'</span></div>').join('');let h='';
  const top=[['Cámara','Cambia la cámara (atrás, cabina, nariz y lejos)'],['Sonido','Prende o apaga el sonido'],['Pausa','Frena la carrera y muestra esto'],['Box','Pedís parada en boxes: elegís las gomas en el panel y el auto entra solo en la próxima pasada']];
- if(isTouch)h+='<h4>Botones de la pantalla</h4>'+r([['◀ ▶','Doblar a la izquierda y a la derecha'],['Acelerar','Mantenelo apretado para acelerar'],['Freno','Frena; parado, va marcha atrás'],['ERS','Energía extra: más velocidad mientras lo apretás (se gasta y se carga frenando)']].concat(top));
+ if(isTouch)h+='<h4>Botones de la pantalla</h4>'+r([['◀ ▶','Doblar a la izquierda y a la derecha'],['Acelerar','Mantenelo apretado para acelerar'],['Freno','Frena; parado, va marcha atrás'],['ERS','Acelera solo y con energía extra mientras lo apretás (se gasta y se carga frenando)']].concat(top));
  const p=PAD.on?padGet():null;
  if(p){const ps=padIsPS(p),b=(x,y)=>ps?x:y;h+='<h4>Control</h4>'+r([[b('R2','RT'),'Acelerar (de a poco según cuánto lo apretás)'],[b('L2','LT'),'Frenar; parado, marcha atrás'],['Palanca o cruceta','Doblar'],[b('✕ o R1','A o RB'),'ERS: energía extra'],[b('□','X'),'Pedir parada en boxes'],[b('L1','LB'),'Cambia las gomas en el panel de box'],[b('△','Y'),'Cambiar cámara'],[b('Share','Select'),'Volver a la pista si te quedaste trabado'],[b('Options','Start'),'Pausa']]);}
  if(!isTouch)h+='<h4>Teclado</h4>'+r([['↑ o W','Acelerar'],['↓ o S','Frenar; parado, marcha atrás'],['← → o A D','Doblar'],['Espacio o Shift','ERS: energía extra para pasar (se gasta y se carga frenando)'],['B','Pedir parada en boxes (1, 2 y 3 eligen las gomas en el panel)'],['C','Cambiar cámara'],['R','Volver a la pista si te quedaste trabado'],['M','Prender o apagar el sonido'],['P o Esc','Pausa']]);
@@ -5599,7 +5601,7 @@ function buildMenu(){
  inNum.addEventListener('input',()=>{const v=parseInt(inNum.value,10);sel.num=v>=1&&v<=99?v:0;savePil();});
  for(const el of [inN,inNum])el.addEventListener('keydown',e=>{if(e.key==='Enter')el.blur();});
  $('go').onclick=startFromMenu;$('cont').onclick=continueChamp;$('randAll').onclick=randomAll;
- if(isTouch)$('keysHelp').textContent='Usa los botones de la pantalla: flechas para doblar, Acelerar, Freno y ERS para el boost. Box pide parada en boxes. En la largada acelerá justo cuando se apagan las luces.';
+ if(isTouch)$('keysHelp').textContent='Usa los botones de la pantalla: flechas para doblar, Acelerar, Freno y ERS para el boost (ERS acelera solo, no hace falta apretar los dos). Box pide parada en boxes. En la largada acelerá justo cuando se apagan las luces.';
  refreshMenu();
 }
 function refreshMenu(){
