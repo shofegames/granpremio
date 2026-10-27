@@ -5962,8 +5962,30 @@ function visSt(){const r=/^(race|countdown|finished|paused)/.test(state);if(ONL.
 async function visPing(){if(VIS.busy)return;VIS.busy=true;try{
  const r=await rpc('gp_visit',{p_id:VIS.id,p_key:VIS.key,p_token:NET.sess?NET.sess.t:null,p_dev:visDev(),p_st:visSt(),p_code:ONL.code||null});
  if(r&&Number.isInteger(r.id)&&typeof r.key==='string'&&/^[0-9a-f]{24}$/.test(r.key)){VIS.id=r.id;VIS.key=r.key;}if(r&&r.inv)invShow(r.inv);if(r&&Array.isArray(r.resp))invResp(r.resp);if(r&&typeof r.car==='string')carGift(r.car,r.carDe,r.carProx===true,r.carOnl===true);if(r&&(r.vel==='turbo'||r.vel==='lento'||r.vel==='normal'))velGift(r.vel,r.velDe,r.velOnl===true,r.velNow===true);if(r&&r.kick===true)kickNow(r.kickDe);}catch(e){}finally{VIS.busy=false;}}
-function visLoop(){clearTimeout(VIS.t);if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,15000);}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();});
+function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();VIS.t=setTimeout(visLoop,15000);}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)visLoop();else timEnsure();});
+// timbre (v94): cada jugador con cuenta escucha su propio canal en vivo "gp-tim-<usuario>". Cuando filcman le regala algo, lo saca
+// de la carrera o lo invita, le toca el timbre y el juego le pregunta al servidor en ese momento (gp_visit) en vez de esperar hasta 15 s.
+// El timbre no trae nada: lo que hay que hacer lo sigue diciendo el servidor, asi que un timbre falso solo causa una pregunta de mas.
+// Si no se puede conectar (o hay mas de 200 jugadores a la vez) todo sigue llegando como antes, cada 15 s.
+const TIM={ws:null,u:'',hb:0,last:0,p:0};
+const timTopic=u=>'gp-tim-'+u;
+function timEnsure(){const u=NET.sess&&!document.hidden?NET.sess.u:'';if(u===TIM.u&&(TIM.ws||!u))return;timClose();if(!u||!OK_NAME.test(u))return;TIM.u=u;
+ const ws=new WebSocket(NET.url.replace('https://','wss://')+'/realtime/v1/websocket?apikey='+encodeURIComponent(NET.key)+'&vsn=1.0.0');TIM.ws=ws;
+ const send=(topic,event,payload,ref)=>{if(ws.readyState===1)ws.send(JSON.stringify({topic,event,payload,ref,join_ref:'1'}));};
+ ws.onopen=()=>{send('realtime:'+timTopic(u),'phx_join',{config:{broadcast:{self:false,ack:false},presence:{key:''},private:false}},'1');
+  TIM.hb=setInterval(()=>send('phoenix','heartbeat',{},'hb'),25000);};
+ ws.onmessage=e=>{if(TIM.ws!==ws)return;let m;try{m=JSON.parse(e.data);}catch(x){return;}
+  if(m&&m.topic==='realtime:'+timTopic(u)&&m.event==='broadcast'&&m.payload&&m.payload.event==='ring')timRing();};
+ // se corto: la proxima vuelta de visLoop (15 s) lo vuelve a conectar
+ ws.onclose=()=>{clearInterval(TIM.hb);if(TIM.ws!==ws)return;TIM.ws=null;TIM.u='';};}
+function timClose(){const w=TIM.ws;TIM.ws=null;TIM.u='';clearInterval(TIM.hb);if(w){try{w.close();}catch(e){}}}
+// sono el timbre: pregunta ya (como mucho una vez cada 2 s: si sono hace menos, pregunta apenas pasen los 2 s; si justo estaba preguntando, en 1 s)
+function timRing(){const now=performance.now();if(now-TIM.last<2000){if(!TIM.p)TIM.p=setTimeout(()=>{TIM.p=0;timRing();},2050-(now-TIM.last));return;}
+ if(VIS.busy){setTimeout(timRing,1000);return;}TIM.last=now;visPing();}
+// tocarle el timbre a alguien (filcman despues de regalarle algo, sacarlo o invitarlo; y el invitado cuando contesta)
+function timSend(u){if(!OK_NAME.test(u))return;fetch(NET.url+'/realtime/v1/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json',apikey:NET.key},
+ body:JSON.stringify({messages:[{topic:timTopic(u),event:'ring',payload:{}}]})}).catch(()=>{});}
 // panel de filcman: quien esta ahora, cuantas entradas hoy y las ultimas
 const VST={menu:'en el menú',carrera:'corriendo',online:'corriendo online',sala:'en una sala online'};
 function visMine(){return !!(NET.sess&&NET.sess.u.toLowerCase()==='filcman');}
@@ -6018,7 +6040,7 @@ function invShow(inv){if(!inv||!Number.isInteger(inv.id)||INV.seen.has(inv.id)||
  $('invTxt').textContent='✦ '+inv.from+' te invita a una carrera online ✦';$('invBar').classList.remove('hidden');
  clearTimeout(INV.t);INV.t=setTimeout(()=>invAnswer(false),90000);}
 function invAnswer(yes){const inv=INV.cur;if(!inv)return;INV.cur=null;clearTimeout(INV.t);$('invBar').classList.add('hidden');
- if(NET.sess)rpc('gp_invite_answer',{p_token:NET.sess.t,p_id:inv.id,p_yes:!!yes});
+ if(NET.sess)rpc('gp_invite_answer',{p_token:NET.sess.t,p_id:inv.id,p_yes:!!yes}).then(()=>timSend(inv.from));
  if(!yes||!NET.sess)return;
  if(state!=='menu')goMenu();// estaba corriendo contra la compu: sale de esa carrera
  $('onlinePad').classList.remove('hidden');olView('home');$('olCode').value=inv.code;olJoin();}
@@ -6031,7 +6053,7 @@ async function visInvite(u,btn){if(!OK_NAME.test(u)||NET.busy||!visMine())return
  if(!ONL.code)await olCreate();
  if(!ONL.code){btn.disabled=false;btn.textContent='Invitar';return;}
  const r=await rpc('gp_invite',{p_token:NET.sess.t,p_to:u,p_code:ONL.code});
- if(r&&r.ok){visHide();$('onlinePad').classList.remove('hidden');olView('lobby');olRender();olMsg('Invitaste a '+u+': le llega en unos segundos','ok');return;}
+ if(r&&r.ok){timSend(u);visHide();$('onlinePad').classList.remove('hidden');olView('lobby');olRender();olMsg('Invitaste a '+u+': le llega en unos segundos','ok');return;}
  btn.disabled=false;btn.textContent='Invitar';olMsg(r&&r.error==='muchas'?'Mandaste muchas invitaciones: esperá un rato':'No se pudo invitar a '+u,'bad');}
 for(const [id,yes] of [['invYes',true],['invNo',false]]){const el=$(id),fn=()=>invAnswer(yes);el.onclick=fn;el.addEventListener('touchstart',e=>{e.preventDefault();fn();},{passive:false});}
 // filcman le pone un auto a alguien desde el ojito (boton Auto). Le llega con su aviso de visita (cada 15 s). filcman elige si dice
@@ -6112,13 +6134,13 @@ function visCarMenu(u,btn,next){const row=btn.closest('.r');const nx=row.nextEle
 const visWho=w=>w?' (dice "'+w+' te puso…")':' (no dice quién fue)';
 const visWhen=onl=>': lo va a tener en su próxima carrera'+(onl?' (offline u online)':' offline');
 async function visGiveSpeed(u,v,d,who,onl,now){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
- const r=await rpc('gp_give_speed',{p_token:NET.sess.t,p_to:u,p_vel:v,p_show:!!who,p_name:who||null,p_online:!!onl,p_now:!!now});for(const b of d.querySelectorAll('button'))b.disabled=false;
+ const r=await rpc('gp_give_speed',{p_token:NET.sess.t,p_to:u,p_vel:v,p_show:!!who,p_name:who||null,p_online:!!onl,p_now:!!now});if(r&&r.ok&&now)timSend(u);for(const b of d.querySelectorAll('button'))b.disabled=false;
  m.textContent=r&&r.ok?VELN[v]+' para '+u+visWho(who)+(now?': le cambia en menos de 15 segundos':visWhen(onl)):'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
 async function visKick(u,d,who){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
- const r=await rpc('gp_kick',{p_token:NET.sess.t,p_to:u,p_show:!!who,p_name:who||null});for(const b of d.querySelectorAll('button'))b.disabled=false;
+ const r=await rpc('gp_kick',{p_token:NET.sess.t,p_to:u,p_show:!!who,p_name:who||null});if(r&&r.ok)timSend(u);for(const b of d.querySelectorAll('button'))b.disabled=false;
  m.textContent=r&&r.ok?u+' sale de la carrera en menos de 15 segundos'+(who?' (dice "'+who+' te sacó de la carrera")':' (no dice quién fue)'):'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
 async function visGiveCar(u,k,d,who,prox,onl){if(!OK_NAME.test(u)||!visMine())return;const m=d.querySelector('.m');for(const b of d.querySelectorAll('button'))b.disabled=true;m.textContent='…';
- const r=await rpc('gp_give_car',{p_token:NET.sess.t,p_to:u,p_car:k,p_show:!!who,p_prox:!!prox,p_name:who||null,p_online:!!onl});for(const b of d.querySelectorAll('button'))b.disabled=false;
+ const r=await rpc('gp_give_car',{p_token:NET.sess.t,p_to:u,p_car:k,p_show:!!who,p_prox:!!prox,p_name:who||null,p_online:!!onl});if(r&&r.ok&&!prox)timSend(u);for(const b of d.querySelectorAll('button'))b.disabled=false;
  m.textContent=r&&r.ok?GIFT[k]+' para '+u+visWho(who)+(prox?visWhen(onl):': le llega en menos de 15 segundos'):'No se pudo';m.className='m'+(r&&r.ok?' ok':' bad');}
 // cada 30 s se actualiza (si tenes abierto el menu de un jugador no se redibuja, para no cerrartelo)
 setInterval(()=>{if(visMine()&&state==='menu')visAdmin(!$('visPad').classList.contains('hidden')&&!$('visBody').querySelector('.r.cars'));},30000);
