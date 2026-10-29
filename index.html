@@ -1478,12 +1478,13 @@ function buildNightLights(){const T=track,{P,NL,H,N,ds,L}=T,pp=T.pit,step=Math.m
  pole.castShadow=false;head.castShadow=false;G.add(pole,head);
  const hg=new THREE.BufferGeometry();hg.setAttribute('position',new THREE.BufferAttribute(hp,3));
  G.add(new THREE.Points(hg,new THREE.PointsMaterial({map:T_GLOW,color:'#fff0d4',size:16,sizeAttenuation:true,transparent:true,opacity:0.9,depthWrite:false,blending:THREE.AdditiveBlending})));
- // manchas de luz: una cinta sobre la pista con el brillo calculado por cercania a cada torre
+ // manchas de luz: una cinta sobre la pista con el brillo calculado por cercania a cada torre. v95: luz blanca (como los focos de F1)
+ // y mucho mas suave: antes era crema y fuerte, y el asfalto de las carreras de noche se veia beige como arena
  const LAT=[-(HALF+2),-HALF,-HALF*0.66,-HALF*0.33,0,HALF*0.33,HALF*0.66,HALF,HALF+2],pos=[],col=[],idx=[],byI=new Map();for(const l of lamps)byI.set(l.i,l);
- const reach=Math.ceil(60/ds),cw=new THREE.Color('#ffe9c8').convertSRGBToLinear();
+ const reach=Math.ceil(60/ds),cw=new THREE.Color('#e8eeff').convertSRGBToLinear();
  for(let i=0;i<=N;i++){const q=i%N;for(const la of LAT){const x=P[q].x+NL[q].x*la,z=P[q].z+NL[q].z*la;pos.push(x,P[q].y+0.12,z);let v=0;
-   for(let d=-reach;d<=reach;d++){const l=byI.get(((q+d)%N+N)%N);if(!l)continue;const al=d*ds,lt=la-l.s*HALF*0.55;v+=Math.exp(-(al*al)/(2*17*17)-(lt*lt)/(2*11*11));}
-   v=Math.min(1,v)*(Math.abs(la)>HALF?0.12:0.32);col.push(cw.r*v,cw.g*v,cw.b*v);}}
+   for(let d=-reach;d<=reach;d++){const l=byI.get(((q+d)%N+N)%N);if(!l)continue;const al=d*ds,lt=la-l.s*HALF*0.55;v+=Math.exp(-(al*al)/(2*13*13)-(lt*lt)/(2*11*11));}
+   v=Math.min(1,v)*(Math.abs(la)>HALF?0.03:0.08);col.push(cw.r*v,cw.g*v,cw.b*v);}}
  const C=LAT.length;for(let i=0;i<N;i++)for(let j=0;j<C-1;j++){const a=i*C+j,b=a+1,c=a+C,d=c+1;idx.push(a,c,b,b,c,d);}
  const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));rg.setAttribute('color',new THREE.Float32BufferAttribute(col,3));rg.setIndex(idx);
  const rib=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
