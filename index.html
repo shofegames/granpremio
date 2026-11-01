@@ -5260,6 +5260,10 @@ function updateCarVisual(c,dt){
   if(!m.shL){m.shL=[];m.root.traverse(o=>{if(o.isMesh&&o.castShadow)m.shL.push(o);});m.shOff=false;}
   const off=m.shOff?d2>3025:d2>4225;if(off!==m.shOff){m.shOff=off;for(const o of m.shL)o.castShadow=!off;}}
  m.root.rotation.y=c.head+(c.isPlayer?c.steer*clamp(c.v/60,0,1)*0.06:0);
+ // v98: el monopatin se inclina hacia adentro de la curva, como uno de verdad: el angulo sale de la aceleracion lateral (velocidad por
+ // cuanto gira, sobre la gravedad), hasta 32 grados, y cambia suave. Se inclina todo desde el piso (las ruedas apoyan en y=0)
+ if(m.mono){if(dt>0){const yr=wrapA(c.head-(m.ph==null?c.head:m.ph))/dt;const want=clamp(Math.atan(Math.abs(c.v)*yr/9.81),-0.56,0.56);m.lean=lerp(m.lean||0,want,Math.min(1,dt*7));}
+  m.ph=c.head;m.root.rotation.z=-(m.lean||0);}
  {const ti=track.T[c.idx];m.root.rotation.x=-Math.atan(track.SL[c.idx]*(Math.sin(c.head)*ti.x+Math.cos(c.head)*ti.z));}
  for(const w of m.wheels)w.rotation.x+=c.v*dt/(m.wr||0.354);
  for(const f of m.fronts)f.rotation.y=c.steer*(m.lock||0.42);
@@ -5315,6 +5319,9 @@ function updateCamera(dt){
  camera.position.copy(camPos);
  if(shake>0.001){const s=shake*(onb?0.05:0.14);camera.position.x+=rnd(-s,s);camera.position.y+=rnd(-s,s);camera.position.z+=rnd(-s,s);shake*=Math.exp(-dt*6);}
  camera.lookAt(camLook);
+ // v98: en el monopatin las camaras de arriba (1) y del piloto (2) se inclinan con el (la cabeza va hacia adentro de la curva)
+ if(onb&&c.m.mono&&c.m.lean){const ln=c.m.lean,h=camera.position.y-c.pos.y,rx=Math.cos(c.head),rz=-Math.sin(c.head),dx=h*Math.sin(ln);
+  camera.position.x+=rx*dx;camera.position.z+=rz*dx;camera.position.y-=h*(1-Math.cos(ln));camera.rotateZ(ln);}
  camera.fov=lerp(camera.fov,cm===2?50+clamp(c.v,0,100)*0.07+(c.ersOn?2:0):(cm===1?70:62)+clamp(c.v,0,100)*(cm===1?0.05:0.12)+(c.ersOn?(cm===1?2:4):0),Math.min(1,dt*4));camera.updateProjectionMatrix();
  placeSun(c.pos);
 }
