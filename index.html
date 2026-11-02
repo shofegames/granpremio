@@ -6802,23 +6802,28 @@ async function olCreate(){if(NET.busy||!NET.sess)return;NET.busy=true;olMsg('Cre
  if(r.error||typeof r.code!=='string'){olMsg(r.error==='solo_filcman'?'Solo filcman puede crear salas: pedile el código':r.error==='muchas'?'Creaste muchas salas seguidas: esperá un rato':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  olEnter(r.code,true,NET.sess.u);}
 async function olJoin(){if(NET.busy||!NET.sess)return;const code=$('olCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length!==5){olMsg('El código tiene 5 letras y números','bad');return;}
- NET.busy=true;olMsg('Entrando a la sala…');const r=await rpc('gp_room_join',{p_token:NET.sess.t,p_code:code});NET.busy=false;
+ // v103: p_lider = si sos filcman y la sala es de otro, pasas a ser el lider (el servidor lo decide)
+ NET.busy=true;olMsg('Entrando a la sala…');const r=await rpc('gp_room_join',{p_token:NET.sess.t,p_code:code,p_lider:true});NET.busy=false;
  if(r.error||typeof r.code!=='string'){olMsg(r.error==='sala'?'No existe una sala con ese código (o ya se cerró)':r.error==='llena'?'La sala está llena':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
- olEnter(r.code,false,String(r.host||''));}
+ const me=NET.sess.u,lid=r.lider===true||String(r.host||'')===me;olEnter(r.code,lid,lid?me:String(r.host||''));
+ ONL.took=r.lider===true&&OK_NAME.test(String(r.prev||''))?String(r.prev):'';}
 // entrar a la sala: graficos en Alta, conexion en vivo y aviso a los demas
-function olEnter(code,host,hostName){p2pCloseAll();ONL.code=code;ONL.enterT=performance.now();ONL.host=host;ONL.hostName=hostName;ONL.players.clear();ONL.inRace=false;ONL.closedMsg='';
+function olEnter(code,host,hostName){p2pCloseAll();ONL.code=code;ONL.enterT=performance.now();ONL.host=host;ONL.hostName=hostName;ONL.players.clear();ONL.inRace=false;ONL.closedMsg='';ONL.took='';ONL.cfgGot=false;
  ONL.cfg={ci:Math.max(0,sel.circuit),laps:5,rain:0};
  if(sel.q!==0){sel.q=0;refreshMenu();applyQuality();buildWorld(sel.circuit);buildRace();}
  olView('lobby');olMsg('Conectando…');olRender();
  rtConnect(code,olOnMsg);
  clearInterval(ONL.hbT);ONL.hbT=setInterval(()=>{if(RT.joined&&!ONL.inRace)rtSend('hola',myInfo());olRender();},4000);visPing();}
-function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});
+function olLeave(){if(!ONL.code)return;rtSend('chau',{u:NET.sess?NET.sess.u:''});olBye();
  if(NET.sess)rpc('gp_room_leave',{p_token:NET.sess.t,p_code:ONL.code});
- clearInterval(ONL.hbT);ONL.code=null;ONL.host=false;ONL.players.clear();ONL.inRace=false;p2pCloseAll();setTimeout(rtClose,150);setTimeout(visPing,400);}
+ clearInterval(ONL.hbT);ONL.code=null;ONL.host=false;ONL.took='';ONL.players.clear();ONL.inRace=false;p2pCloseAll();setTimeout(rtClose,150);setTimeout(visPing,400);}
+// v103: se va el lider: si filcman le habia sacado la sala a alguien que sigue adentro, se la devuelve; si no, la sala se cierra
+function olBye(){if(!ONL.host)return;const now=performance.now(),back=ONL.took&&[...ONL.players.values()].some(q=>q.u===ONL.took&&now-q.last<12000);
+ if(back)rtSend('lider',{u:ONL.took});else rtSend('cerrada',{});}
 // jugadores que se escucharon en los ultimos 12 s (y vos)
 function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
 function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
- const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+(p.host?'creó la sala':'')+(p.hy?' · hiperauto':p.sc?' · superauto':p.sl?' · R107 SL':p.f6?' · Fitito':p.mono2?' · monopatín con piloto':p.mono?' · monopatín':p.gt?' · GT Sport':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
+ const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+((p.me?ONL.host:p.u===ONL.hostName)?'líder':'')+(p.hy?' · hiperauto':p.sc?' · superauto':p.sl?' · R107 SL':p.f6?' · Fitito':p.mono2?' · monopatín con piloto':p.mono?' · monopatín':p.gt?' · GT Sport':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
  $('olNetHint').classList.toggle('hidden',!L.some(p=>!p.me&&p2pState(p.u)==='sb'));$('olHostCfg').classList.toggle('hidden',!ONL.host);
  if(ONL.host){$('olCirc').textContent=cdn(CIRCUITS[ONL.cfg.ci]);for(const b of $('olLaps').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.laps);for(const b of $('olW').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.rain);
   $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
@@ -6833,20 +6838,24 @@ async function olStart(){if(!ONL.host||NET.busy)return;const L0=olPresent();if(L
  NET.busy=true;olMsg('Largando…');const c=ONL.cfg;
  const r=await rpc('gp_room_start',{p_token:NET.sess.t,p_code:ONL.code,p_players:L.filter(p=>!p.me).map(p=>p.u),p_circuit:CIRCUITS[c.ci].name,p_laps:c.laps});NET.busy=false;
  if(!r.ok){olMsg(r.error==='mes'?'Se terminaron las carreras online de este mes. El 1º se reinician.':r.error==='dia'?'Ya usaron sus carreras online de hoy: '+(Array.isArray(r.nombres)?r.nombres.map(String).join(', '):''):
-  r.error==='solo'?'Tiene que haber al menos 2 jugadores en la sala':r.error==='llena'?'Hay demasiados jugadores en la sala':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+  r.error==='solo'?'Tiene que haber al menos 2 jugadores en la sala':r.error==='host'?'Ya no sos el líder de la sala':r.error==='llena'?'Hay demasiados jugadores en la sala':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  // la grilla se sortea; todos reciben lo mismo y largan a la vez
  const order=L.map(p=>p.u);for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
  const go={race:r.race,ci:c.ci,laps:c.laps,rain:c.rain,order,lo:+(5*0.9+rnd(0.5,1.5)).toFixed(2)};rtSend('go',go);olGo(go);if(outN)setTimeout(()=>showMsg('No corren (sin conexión directa): '+outN,2600),1500);}
 // mensajes de los demas
 function olOnMsg(ev,p){
- if(ev==='_on'){olMsg('');rtSend('hola',myInfo());olRender();return;}
+ if(ev==='_on'){olMsg('');rtSend('hola',myInfo());if(ONL.took&&ONL.host)rtSend('lider',{u:NET.sess.u});olRender();return;}// v103: filcman avisa que ahora es el lider
  if(ev==='_err'){olMsg('No se pudo entrar a la sala en vivo','bad');return;}
  if(ev==='_off'){if(ONL.code)olMsg('Se cortó la conexión, reconectando…','bad');return;}
  if(!p||typeof p!=='object')return;
  if(ev==='hola'){if(!OK_NAME.test(p.u)||!NET.sess||p.u===NET.sess.u)return;if(!ONL.players.has(p.u)&&ONL.players.size>=8)return;
   const isNew=!ONL.players.has(p.u),ti=Number.isInteger(p.ti)&&p.ti>=0&&p.ti<TEAMS.length?p.ti:0;
   ONL.players.set(p.u,{u:p.u,ti,seen:isNew?performance.now():ONL.players.get(p.u).seen,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,sc:p.sc===true,sl:p.sl===true,f6:p.f6===true,mono:p.mono===true,mono2:p.mono2===true,d:Array.isArray(p.d)?p.d.filter(u=>typeof u==='string'&&OK_NAME.test(u)).slice(0,8):[],host:p.host===true,last:performance.now()});
-  if(p.host===true&&!ONL.host&&p.cfg&&typeof p.cfg==='object'){const c=p.cfg;if(Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1))ONL.cfg={ci:c.ci,laps:c.laps,rain:c.rain};ONL.hostName=p.u;}
+  // v103: solo se le cree al lider de ahora (el que lo era antes puede seguir diciendo que es lider unos segundos);
+  // filcman, al quedarse con la sala, sigue con el circuito, vueltas y clima que habia elegido el anterior
+  const okCfg=c=>c&&typeof c==='object'&&Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1);
+  if(p.host===true&&!ONL.host&&(!ONL.hostName||p.u===ONL.hostName)&&okCfg(p.cfg)){ONL.cfg={ci:p.cfg.ci,laps:p.cfg.laps,rain:p.cfg.rain};ONL.hostName=p.u;}
+  else if(ONL.host&&ONL.took===p.u&&!ONL.cfgGot&&okCfg(p.cfg)){ONL.cfg={ci:p.cfg.ci,laps:p.cfg.laps,rain:p.cfg.rain};ONL.cfgGot=true;}
   p2pCall(p.u);
   if(isNew){rtSend("hola",myInfo());const late=performance.now()-ONL.enterT>3000;
    // si el que entra es filcman se avisa en grande a todos (si estan corriendo, en el medio de la pantalla: corre en la proxima)
@@ -6855,6 +6864,13 @@ function olOnMsg(ev,p){
   olRender();return;}
  if(ev==='sig'){p2pSig(p);return;}
  if(ev==='chau'){if(OK_NAME.test(p.u)){ONL.players.delete(p.u);p2pDrop(p.u);const c=cars.find(o=>o.remote&&o.driver===p.u);if(c){c.gone=c.left=true;c.m.root.visible=false;}if(ONL.inRace)showMsg(p.u+" se fue",1500);else olMsg(p.u+" salió de la sala");olRender();}return;}
+ // v103: cambio de lider: filcman entro y se quedo con la sala, o se fue y se la devolvio al que la creo.
+ // solo vale si el nuevo lider es filcman o si el lider de ahora es filcman (el servidor igual solo deja largar al lider de verdad)
+ if(ev==='lider'){if(!NET.sess||!OK_NAME.test(p.u))return;const vip=u=>String(u||'').toLowerCase()==='filcman';
+  if(!vip(p.u)&&!vip(ONL.hostName))return;ONL.hostName=p.u;
+  if(p.u===NET.sess.u){if(!ONL.host){ONL.host=true;ONL.took='';if(!ONL.inRace)olMsg('Volviste a ser el líder de la sala','ok');}}
+  else{ONL.host=false;if(!ONL.inRace)olMsg(vip(p.u)?'✦ filcman es el líder de la sala ✦':p.u+' es el líder de la sala',vip(p.u)?'vipj':'ok');}
+  rtSend('hola',myInfo());olRender();return;}
  if(ev==='cerrada'){if(ONL.host)return;ONL.closedMsg='La sala se cerró porque se fue '+(ONL.hostName||'el que la creó');if(!ONL.inRace){olLeave();olView(NET.sess?'home':'noacc');olMsg(ONL.closedMsg,'bad');}return;}
  if(ev==='go'){if(ONL.host||ONL.inRace)return;if(!Array.isArray(p.order)||!p.order.every(u=>OK_NAME.test(u))||!Number.isInteger(p.ci)||p.ci<0||p.ci>=CIRCUITS.length||![3,5,8].includes(p.laps)||!isNum(p.lo)||p.lo<4||p.lo>7)return;
   if(!NET.sess||!p.order.includes(NET.sess.u)){olMsg(ONL.players.size&&![...ONL.players.keys()].some(p2pOk)?'No pudiste correr: tu conexión no es directa (el WiFi la bloquea). Probá con otra red o con datos del celu.':'Largaron sin vos: esperá la próxima','bad');return;}olGo(p);return;}
@@ -6920,7 +6936,7 @@ $('olCPrev').onclick=()=>olCfgSet('ci',(ONL.cfg.ci-1+CIRCUITS.length)%CIRCUITS.l
 for(const b of $('olLaps').children)b.onclick=()=>olCfgSet('laps',+b.dataset.v);for(const b of $('olW').children)b.onclick=()=>olCfgSet('rain',+b.dataset.v);
 $('olCode').addEventListener('keydown',e=>{if(e.key==='Enter')olJoin();});
 $('onlinePad').addEventListener('keydown',e=>{if(e.key==='Escape'&&!ONL.code)olClose();});
-addEventListener('pagehide',()=>{if(ONL.code){rtSend('chau',{u:NET.sess?NET.sess.u:''});if(ONL.host)rtSend('cerrada',{});}});
+addEventListener('pagehide',()=>{if(ONL.code){rtSend('chau',{u:NET.sess?NET.sess.u:''});olBye();}});
 
 /* ---------------- eventos ---------------- */
 // celular: tocar dos veces, tocar y arrastrar o pellizcar no hace zoom (iPhone a veces ignora el viewport)
