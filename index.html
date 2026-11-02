@@ -1490,8 +1490,12 @@ const _wp=new V3();
 function carPoint(c,x,y,z){const sn=Math.sin(c.head),cs=Math.cos(c.head);return _wp.set(c.pos.x+cs*x+sn*z,y+c.pos.y,c.pos.z-sn*x+cs*z);}
 function carFx(c,dt){
  const sn=Math.sin(c.head),cs=Math.cos(c.head),vx=sn*c.v,vz=cs*c.v;const sp=Math.abs(c.v);
+ // v104: auto destruido: fuego y humo negro
+ if(c.dead&&!c.out){const n=dt*55;for(let k=0;k<n;k++){const p=carPoint(c,rnd(-0.55,0.55),rnd(0.3,0.7),rnd(-1.8,0.6)),r=Math.random();
+   FX.emit(1,p.x,p.y,p.z,rnd(-0.4,0.4),rnd(1.8,3.6),rnd(-0.4,0.4),r<0.4?'#ff7a1a':r<0.75?'#ffc23a':'#ff3d14',rnd(0.5,0.8),rnd(1.2,2.0),rnd(0.35,0.75),0.9,-1.5);}
+  if(Math.random()<dt*14){const p=carPoint(c,rnd(-0.4,0.4),1.4,rnd(-1.4,0.4));FX.emit(0,p.x,p.y,p.z,rnd(-0.5,0.5),rnd(2,3.4),rnd(-0.5,0.5),'#1c1c1e',1.2,rnd(5,8),rnd(2.2,3.4),0.55,-0.6);}}
  // auto muy dañado: larga humo
- if(c.dmg>0.55&&sp>3&&Math.random()<dt*14*c.dmg){const p=carPoint(c,rnd(-0.3,0.3),0.9,-1.3);FX.emit(0,p.x,p.y,p.z,vx*0.3+rnd(-0.5,0.5),rnd(0.8,1.6),vz*0.3+rnd(-0.5,0.5),'#3f4044',0.7,rnd(2.6,4.2),rnd(1.0,1.7),0.38);}
+ if(c.dmg>0.35&&sp>3&&Math.random()<dt*14*c.dmg){const p=carPoint(c,rnd(-0.3,0.3),0.9,-1.3);FX.emit(0,p.x,p.y,p.z,vx*0.3+rnd(-0.5,0.5),rnd(0.8,1.6),vz*0.3+rnd(-0.5,0.5),'#3f4044',0.7,rnd(2.6,4.2),rnd(1.0,1.7),0.38);}
  // con lluvia: nube de agua que levantan las ruedas traseras (solo autos cerca de la camara)
  if(WET>0.25&&sp>14&&c.pos.distanceToSquared(camera.position)<14400){const n=Math.min(2.2,sp/36)*dt*60*Math.min(1.3,WET);for(let k=0;k<n;k++){if(Math.random()>0.7)continue;const p=carPoint(c,rnd(-0.85,0.85),0.3,-2.0);
    FX.emit(0,p.x,p.y,p.z,vx*0.4+rnd(-1.4,1.4),rnd(0.4,1.8),vz*0.4+rnd(-1.4,1.4),'#dde3e8',0.9,rnd(3.6,5.8),rnd(0.55,1.0),0.2);}}
@@ -5296,7 +5300,18 @@ function wearTyres(c,dt,f){if(c.cheat)return;if(c.m.ci===3&&WET<0.4)f*=1+2.5*(0.
 c.tw=Math.min(1.15,c.tw+Math.abs(c.v)*dt/(track.L*TYRE.life[c.m.ci])*f);
  if(c.isPlayer&&c.tw>0.85&&!c.twWarn){c.twWarn=true;showMsg('Gomas gastadas · apretá B para boxes',2400);}}
 function setCompound(c,ci){c.m.ci=ci;const fm=wheelFace(ci,c.m.blur);for(const f of c.m.faces)f.material=fm;}
-function addDamage(c,amt,zone){if(amt<0.02||c.finished||c.cheat)return;const was=c.dmg;c.dmg=Math.min(1,c.dmg+amt);
+// v104: los choques rompen mas (DMG_K) y con 100% de daño el auto no anda mas: se prende fuego y abandona la carrera
+const DMG_K=1.8;
+function carBurn(c){c.dead=c.dnf=true;c.dmg=1;c.pitReq=false;c.ersOn=false;
+ const D=c.m.dmg;if(D){D.fl=D.fr=D.rw=1;carDamageVisual(c);}for(const z of ['fl','fr','rw','body'])carDebris(c,z,24);
+ if(c.isPlayer||camera.position.distanceTo(c.pos)<60)sndHit(1);
+ if(c.isPlayer){showMsg('Auto destruido · abandonaste la carrera',3200);setTimeout(burnOut,3500);}
+ else{showMsg(c.driver+' abandona: auto destruido',1800);setTimeout(()=>{if(c.dead&&cars.includes(c)){c.out=true;c.m.root.visible=false;}},9000);}}
+function burnOut(){if(!player||!player.dead||finishShown)return;if(state.startsWith('paused')){setTimeout(burnOut,500);return;}if(state!=='race')return;
+ if(sess.online&&ONL.code){olAbandon('Tu auto quedó destruido y abandonaste la carrera.');return;}
+ state='finished';showResults();}
+function addDamage(c,amt,zone){if(amt<0.02||c.finished||c.cheat||c.dead)return;amt*=DMG_K;const was=c.dmg;c.dmg=Math.min(1,c.dmg+amt);
+ if(c.dmg>=1&&was<1){carBurn(c);return;}
  // el F1 muestra el golpe en la pieza que pego: el ala delantera (izq/der) o el aleron trasero se doblan, se caen y largan pedazos
  const D=c.m.dmg;if(D&&zone){const k=zone==='fl'||zone==='fr'?2.6:zone==='rw'?2.2:0;if(k){const b=D[zone];D[zone]=Math.min(1,b+amt*k);
    if(D[zone]>=1&&b<1)carDebris(c,zone,24);else if(D[zone]-b>0.12)carDebris(c,zone,8);}carDamageVisual(c);}
@@ -5340,6 +5355,7 @@ function aiStep(c,dt){
  const {N,ds}=track;const rt=raceT();
  if(rt<c.react){c.prevLane=c.lane;placeAI(c,0);return;}
  if(!c.started){c.started=true;c.launchFx=0.45+(1.05-c.launch)*4;}
+ if(c.dead){c.v=Math.max(0,c.v-dt*18);c.s+=c.v*dt/ds;c.prog=c.s;c.prevLane=c.lane;placeAI(c,dt);return;}
  const i=((Math.floor(c.s)%N)+N)%N;const dS=(c.s-c.s0)*ds;
  // los rivales gastan gomas, pierden ritmo con el desgaste y el daño, y paran cuando hace falta
  if(state==='race'&&!c.finished){wearTyres(c,dt,1.15);if(!c.pitReq&&(c.tw>0.72||c.dmg>0.5)&&sess.laps-c.lastLaps>2){c.pitReq=true;const left=sess.laps-c.lastLaps;c.pitCi=WET>0.5?3:left<=3?2:left<=5?0:1;}
@@ -5352,7 +5368,7 @@ function aiStep(c,dt){
  if(c.pit===1)tgt=Math.min(tgt,Math.sqrt(42*42+50*Math.max(0,track.pit.eA-pitSr(c))));
  c.acc=0;
  if(c.v<tgt){const a=(13*(1-Math.pow(c.v/96,2))+1.5)*(dS<160?c.launch:1)*(1-0.15*Math.min(WET,1));c.acc=a;c.v=Math.min(tgt,c.v+a*dt);}else{const b=38-8*Math.min(WET,1);c.acc=-b;c.v=Math.max(tgt,c.v-b*dt);}
- for(const o of cars){if(o===c||(o.pit>=2&&Math.abs(o.lat)>HALF+0.5))continue;const gap=(o.prog-c.s)*ds;const ld=o.lat-c.lane;
+ for(const o of cars){if(o===c||o.out||(o.pit>=2&&Math.abs(o.lat)>HALF+0.5))continue;const gap=(o.prog-c.s)*ds;const ld=o.lat-c.lane;
   // lado a lado: se separan en vez de atravesarse
   if(Math.abs(gap)<5.4&&Math.abs(ld)<2.1){const sg=ld!==0?Math.sign(ld):(c.lane>0?-1:1);c.lane-=sg*(2.1-Math.abs(ld))*Math.min(1,dt*8);}
   if(gap<=0||gap>16)continue;
@@ -5395,6 +5411,7 @@ function playerStep(dt){
  if(live&&!c.reacted&&!solo()){
   if(c.preGas){c.reacted=true;c.spinT=0.9;c.launchFx=1;setTimeout(()=>showMsg('Patinaste en la largada',1300),700);}
   else if(thr>0){c.reacted=true;const r=raceT();c.launchFx=0.4;setTimeout(()=>showMsg(r<0.3?'Gran largada · '+r.toFixed(3)+' s':'Reacción '+r.toFixed(3)+' s',1300),500);}}
+ if(c.dead){thr=0;brk=1;steerIn=0;}
  c.thrEff=thr;
  if(c.spinT>0)c.spinT-=dt;
  c.steer+=(steerIn-c.steer)*Math.min(1,dt*(steerIn===0?9:5.5));
@@ -5443,7 +5460,7 @@ function playerStep(dt){
   if(live&&sp>6)sndHit(imp*sp/40);
   c.v*=(1-0.6*imp)*0.97;c.head=angLerp(c.head,tgt,0.5);shake=Math.min(1,0.3+imp);}
  // choques con rivales (los autos online de otros jugadores se atraviesan)
- for(const o of cars){if(o===c||o.remote)continue;const dx=c.pos.x-o.pos.x,dz=c.pos.z-o.pos.z;if(dx*dx+dz*dz>36)continue;
+ for(const o of cars){if(o===c||o.remote||o.out)continue;const dx=c.pos.x-o.pos.x,dz=c.pos.z-o.pos.z;if(dx*dx+dz*dz>36)continue;
   const fx=Math.sin(o.head),fz=Math.cos(o.head),rx=fz,rz=-fx;const al=dx*fx+dz*fz,la=dx*rx+dz*rz;
   if(Math.abs(al)<5.0&&Math.abs(la)<1.95){const pA=5.0-Math.abs(al),pL=1.95-Math.abs(la);
    if(pL<pA){const sg=Math.sign(la)||1;c.pos.x+=rx*sg*pL;c.pos.z+=rz*sg*pL;o.lane-=sg*pL*0.4;c.v*=0.985;}
@@ -5582,7 +5599,7 @@ function prepMap(){
 }
 function drawMap(){
  const cv=$('map'),x=cv.getContext('2d');x.clearRect(0,0,340,340);x.drawImage(mapBase,0,0);
- for(const c of cars){if(c.isPlayer)continue;const [a,b]=mapXf(c.pos.x,c.pos.z);x.fillStyle=c.team.c1;x.strokeStyle='rgba(0,0,0,.7)';x.lineWidth=3;x.beginPath();x.arc(a,b,8,0,7);x.fill();x.stroke();}
+ for(const c of cars){if(c.isPlayer||c.out)continue;const [a,b]=mapXf(c.pos.x,c.pos.z);x.fillStyle=c.team.c1;x.strokeStyle='rgba(0,0,0,.7)';x.lineWidth=3;x.beginPath();x.arc(a,b,8,0,7);x.fill();x.stroke();}
  // el fantasma: circulo blanco hueco
  if(sess.type==='tt'&&TT.ghost&&TT.ghost.on){const [a,b]=mapXf(TT.ghost.pos.x,TT.ghost.pos.z);x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=4;x.setLineDash([5,4]);x.beginPath();x.arc(a,b,9,0,7);x.stroke();x.setLineDash([]);}
  const [a,b]=mapXf(player.pos.x,player.pos.z);x.fillStyle=player.team.ui;x.strokeStyle='#fff';x.lineWidth=4;x.beginPath();x.arc(a,b,11,0,7);x.fill();x.stroke();
@@ -5938,9 +5955,9 @@ function validChamp(c){
 function sessionResults(){
  if(sess.type==='quali')return qualiBoard().map((q,i,a)=>({id:q.id,driver:q.driver,team:q.team,isPlayer:q.isPlayer,t:q.t,gap:!isFinite(q.t)?'Sin tiempo':i===0?fmt(q.t):'+'+(q.t-a[0].t).toFixed(3),pts:null}));
  const rt=raceT();
- const est=cars.map(c=>{if(c.finished)return {c,t:c.finishTime};const remain=(sess.laps*track.N-c.prog)*track.ds;return {c,t:rt+remain/Math.max(c.v,40)};});
+ const est=cars.map(c=>{if(c.dnf)return {c,t:1e9-c.prog};if(c.finished)return {c,t:c.finishTime};const remain=(sess.laps*track.N-c.prog)*track.ds;return {c,t:rt+remain/Math.max(c.v,40)};});
  est.sort((a,b)=>a.t-b.t);const P=WK?PTS[sess.type]:null;
- return est.map((e,i)=>({id:e.c.id,driver:e.c.driver,team:e.c.team,isPlayer:!!e.c.isPlayer,t:e.t,gap:i===0?fmt(e.t):'+'+(e.t-est[0].t).toFixed(3),pts:P?(P[i]||0):null}));}
+ return est.map((e,i)=>({id:e.c.id,driver:e.c.driver,team:e.c.team,isPlayer:!!e.c.isPlayer,t:e.t,gap:e.c.dnf?'Abandono':i===0?fmt(e.t):'+'+(e.t-est[0].t).toFixed(3),pts:P?(e.c.dnf?0:P[i]||0):null}));}
 function setBtns(B){const w=$('rBtns');w.innerHTML='';for(const [t,fn,pri] of B){const b=document.createElement('button');b.className='btn'+(pri?' pri':'');b.textContent=t;b.onclick=fn;w.appendChild(b);}}
 function showResults(){
  if(finishShown)return;finishShown=true;
@@ -5950,7 +5967,7 @@ function showResults(){
  if(sess.type==='tt'){ttResults();return;}
  const res=sessionResults();sess.res=res;const pos=res.findIndex(r=>r.isPlayer)+1;const ty=sess.type,me=res[pos-1];
  $('rPos').textContent='P'+pos;
- $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');
+ $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(player.dnf?'Abandonaste: auto destruido':pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');
  $('rSub').textContent=CIRCUITS[curCirc].name+' · '+(ty==='quali'?'':sess.laps+' vueltas · ')+'Tu mejor vuelta: '+fmt(player.best)+(me.pts?' · +'+me.pts+' pts':'')+(CH?' · Fecha '+(CH.round+1)+'/'+CH.cal.length:'');
  let h='';res.forEach((r,i)=>{h+='<tr class="'+(r.isPlayer?'me':'')+'"><td class="p">'+(i+1)+'</td><td class="c"><i style="background:'+r.team.c1+'"></i></td><td>'+esc(r.driver)+'</td><td style="color:var(--muted)">'+r.team.name+'</td><td class="t">'+r.gap+'</td>'+(r.pts!=null?'<td class="t pts">'+(r.pts?'+'+r.pts:'')+'</td>':'')+'</tr>';});
  $('rTable').innerHTML=h;
@@ -6906,8 +6923,8 @@ function olSend(now){if(!ONL.inRace||!player)return;
  if(player.finished&&!ONL.finSent&&RT.joined){ONL.finSent=true;rtSend("fin",{u:NET.sess.u,t:Math.round(player.finishTime*1000)/1000,best:isFinite(player.best)?Math.round(player.best*1000)/1000:0});}const fast=state==='race'&&!player.finished;if(now-ONL.lastSend<(fast?100:500))return;ONL.lastSend=now;
  const c=player,r2=v=>Math.round(v*100)/100;
  p2pSendP({u:NET.sess.u,n:++ONL.seq,a:[r2(c.pos.x),r2(c.pos.z),r2(c.pos.y),Math.round(c.head*1000)/1000,Math.round(c.v*10)/10,r2(c.prog),Math.round(c.steer*100)/100,(c.ersOn?1:0)|(c.braking?2:0)|(c.m.ci<<2)]},now);}
-function olAbandon(){const code=ONL.code;ONL.inRace=false;olLeave();goMenu();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');
- olMsg('Se cortó la conexión directa y abandonaste la carrera'+(code?' (sala '+code+')':'')+'. La carrera online solo se juega con conexión directa.','bad');}
+function olAbandon(why){const code=ONL.code;ONL.inRace=false;olLeave();goMenu();$('onlinePad').classList.remove('hidden');olView(NET.sess?'home':'noacc');
+ olMsg(why||'Se cortó la conexión directa y abandonaste la carrera'+(code?' (sala '+code+')':'')+'. La carrera online solo se juega con conexión directa.','bad');}
 // autos de los demas: se dibujan 0,12 s atras interpolando entre los ultimos mensajes (si faltan, se estira el ultimo hasta 0,4 s)
 function olCarStep(c,now){const S=c.snap;if(!S.length)return;if(!c.gone)c.m.root.visible=true;
  const rt=now-120;let a=S[S.length-1].a,b=null,f=0;
