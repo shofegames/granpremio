@@ -2795,7 +2795,8 @@ function buildWorld(ci){
  if(MAP)for(const hl of circ.hills||[]){const M=MAP;for(let j=0;j<M.nz;j++)for(let i=0;i<M.nx;i++){if(!M.W[j*M.nx+i])continue;if(polySigned(hl.p,M.x0+(i+0.5)*M.c,M.z0+(j+0.5)*M.c)>-14)M.W[j*M.nx+i]=0;}}
  if(T.elev){buildTerrain(T,circ.river&&!MAP?{z:waterZ,y:wl}:null);world.add(TERR.mesh);
   const X0=TERR.x0,Z0=TERR.z0,X1=X0+TERR.nx*TERR.res,Z1=Z0+TERR.nz*TERR.res,E=5000;for(const [ax,az,bx,bz] of [[X0-E,Z0-E,X1+E,Z0],[X0-E,Z1,X1+E,Z1+E],[X0-E,Z0,X0,Z1],[X1,Z0,X1+E,Z1]]){const q=new THREE.Mesh(new THREE.PlaneGeometry(bx-ax,bz-az),GROUND);q.rotation.x=-PI/2;q.position.set((ax+bx)/2,circ.river&&!MAP&&az<Z0-1?wl-2:T.yBase,(az+bz)/2);q.receiveShadow=true;world.add(q);}
-  for(const sg of [1,-1]){const lim=q=>{const R=1/Math.max(T.kAbs[q],1e-4);return T.ks[q]*sg>0?Math.min(WALL+3,R*0.9):WALL+3;};world.add(ribbonIf(()=>true,sg>0?q=>lim(q):()=>-HALF,sg>0?()=>HALF:q=>-lim(q),0,0,10,GROUND));}}
+  // v115: en el puente de Suzuka no hay pasto al costado (quedaba flotando arriba de la pista de abajo, como una losa invisible)
+  for(const sg of [1,-1]){const lim=q=>{const R=1/Math.max(T.kAbs[q],1e-4);return T.ks[q]*sg>0?Math.min(WALL+3,R*0.9):WALL+3;};world.add(ribbonIf(i=>!(circ.bridge&&i*ds>=circ.bridge[0]-30&&i*ds<=circ.bridge[1]+30),sg>0?q=>lim(q):()=>-HALF,sg>0?()=>HALF:q=>-lim(q),0,0,10,GROUND));}}
  else{const ground=new THREE.Mesh(new THREE.PlaneGeometry(7000,7000,120,120),GROUND);ground.rotation.x=-PI/2;ground.receiveShadow=true;world.add(ground);}
  // asfalto, goma, pianos, pasto sintetico, grava
  world.add(flatRibbon(()=>true,()=>HALF,()=>-HALF,0.05,14,MATS.road));
@@ -2834,7 +2835,7 @@ function buildWorld(ci){
  world.add(flatRibbon(i=>T.bR[i],()=>-HALF-1.8,q=>-RS(q,-1),0.036,8,MATS.blue));
  if(T.red){const rm=T.usa?MATS.usa:MATS.red;world.add(flatRibbon(i=>T.bL[i],q=>RO(q,1),q=>RS(q,1),0.036,8,rm));world.add(flatRibbon(i=>T.bR[i],q=>-RS(q,-1),q=>-RO(q,-1),0.036,8,rm));}
  // con desniveles, pasto hasta el muro corrido (ahi el terreno queda mas bajo)
- if(T.elev)for(const s of [1,-1]){const ex=i=>wAt(i,s)>WALL+0.4;
+ if(T.elev)for(const s of [1,-1]){const ex=i=>wAt(i,s)>WALL+0.4&&!(T.br&&T.br[i]);
   world.add(ribbonIf(ex,s>0?q=>Math.max(WALL+3,wAt(q,1)+1):()=>-(WALL+3),s>0?()=>WALL+3:q=>-Math.max(WALL+3,wAt(q,-1)+1),0,0,10,GROUND));}
  const wOk=s=>s===sIn?i=>!PP.gap[i]:()=>true;
  // muros, tapa, alambrado y postes (siguen a wAt: mas atras en las escapatorias grandes)
@@ -5468,7 +5469,7 @@ function carBurn(c){c.dead=c.dnf=true;c.dmg=1;c.pitReq=false;c.pitForced=false;c
  const D=c.m.dmg;if(D){for(const z of ['fl','fr','rw'])if(D[z]<1)partFly(c,z);D.fl=D.fr=D.rw=1;carDamageVisual(c);}for(const z of ['fl','fr','rw','body'])carDebris(c,z,24);
  if(c.isPlayer||camera.position.distanceTo(c.pos)<60)sndHit(1);
  if(c.isPlayer){showMsg('Auto destruido · abandonaste la carrera',3200);setTimeout(burnOut,3500);}
- else{showMsg(c.driver+' abandona: auto destruido',1800);setTimeout(()=>{if(c.dead&&cars.includes(c)){c.out=true;c.m.root.visible=false;}},9000);
+ else{showMsg(c.driver+' abandona: auto destruido',1800);
   yellowAt(c.pos);SC.pend=1.9;}}// v108: amarilla y despues sale el safety car
 function burnOut(){if(!player||!player.dead||finishShown)return;if(state.startsWith('paused')){setTimeout(burnOut,500);return;}if(state!=='race')return;
  if(sess.online&&ONL.code){olAbandon('Tu auto quedó destruido y abandonaste la carrera.');return;}
@@ -5537,7 +5538,9 @@ function aiStep(c,dt){
  const {N,ds}=track;const rt=raceT();const sty=c.sty||(c.sty=aiStyleOf(c));
  if(rt<c.react){c.prevLane=c.lane;placeAI(c,0);return;}
  if(!c.started){c.started=true;c.launchFx=0.45+(1.05-c.launch)*4;}
- if(c.dead){c.v=Math.max(0,c.v-dt*18);c.s+=c.v*dt/ds;c.prog=c.s;c.prevLane=c.lane;placeAI(c,dt);return;}
+ // v114: el auto destruido se tira a un costado mientras frena (asi no tapa la pista) y a los 9 s de juego lo sacan (la pausa no cuenta)
+ if(c.dead){c.v=Math.max(0,c.v-dt*18);c.s+=c.v*dt/ds;c.prog=c.s;const sd=c.lane>=0?1:-1,qi=((Math.floor(c.s)%N)+N)%N,tl=sd*Math.max(HALF-1.1,Math.min(wAt(qi,sd)-1.6,HALF+3));
+  c.prevLane=c.lane;c.lane+=clamp(tl-c.lane,-2.5*dt,2.5*dt);c.lat=c.lane;c.deadT=(c.deadT||0)+dt;if(c.deadT>9&&!c.out){c.out=true;c.m.root.visible=false;}placeAI(c,dt);return;}
  const i=((Math.floor(c.s)%N)+N)%N;const dS=(c.s-c.s0)*ds;
  // los rivales gastan gomas, pierden ritmo con el desgaste y el daño, y paran cuando hace falta (cada estilo a su medida)
  if(state==='race'&&!c.finished){wearTyres(c,dt,1.15);const left=sess.laps-c.lastLaps;
@@ -5564,7 +5567,8 @@ function aiStep(c,dt){
   // defensa: si alguien viene pegado atras en una recta, se cierra hacia su lado (un solo movimiento, sin zigzag)
   if(!calm&&gap<-2&&gap>-14&&o.v>c.v-1&&!o.finished&&!o.dead&&track.kAbs[i]<0.004&&dS>200)defL=o.lat;
   if(gap<=0||gap>sty.ov)continue;
-  if(Math.abs(ld)<2.4&&o.v<c.v+1.5){if((dS>140||o.v<10)&&!calm){const want=o.lat+(o.lat>0?-3.4:3.4);c.laneT=clamp(want,-(HALF-1.4),HALF-1.4);c.overT=1.6;}
+  if(Math.abs(ld)<2.4&&o.v<c.v+1.5){if((dS>140||o.v<10)&&(!calm||o.dead||o.v<4)){// v114: a un auto roto o parado siempre se lo pasa
+   const want=o.lat+(o.lat>0?-3.4:3.4);c.laneT=clamp(want,-(HALF-1.4),HALF-1.4);c.overT=1.6;}
    if(gap<7.5&&Math.abs(ld)<1.9)c.v=Math.min(c.v,Math.max(o.v-0.5,0));}}
  c.overT-=dt;
  if(c.overT<=0){const want=track.line[i]*0.85+c.pref;c.laneT=clamp(lerp(c.startLane,want,sstep(60,320,dS)),-(HALF-1.4),HALF-1.4);
