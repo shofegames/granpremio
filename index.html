@@ -6584,6 +6584,8 @@ function hmConfig(){
  let h='<h3>Gráficos</h3><div class="seg" id="cfQ">'+QORD.map(q=>'<button data-v="'+q+'">'+QUAL[q].name+'</button>').join('')+'</div><p class="hint" id="cfQh">'+QHINT[sel.q]+'</p>';
  h+='<h3>Sonido</h3><div class="seg" id="cfS"><button data-v="1">Sonido sí</button><button data-v="0">Sonido no</button></div>';
  h+='<div class="seg" id="cfM"><button data-v="1">Música del menú sí</button><button data-v="0">Música no</button></div>';
+ // v132: ahorro de bateria
+ h+='<h3>Batería</h3><div class="seg" id="cfB"><button data-v="1">Ahorro de batería sí</button><button data-v="0">No</button></div><p class="hint">Con el ahorro prendido el juego dibuja como mucho 60 cuadros por segundo en carrera y 30 en el menú, la pausa y los resultados. Gasta menos batería y el celu se calienta menos.</p>';
  // v109: como manejan los rivales (lo mismo que en la pantalla de armado)
  h+='<h3>Cómo manejan los rivales</h3><div class="seg wrap" id="cfSty">'+['Mezclados','Agresivos','Defensivos','Equilibrados','Constantes'].map((n,i)=>'<button data-v="'+i+'">'+n+'</button>').join('')+'</div><p class="hint" id="cfStyH">'+STYHINT[sel.sty]+'</p>';
  h+='<h3>Cómo se maneja</h3><div class="keys">'+$('keysHelp').innerHTML+'</div><p class="hint">'+esc($('padHelp').textContent)+'</p><p class="hint">'+esc($('limitsHelp').textContent)+'</p>';
@@ -6592,6 +6594,7 @@ function hmConfig(){
  seg('cfQ',sel.q,v=>{$('cfQh').textContent=QHINT[+v];[...$('segQ').children].find(b=>b.dataset.v===v).click();});
  seg('cfS',muted?0:1,v=>{if((v==='0')!==muted)toggleSound();});
  seg('cfM',hmMus?1:0,v=>{hmMus=v==='1';try{localStorage.setItem('gp3d_musica',hmMus?'1':'0');}catch(e){}});
+ seg('cfB',BAT.on?1:0,v=>{BAT.on=v==='1';try{localStorage.setItem('gp3d_bateria',BAT.on?'1':'0');}catch(e){}});
  seg('cfSty',sel.sty,v=>{styleSet(+v);$('cfStyH').textContent=STYHINT[sel.sty];});}
 // polvo de luz que flota en la pantalla de inicio
 const DUST=[];function hmDust(dt){const cv=$('hmDust');if(!cv||$('home').classList.contains('hidden'))return;const w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
@@ -6671,9 +6674,13 @@ function rplInit(){$('rpCams').innerHTML=RPL_CAM.map((n,i)=>'<button data-v="'+i
  $('rpPrev').onclick=()=>{RPL.ci=(RPL.ci-1+cars.length)%cars.length;rplUI();};$('rpNext').onclick=()=>{RPL.ci=(RPL.ci+1)%cars.length;rplUI();};
  $('rpSl').oninput=()=>{RPL.t=+$('rpSl').value;};$('rpExit').onclick=rplStop;}
 /* ---------------- loop ---------------- */
+// v132: ahorro de bateria (Configuracion): como mucho 60 cuadros por segundo en carrera (y repeticion) y 30 en el menu, la pausa y los
+// resultados; los cuadros salteados no se dibujan ni calculan (el siguiente tick recibe el tiempo junto)
+const BAT={on:false,next:0};try{BAT.on=localStorage.getItem('gp3d_bateria')==='1';}catch(e){}
 const clock=new THREE.Clock();
 function frame(){
  requestAnimationFrame(frame);
+ if(BAT.on){const now=performance.now(),iv=1000/(/^(race|countdown|replay)$/.test(state)?60:30);if(now<BAT.next-1)return;BAT.next+=iv;if(BAT.next<now-iv)BAT.next=now;}
  tick(clock.getDelta());
 }
 // v99 (del Hiperultra): con "Secándose" la pista larga mojada y se seca de a poco (seca a los dos tercios de la carrera)
