@@ -6844,8 +6844,11 @@ function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textCo
 // v125: filcman tambien tiene los autos por el nombre (como en el ojito): tocar uno es como poner su codigo
 const CODE_NAMES=[['1312','Turbo (1312)'],['0900','Ayudas (0900)'],['0800','Pasto como asfalto (0800)'],['1705','GT Sport RS'],['2009','Hiperauto Vento 300+'],['4888','Superauto'],['4103','R107 SL'],
  ['1955','Fitito'],['3030','Monopatín'],['3131','Monopatín con piloto'],['9595','Rayo McQueen'],['2021','Pagani Imola'],['1904','Rols Roise Culinan']];
-function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');const cc=$('codeCars');
- if(visMine()){cc.innerHTML='<p class="ct">O elegí directo:</p>'+CODE_NAMES.map(([c,n])=>'<button class="btn sm" data-c="'+c+'">'+esc(n)+'</button>').join('');cc.classList.remove('hidden');
+// v126: la cuenta benja tiene solo el Rayo McQueen y el Rols Roise Culinan
+const CODE_USERS={benja:['9595','1904']};
+function codeList(){if(visMine())return CODE_NAMES;const u=NET.sess&&String(NET.sess.u||'').toLowerCase(),L=u&&Object.prototype.hasOwnProperty.call(CODE_USERS,u)?CODE_USERS[u]:null;return L?CODE_NAMES.filter(([c])=>L.includes(c)):null;}
+function codeOpen(){CODE.buf='';codeSync('Poné el código de 4 números');const cc=$('codeCars'),list=codeList();
+ if(list){cc.innerHTML='<p class="ct">O elegí directo:</p>'+list.map(([c,n])=>'<button class="btn sm" data-c="'+c+'">'+esc(n)+'</button>').join('');cc.classList.remove('hidden');
   cc.onclick=e=>{const b=e.target.closest('button[data-c]');if(!b)return;clearTimeout(CODE.t);CODE.buf=b.dataset.c;codeKey('ok');};}
  else{cc.classList.add('hidden');cc.innerHTML='';cc.onclick=null;}
  $('codePad').classList.remove('hidden');}
