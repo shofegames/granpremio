@@ -617,7 +617,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <p class="hint" id="modeHint"></p>
     <div id="fmtRow"><h3>Formato del fin de semana</h3><div class="seg" id="segFmt"><button data-v="0">Clasif + Carrera</button><button data-v="1">Clasif + Sprint + Carrera</button></div></div>
     <div id="pilSec"><h3>Tu piloto</h3>
-    <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
+    <div class="prow"><input class="inp" id="inName" maxlength="14" placeholder="Tu nombre (vacío = el piloto de tu escudería)" autocomplete="off" spellcheck="false"><input class="inp" id="inNum" type="number" min="1" max="99" placeholder="Nº"></div>
     <div class="acctrow"><span class="hint" id="acctTxt"></span><div class="acbtns"><button class="btn sm" id="acctBtn">Entrar / crear cuenta</button><button class="btn sm" id="rankBtn">Ranking online</button><button class="btn sm" id="profBtn">Nivel 1 · Logros</button></div></div></div>
     <h3>Tu escuderia</h3>
     <div class="teams" id="teamGrid"></div>
@@ -821,15 +821,16 @@ function sign(str){let h1=0xdeadbeef^str.length,h2=0x41c6ce57^str.length;
  return (h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0');}
 
 /* ---------------- datos ---------------- */
+// v120: escuderias "truchas" que pidio el usuario: parecidas a las de la F1 real, con sus colores y sin logos (los sponsors siguen inventados)
 const TEAMS=[
- {name:'Condor Racing',c1:'#5ab4f0',c2:'#ffffff',txt:'#0d2a4a',ui:'#5ab4f0',sponsor:'ANDURO',nums:[7,17],drivers:['T. Ibarra','L. Sosa']},
- {name:'Volta Motorsport',c1:'#5b24c9',c2:'#c6f432',txt:'#c6f432',ui:'#c6f432',sponsor:'VELTRAX',nums:[14,41],drivers:['M. Okafor','J. Lindqvist']},
- {name:'Krait GP',c1:'#1a1d23',c2:'#22ff8a',txt:'#22ff8a',ui:'#22ff8a',sponsor:'KRYNOX',nums:[21,12],drivers:['R. Navarro','K. Adeyemi']},
- {name:'Aurora Velocita',c1:'#ff4fa3',c2:'#1b2556',txt:'#1b2556',ui:'#ff6db3',sponsor:'ZEFYRA',nums:[9,90],drivers:['S. Moretti','E. Varga']},
- {name:'Titan Dynamics',c1:'#3a3f48',c2:'#ff7a1a',txt:'#ff7a1a',ui:'#ff7a1a',sponsor:'TALVEX',nums:[33,3],drivers:['D. Kowalski','A. Haddad']},
- {name:'Polar Racing',c1:'#eef2f7',c2:'#e5323f',txt:'#e5323f',ui:'#ff4d58',sponsor:'ORBANO',nums:[5,50],drivers:['N. Bergstrom','F. Quiroga']},
- {name:'Sahara Motorsport',c1:'#d8b06a',c2:'#7c1532',txt:'#7c1532',ui:'#e3bd77',sponsor:'SOLMARA',nums:[18,81],drivers:['Y. Benali','C. Dumont']},
- {name:'Nova Corse',c1:'#ffd21f',c2:'#17171a',txt:'#17171a',ui:'#ffd21f',sponsor:'BRIXEL',nums:[2,22],drivers:['P. Akagi','G. Ferraro']}
+ {name:'Ferari',liv:'ferari',c1:'#d40000',c2:'#ffd400',txt:'#ffffff',ui:'#ff2a2a',sponsor:'ANDURO',nums:[16,44],drivers:['C. Leclair','L. Hamilten']},
+ {name:'MacLaren',liv:'maclaren',c1:'#ff8000',c2:'#14171c',txt:'#14171c',ui:'#ff8a1a',sponsor:'VELTRAX',nums:[4,81],drivers:['L. Noris','O. Piastrini']},
+ {name:'Mercedez',liv:'mercedez',c1:'#c3c7cc',c2:'#00d2be',txt:'#101114',ui:'#00d2be',sponsor:'KRYNOX',nums:[63,12],drivers:['G. Rusel','K. Antoneli']},
+ {name:'Red Bul',liv:'redbul',c1:'#1b2a5c',c2:'#e10600',txt:'#ffcc00',ui:'#3671c6',sponsor:'ZEFYRA',nums:[3,6],drivers:['M. Verstapen','I. Hadyar']},
+ {name:'Asthon Martin',liv:'asthon',c1:'#00594f',c2:'#cedc00',txt:'#cedc00',ui:'#12a089',sponsor:'TALVEX',nums:[14,18],drivers:['F. Alonzo','L. Strol']},
+ {name:'Alpin',liv:'alpin',c1:'#0a3fa8',c2:'#ff87bc',txt:'#ffffff',ui:'#ff87bc',sponsor:'ORBANO',nums:[10,43],drivers:['P. Gasli','F. Colapintto']},
+ {name:'Wiliams',liv:'wiliams',c1:'#041e42',c2:'#00a3e0',txt:'#ffffff',ui:'#00a3e0',sponsor:'SOLMARA',nums:[23,55],drivers:['A. Albom','C. Sains']},
+ {name:'Racing Buls',liv:'racingbuls',c1:'#ffffff',c2:'#1634cc',txt:'#1634cc',ui:'#6c98ff',sponsor:'BRIXEL',nums:[30,41],drivers:['L. Lawsen','A. Lindbla']}
 ];
 const ADS=[['QUENTRA','#0f62fe','#ffffff'],['MIRADO','#17171a','#ffd21f'],['NORVIK','#e5323f','#ffffff'],['TERRAVOLT','#0b8a5a','#ffffff'],
  ['AXELIO','#ffffff','#17171a'],['VANTORO','#ff7a1a','#17171a'],['ANDURO','#0d2a4a','#5ab4f0'],['VELTRAX','#5b24c9','#c6f432'],
@@ -3031,10 +3032,34 @@ function plate(pts,t){const s=new THREE.Shape();s.moveTo(pts[0][0],pts[0][1]);fo
  const g=new THREE.ExtrudeGeometry(s,{depth:t,bevelEnabled:false});g.rotateY(-PI/2);g.translate(t/2,0,0);return g;}
 const _up=new V3(0,1,0);
 function strutM(a,b){const A=new V3(...a),B=new V3(...b),d=new V3().subVectors(B,A),L=d.length();_o3.position.copy(A).addScaledVector(d,0.5);_o3.quaternion.setFromUnitVectors(_up,d.normalize());_o3.scale.set(1,L,1);_o3.updateMatrix();return _o3.matrix.clone();}
+// v121: diseño de cada escuderia trucha como su F1 real (sin logos), auto Alta. Media carroceria: X(t) t 0..0,5 = de abajo hacia
+// el lomo, Y(v) v 0..1 = de la cola a la trompa. P = poligono [[t,v],...]
+const LIVA={
+ ferari(g,t,X,Y,P){P([[0.085,0],[0.14,0],[0.14,1],[0.085,1]],shade(t.c1,-0.3));
+  P([[0.39,0.14],[0.43,0.14],[0.43,0.62],[0.39,0.66]],'#ffffff');P([[0.2,0.3],[0.24,0.3],[0.36,0.6],[0.32,0.6]],'#ffffff');
+  P([[0.44,0.86],[0.5,0.86],[0.5,0.97],[0.44,0.97]],t.c2);},
+ maclaren(g,t,X,Y,P){P([[0,0],[0.5,0],[0.5,0.28],[0.3,0.36],[0.3,0.7],[0,0.78]],t.c2);
+  g.strokeStyle=shade(t.c1,0.25);g.lineWidth=6;g.beginPath();g.moveTo(X(0.3),Y(0.7));g.lineTo(X(0.3),Y(0.36));g.lineTo(X(0.5),Y(0.28));g.stroke();},
+ mercedez(g,t,X,Y,P){P([[0,0],[0.32,0],[0.32,1],[0,1]],'#121316');P([[0,0],[0.5,0],[0.5,0.24],[0,0.3]],'#121316');
+  g.strokeStyle=t.c2;g.lineWidth=9;g.beginPath();g.moveTo(X(0.32),Y(1));g.lineTo(X(0.32),Y(0.29));g.lineTo(X(0.5),Y(0.245));g.stroke();},
+ redbul(g,t,X,Y,P){P([[0.16,0.22],[0.24,0.2],[0.4,0.6],[0.32,0.62]],t.c2);P([[0.3,0.64],[0.36,0.64],[0.46,0.84],[0.42,0.86]],t.c2);
+  P([[0.42,0.9],[0.5,0.9],[0.5,1],[0.42,1]],t.txt);P([[0.46,0.08],[0.5,0.08],[0.5,0.5],[0.46,0.5]],t.c2);},
+ asthon(g,t,X,Y,P){P([[0.085,0],[0.13,0],[0.13,1],[0.085,1]],'#101412');
+  g.strokeStyle=t.c2;g.lineWidth=10;g.beginPath();g.moveTo(X(0.13),Y(0.95));g.lineTo(X(0.13),Y(0.05));g.stroke();
+  g.lineWidth=7;g.beginPath();g.moveTo(X(0.2),Y(0.2));g.bezierCurveTo(X(0.26),Y(0.42),X(0.4),Y(0.6),X(0.5),Y(0.72));g.stroke();},
+ alpin(g,t,X,Y,P){P([[0,0],[0.5,0],[0.5,0.42],[0.25,0.5],[0,0.56]],'#111216');
+  P([[0.16,0.24],[0.24,0.22],[0.3,0.5],[0.22,0.53]],t.c2);P([[0.46,0.04],[0.5,0.04],[0.5,0.44],[0.46,0.44]],t.c2);},
+ wiliams(g,t,X,Y,P){const gr=g.createLinearGradient(X(0.25),0,X(0.5),0);gr.addColorStop(0,t.c1);gr.addColorStop(1,t.c2);g.fillStyle=gr;
+  g.beginPath();g.moveTo(X(0.27),Y(1));g.lineTo(X(0.5),Y(1));g.lineTo(X(0.5),Y(0.2));g.lineTo(X(0.27),Y(0.32));g.closePath();g.fill();
+  g.strokeStyle='#ffffff';g.lineWidth=6;g.beginPath();g.moveTo(X(0.27),Y(1));g.lineTo(X(0.27),Y(0.32));g.lineTo(X(0.5),Y(0.2));g.stroke();},
+ racingbuls(g,t,X,Y,P){P([[0,0],[0.5,0],[0.5,0.22],[0.24,0.4],[0.24,0.84],[0,0.9]],t.c2);
+  g.strokeStyle='#e10600';g.lineWidth=7;g.beginPath();g.moveTo(X(0.24),Y(0.84));g.lineTo(X(0.24),Y(0.4));g.lineTo(X(0.5),Y(0.22));g.stroke();}
+};
 function liveryTex(team){return tex(1024,1024,(x,w,h)=>{
  const hc=document.createElement('canvas');hc.width=w/2;hc.height=h;const g=hc.getContext('2d');const X=t=>t*w,Y=v=>(1-v)*h;
  g.fillStyle=team.c1;g.fillRect(0,0,w/2,h);
- if(team.pat)livPattern(g,team,X,Y,w,h);else{
+ const P=(pts,c)=>{g.fillStyle=c;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.closePath();g.fill();},lv=LIVA[teamOf(team).liv];
+ if(team.pat)livPattern(g,team,X,Y,w,h);else if(lv)lv(g,team,X,Y,P);else{
  g.fillStyle=team.c2;g.fillRect(0,0,X(0.19),h);
  g.beginPath();g.moveTo(X(0.19),Y(0.1));g.bezierCurveTo(X(0.22),Y(0.3),X(0.38),Y(0.42),X(0.5),Y(0.55));g.lineTo(X(0.5),Y(0.78));g.bezierCurveTo(X(0.36),Y(0.6),X(0.24),Y(0.45),X(0.19),Y(0.32));g.closePath();g.fill();
  g.fillRect(X(0.465),0,X(0.035),Y(0.78));
@@ -3350,6 +3375,32 @@ const LIV={
    for(let k=0;k<5;k++){const z=0.3+k*0.12;A.poly([[z,0.08],[z+0.06,0.08],[z-0.2,0.9],[z-0.26,0.9]],k%2?t.c2:t.c1);}
    M.poly(bk,'rgb(128,0,0)');}
   else{A.poly([[0.3,-1],[-0.5,1],[LZ0,1],[LZ0,-1]],t.c2);}},
+ // v121: escuderias truchas (como su F1 real, sin logos). Costado: z de la cola (-2,6) a la trompa (3,4), y desde el piso; arriba: v de lado a lado
+ ferari(A,M,t){const s=A.kind==='side';
+  if(s){A.rect(LZ0,0,LZ1,0.18,shade(t.c1,-0.35));A.poly([[-1.8,0.74],[0.5,0.63],[0.5,0.68],[-1.8,0.8]],'#ffffff');A.poly([[-0.6,0.42],[0.9,0.37],[0.9,0.41],[-0.6,0.47]],'#ffffff');A.rect(2.62,0.15,2.74,1.25,t.c2);}
+  else{A.rect(-1.9,-0.045,0.4,0.045,'#ffffff');A.rect(2.62,-1.05,2.74,1.05,t.c2);}},
+ maclaren(A,M,t){const s=A.kind==='side';
+  if(s){const b=[[LZ0,0],[LZ1,0],[LZ1,0.26],[1.2,0.36],[0.2,0.5],[-0.8,0.62],[-1.6,0.86],[LZ0,1.25]];A.poly(b,t.c2);
+   A.x.strokeStyle=shade(t.c1,0.2);A.x.lineWidth=0.012*A.pxV;A.path(b.slice(2,7));A.x.stroke();}
+  else{A.rect(LZ0,-1.05,-0.7,1.05,t.c2);for(const sg of [1,-1])A.poly([[-0.7,sg*0.45],[1.1,sg*0.5],[1.1,sg*1.05],[-0.7,sg*1.05]],t.c2);}},
+ mercedez(A,M,t){const s=A.kind==='side';
+  if(s){A.rect(LZ0,0,LZ1,0.55,'#121316');A.poly([[LZ0,0],[-1.2,0],[-1.6,1.25],[LZ0,1.25]],'#121316');A.rect(-1.3,0.55,LZ1,0.58,t.c2);}
+  else{for(const sg of [1,-1]){A.rect(LZ0,sg*0.32,LZ1,sg*1.05,'#121316');A.rect(-1.4,sg*0.3,LZ1,sg*0.33,t.c2);}A.rect(LZ0,-1.05,-1.4,1.05,'#121316');}},
+ redbul(A,M,t){const s=A.kind==='side';M.rect(LZ0,-2,LZ1,2,'rgb(128,0,0)');
+  if(s){A.poly([[-1.5,0.42],[0.8,0.36],[1.25,0.46],[-1.2,0.62]],t.c2);A.poly([[-2.1,0.82],[-0.9,0.72],[-0.8,0.78],[-2.0,0.9]],t.c2);A.rect(2.95,0,LZ1,1.25,t.txt);}
+  else{A.rect(2.95,-1.05,LZ1,1.05,t.txt);A.rect(-2.0,-0.06,-0.4,0.06,t.c2);}},
+ asthon(A,M,t){const s=A.kind==='side';
+  if(s){A.rect(LZ0,0,LZ1,0.18,'#101412');A.rect(LZ0,0.18,LZ1,0.21,t.c2);A.x.strokeStyle=t.c2;A.x.lineWidth=0.014*A.pxV;A.path([[1.4,0.36],[0.4,0.52],[-0.6,0.66],[-2.2,0.86]]);A.x.stroke();}
+  else{A.rect(-2.2,-0.02,2.9,0.02,t.c2);}},
+ alpin(A,M,t){const s=A.kind==='side';
+  if(s){A.poly([[LZ0,0],[0.4,0],[0.0,1.25],[LZ0,1.25]],'#111216');A.poly([[-1.4,0.4],[0.5,0.34],[0.7,0.42],[-1.2,0.5]],t.c2);A.rect(-2.3,0.86,-1.0,0.9,t.c2);}
+  else{A.rect(LZ0,-1.05,-0.2,1.05,'#111216');A.rect(-2.2,-0.05,-0.2,0.05,t.c2);}},
+ wiliams(A,M,t){const s=A.kind==='side';
+  if(s){A.rect(LZ0,0.5,LZ1,1.25,A.vgrad(0.5,1.1,t.c1,t.c2));A.rect(LZ0,0.5,LZ1,0.52,'#ffffff');}
+  else{A.rect(-2.4,-0.3,LZ1,0.3,t.c2);for(const sg of [1,-1])A.rect(-2.4,sg*0.3,LZ1,sg*0.32,'#ffffff');}},
+ racingbuls(A,M,t){const s=A.kind==='side';
+  if(s){const b=[[LZ0,0],[LZ1,0],[LZ1,0.3],[0.6,0.44],[-1.0,0.5],[-2.0,0.95],[LZ0,1.25]];A.poly(b,t.c2);A.x.strokeStyle='#e10600';A.x.lineWidth=0.012*A.pxV;A.path(b.slice(2,6));A.x.stroke();}
+  else{A.rect(LZ0,-1.05,-1.2,1.05,t.c2);for(const sg of [1,-1])A.rect(-1.2,sg*0.42,LZ1,sg*1.05,t.c2);}},
  // pinturas propias del editor (PAINT.pat 1..6)
  custom(A,M,t){const s=A.kind==='side',p=t.pat;
   if(p===2){if(s)A.rect(LZ0,0.58,LZ1,0.66,t.c2);else A.rect(LZ0,-0.08,LZ1,0.08,t.c2);}
@@ -3373,22 +3424,22 @@ function livCommon(A,M,t,num,name,ti){const s=A.kind==='side',sp=t.sponsor,ad=AD
   // endplate del ala delantera
   A.text(ad,2.98,0.17,0.05,0.4,lc,{});
   // logo del equipo arriba del pontón
-  A.x.save();A.x.translate(A.X(-0.42),A.Y(0.66));A.x.scale(A.kx,1);teamLogo(A.x,d,0.14*A.pxV,lc,t.c2);A.x.restore();}
+  if(!teamOf(t).liv){A.x.save();A.x.translate(A.X(-0.42),A.Y(0.66));A.x.scale(A.kx,1);teamLogo(A.x,d,0.14*A.pxV,lc,t.c2);A.x.restore();}}
  else{
   // numero grande arriba de la nariz (se lee viniendo de frente) y sponsor sobre la cubierta del motor y el aleron
   A.text(nStr,2.62,0,0.2,0.24,lc,{rot:-PI/2,stroke:0.01,strokeC:t.c1});
   A.text(ad2,2.05,0,0.07,0.32,lc,{rot:-PI/2});
   A.text(sp,-2.12,0,0.12,0.9,lc,{rot:PI/2});
-  A.x.save();A.x.translate(A.X(-0.55),A.Y(0));A.x.rotate(PI/2);A.x.scale(1,A.kx);teamLogo(A.x,d,0.16*A.pxV,lc,t.c2);A.x.restore();}}
+  if(!teamOf(t).liv){A.x.save();A.x.translate(A.X(-0.55),A.Y(0));A.x.rotate(PI/2);A.x.scale(1,A.kx);teamLogo(A.x,d,0.16*A.pxV,lc,t.c2);A.x.restore();}}}
 function makeLivery(team,num,name,hi){const W=hi?LIV_W:Math.min(1024,LIV_W),key=team.name+"|"+num+"|"+(name||"")+"|"+W;if(liveryCache[key])return liveryCache[key];
  const tb=teamOf(team),ti=Math.max(0,TEAMS.indexOf(tb));
  const mk=(w,h)=>{const c=cvs(w,h);return [c,c.getContext('2d')];};
  const [cs,xs]=mk(W,W/2),[ct,xt]=mk(W,W/4),[ms,xms]=mk(W/2,W/4),[mt,xmt]=mk(W/2,W/8);
- const design=team.pat?'custom':(tb.design||'nova');
+ const design=team.pat?'custom':(LIV[tb.liv]?tb.liv:tb.design||'nova');
  const fill=(x,w,h,c)=>{x.fillStyle=c;x.fillRect(0,0,w,h);};
  fill(xs,W,W/2,team.c1);fill(xt,W,W/4,team.c1);fill(xms,W/2,W/4,'rgb(255,0,0)');fill(xmt,W/2,W/8,'rgb(255,0,0)');
  // los autos de pintura propia con diseño 0 usan el diseño del equipo con tus colores
- const dz=design==='custom'&&team.pat===0?(tb.design||'nova'):design;
+ const dz=design==='custom'&&team.pat===0?(LIV[tb.liv]?tb.liv:tb.design||'nova'):design;
  for(const left of [false,true]){const A=livApi(xs,W,W/2,'side',left),Mk=livApi(xms,W/2,W/4,'side',left,true);xs.save();xs.beginPath();xs.rect(0,left?W/4:0,W,W/4);xs.clip();xms.save();xms.beginPath();xms.rect(0,left?W/8:0,W/2,W/8);xms.clip();
   LIV[dz](A,Mk,team);livCommon(A,Mk,team,num,name,ti);xs.restore();xms.restore();}
  {const A=livApi(xt,W,W/4,'top',false),Mk=livApi(xmt,W/2,W/8,'top',false,true);LIV[dz](A,Mk,team);livCommon(A,Mk,team,num,name,ti);}
@@ -4764,7 +4815,7 @@ function slCockpit(m,team){const M=ckMats(),OX=SL_OX,K={grp:new THREE.Group(),mi
  ckMirror(K,new THREE.PlaneGeometry(0.2,0.05),0.3,0.7,G,[0,1.135,-0.005],[0.15,PI,0]);
  ckMirror(K,new THREE.PlaneGeometry(0.12,0.075),0.55,1,G,[0.96,0.985,0.30],[0,PI,0]);
  return K;}
-// codigo 0600: Fiat 600 ("Fitito") como el de las fotos del usuario: marfil, faros redondos cromados en los guardabarros, giros naranjas,
+// codigo 1955 (v122, antes 0600): Fiat 600 ("Fitito") como el de las fotos del usuario: marfil, faros redondos cromados en los guardabarros, giros naranjas,
 // "bigote" cromado adelante, tira cromada en el capo, paragolpes cromados con dos topes, gomas con banda blanca y llantas de chapa plateadas.
 // Adentro: tablero del color del auto con el reloj redondo, volante blanco finito de dos rayos y butacas color suela con vivos.
 // 3,22 m de largo, 1,38 m de ancho, 1,40 m de alto, 2,0 m entre ejes. Anda igual que el F1 (solo cambia como se ve).
@@ -5184,8 +5235,9 @@ const PTS={race:[25,18,15,12,10,8,6,4,2,1],sprint:[8,7,6,5,4,3,2,1]};
 const CAL_NAMES=['Melbourne','Buenos Aires','Imola','Barcelona','Autodromo Costanera','Silverstone','Red Bull Ring','Hungaroring','Spa-Francorchamps','Zandvoort','Monza','Valle Dorado','Austin (COTA)','México','Interlagos'];
 let sess={type:'race',laps:3,grid:null},WK=null,CH=null,curCirc=-1;
 const sprintLaps=()=>Math.max(2,Math.round(sel.laps*0.45));
-function playerName(){return (sel.name||'').trim()||'Vos';}
-function playerCode(){const s=(sel.name||'').normalize('NFD').replace(/[^A-Za-z]/g,'').toUpperCase();return s.length>=2?s.slice(0,3):'VOS';}
+// v121: sin nombre propio sos el primer piloto trucho de tu escuderia (y tu compañero el segundo)
+function playerName(){return (sel.name||'').trim()||(TEAMS[sel.team]||TEAMS[0]).drivers[0];}
+function playerCode(){const s=(sel.name||'').normalize('NFD').replace(/[^A-Za-z]/g,'').toUpperCase();return s.length>=2?s.slice(0,3):(sel.name||'').trim()?'VOS':playerName().split(' ').pop().slice(0,3).toUpperCase();}
 function playerNum(){return sel.num||TEAMS[sel.team].nums[0];}
 // los 10 pilotos: vos ocupas el primer asiento de tu escuderia
 function roster(){const pt=sel.team,L=[];
@@ -5349,7 +5401,7 @@ function p9Cockpit(m,team){const M=ckMats(),OX=P9_OX,K={grp:new THREE.Group(),mi
  ckMirror(K,new THREE.PlaneGeometry(0.16,0.042),0.32,0.68,G,[0,1.2,-0.109],[0.1,PI,0]);
  for(const s of [-1,1])ckMirror(K,new THREE.PlaneGeometry(0.17,0.075),s>0?0.55:0,s>0?1:0.45,G,[s*0.92,0.99,0.288],[0,PI,0]);
  return K;}
-/* ---------------- monopatin electrico (codigo 1111, v96) ----------------
+/* ---------------- monopatin electrico (codigo 3030 desde v122, antes 1111; v96) ----------------
  El modelo es el del usuario ("monopatin-electrico mio.glb", hecho con three.js): unos 27.700 triangulos en 12 materiales, al tamaño real
  (1,1 m de largo, ruedas de 21,6 cm). Guardado compacto en MONO_D: posiciones en Int16 (1/20000 m), normales en Int8 e indices Uint16,
  en base64; materiales [r,g,b lineales, metal, rugosidad, emisivo r,g,b, doble cara]. Grupos: body (fijo), steer (horquilla, columna y
@@ -5380,7 +5432,7 @@ function monoPilot(team,add){if(!MONOPG)MONOPG=MONO_P.parts.map(p=>({c:p.c,geo:m
   const b=add(new THREE.BoxGeometry(0.03,0.006,0.008),hair,false);b.position.set(s*0.034,1.801,0.138);b.rotation.z=-s*0.15;head.push(b);}
  const mo=add(new THREE.BoxGeometry(0.035,0.006,0.006),dark,false);mo.position.set(0,1.705,0.135);head.push(mo);
  return head;}
-// pil: con el piloto (codigo 2222); sin pil el monopatin va solo (codigo 1111)
+// pil: con el piloto (codigo 3131, antes 2222); sin pil el monopatin va solo (codigo 3030, antes 1111)
 function makeMono(team,num,name,pil){
  const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
  const M=MONO_D.mats.map(a=>new THREE.MeshStandardMaterial({color:new THREE.Color(a[0],a[1],a[2]),metalness:a[3],roughness:a[4],emissive:new THREE.Color(a[5],a[6],a[7]),side:a[8]?THREE.DoubleSide:THREE.FrontSide}));
@@ -6204,8 +6256,18 @@ function loadChamp(key){key=key||CH_KEY;let raw=null;try{raw=localStorage.getIte
  let c=null;try{const o=JSON.parse(raw);if(o&&typeof o.d==='string'&&o.s===sign(SAVE_SALT+o.d))c=JSON.parse(o.d);}catch(e){}
  // v72: si el campeonato se guardo cuando habia menos circuitos, los nuevos se agregan al final del calendario (asi no se pierde)
  if(c&&!c.career&&Array.isArray(c.cal)&&c.cal.length<CIRCUITS.length)for(let i=0;i<CIRCUITS.length;i++)if(!c.cal.includes(i))c.cal.push(i);
+ champOldTeams(c);
  if(validChamp(c))return c;
  if(key===CH_KEY)champBad=true;else carBad=true;try{localStorage.removeItem(key);}catch(e){}return null;}
+// v120: un campeonato o carrera guardado con las escuderias de antes (v119 y anteriores) pasa a las nuevas:
+// los puntos por escuderia van por nombre, y los pilotos y numeros del roster se cambian por los del mismo asiento
+const OLD_TEAMS=[['Condor Racing',[7,17],['T. Ibarra','L. Sosa']],['Volta Motorsport',[14,41],['M. Okafor','J. Lindqvist']],['Krait GP',[21,12],['R. Navarro','K. Adeyemi']],
+ ['Aurora Velocita',[9,90],['S. Moretti','E. Varga']],['Titan Dynamics',[33,3],['D. Kowalski','A. Haddad']],['Polar Racing',[5,50],['N. Bergstrom','F. Quiroga']],
+ ['Sahara Motorsport',[18,81],['Y. Benali','C. Dumont']],['Nova Corse',[2,22],['P. Akagi','G. Ferraro']]];
+function champOldTeams(c){if(!c||typeof c!=='object')return;
+ if(c.tpts&&typeof c.tpts==='object')for(let i=0;i<OLD_TEAMS.length;i++){const o=OLD_TEAMS[i][0],n=TEAMS[i].name;if(Object.prototype.hasOwnProperty.call(c.tpts,o)){c.tpts[n]=(c.tpts[n]||0)+c.tpts[o];delete c.tpts[o];}}
+ if(Array.isArray(c.roster))for(const r of c.roster){if(!r||r.isPlayer||!isInt(r.ti,0,OLD_TEAMS.length-1))continue;const O=OLD_TEAMS[r.ti],k=O[2].indexOf(r.driver);if(k<0)continue;
+  r.driver=TEAMS[r.ti].drivers[k];if(r.num===O[1][k])r.num=TEAMS[r.ti].nums[k];}}
 function clearChamp(){try{localStorage.removeItem(CH&&CH.career?CAR_KEY:CH_KEY);}catch(e){}}
 function validChamp(c){
  if(!c||typeof c!=='object'||c.v!==2)return false;
@@ -6434,7 +6496,7 @@ function circShow(){const g=$('circGrid'),b=g.children[sel.circuit];if(!b||g.scr
  g.scrollLeft+=b.getBoundingClientRect().left-g.getBoundingClientRect().left-(g.clientWidth-b.offsetWidth)/2;}
 // garage: nombre y numero (van en el auto), escuderia y pintura
 function hmGarage(){
- let h='<h3>Tu piloto</h3><div class="prow"><input class="inp" id="gaName" maxlength="14" placeholder="Tu nombre (va en el auto)" autocomplete="off" spellcheck="false"><input class="inp" id="gaNum" type="number" min="1" max="99" placeholder="Nº"></div>';
+ let h='<h3>Tu piloto</h3><div class="prow"><input class="inp" id="gaName" maxlength="14" placeholder="Tu nombre (vacío = el piloto de tu escudería)" autocomplete="off" spellcheck="false"><input class="inp" id="gaNum" type="number" min="1" max="99" placeholder="Nº"></div>';
  h+='<h3>Escudería</h3><div class="hm-teams">'+TEAMS.map((t,i)=>'<button data-t="'+i+'" class="'+(i===sel.team?'sel':'')+'"><i style="background:linear-gradient(135deg,'+t.c1+' 0 60%,'+t.c2+' 60%)"></i>'+esc(t.name)+'</button>').join('')+'</div>';
  h+='<p class="hint">'+(PAINT.on?'Estás usando tu propia pintura.':'Tu auto tiene los colores de la escudería.')+' La escudería también se elige antes de cada carrera.</p>';
  huPad('Garage',h,[['Pintar auto y casco',()=>{huPadClose();PE.from='home';peOpen();},1],['Listo',huPadClose]]);
@@ -6751,11 +6813,11 @@ function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');ret
  if(CODE.buf==="0900"){setCode("assist",true);codeSync("¡Ayudas activadas para la próxima carrera!","ok");CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='4888'){setCode('sc4',true);if(state==='menu')buildRace();codeSync('¡Superauto para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='4103'){setCode('sl',true);if(state==='menu')buildRace();codeSync('¡R107 SL para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
- if(CODE.buf==='1111'){setCode('mono',true);if(state==='menu')buildRace();codeSync('¡Monopatín eléctrico para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v96 (v97: solo, sin piloto)
- if(CODE.buf==='2222'){setCode('mono2',true);if(state==='menu')buildRace();codeSync('¡Monopatín con piloto para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v97
+ if(CODE.buf==='3030'){setCode('mono',true);if(state==='menu')buildRace();codeSync('¡Monopatín eléctrico para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v96 (v97: solo, sin piloto) (v122: era 1111)
+ if(CODE.buf==='3131'){setCode('mono2',true);if(state==='menu')buildRace();codeSync('¡Monopatín con piloto para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v97 (v122: era 2222)
  if(CODE.buf==='9595'){setCode('ray',true);if(state==='menu')buildRace();codeSync('¡Rayo McQueen para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v116
  if(CODE.buf==='2021'){setCode('pg',true);if(state==='menu')buildRace();codeSync('¡Pagani Imola para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v117
- if(CODE.buf==='0600'){setCode('f6',true);if(state==='menu')buildRace();codeSync('¡Fitito para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
+ if(CODE.buf==='1955'){setCode('f6',true);if(state==='menu')buildRace();codeSync('¡Fitito para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v122: era 0600
  if(CODE.buf==='2009'){setCode('hyper',true);if(state==='menu')buildRace();codeSync('¡Hiperauto Vento 300+ para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  if(CODE.buf==='1705'){setCode('sport',true);if(state==='menu')buildRace();codeSync('¡GT Sport RS para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
  CODE.buf='';codeSync('Código incorrecto','bad');const p=$('codePad').querySelector('.pad');p.classList.remove('shake');void p.offsetWidth;p.classList.add('shake');}
