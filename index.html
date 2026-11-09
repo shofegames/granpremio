@@ -5479,9 +5479,9 @@ function makeRayo(team,num,name){
 // y del otro lado se espejan. Piezas: posiciones Int16 (1/s m), normales Int8, uv Int16 (1/us), colores por vertice Uint8, indices.
 let PAGANI_D=null;// v131: se baja aparte (datos/pagani-1.json, ver BIG)
 // v118: el volante es una pieza aparte (centro PG_SW.c) que gira alrededor de la columna (PG_SW.ax, inclinada 19 grados) (v119: entero, sin simplificar; el interior menos brillante)
-const PG_OX=0.3225,PG_SW={c:[0.3225,0.706,0.488],ax:[0,0.328,-0.945]},PG_WC={f:[0.85,0.3355,1.294],b:[0.8535,0.357,-1.558]};let PGG=null,PGM=null;
+const PG_OX=0.3225,PG_SW={c:[0.3225,0.706,0.488],ax:[0,0.328,-0.945]},PG_WC={f:[0.85,0.3355,1.294],b:[0.8535,0.357,-1.558]};const PGC=new Map();// v137: piezas armadas por cada version (normal o fina)
 function pgArr(s,T){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new T(u.buffer);}
-function pgBuild(){if(PGG)return PGG;
+function pgBuild(D){const had=PGC.get(D);if(had)return had;let PGG,PGM;const PAGANI_D=D;
  const tex=PAGANI_D.tex.map(()=>null),tx=(i,srgb)=>{if(i<0)return null;if(!tex[i]){const im=new Image(),t=new THREE.Texture(im);im.onload=()=>{t.needsUpdate=true;};im.src=PAGANI_D.tex[i];
   t.flipY=false;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;tex[i]=t;}if(srgb)tex[i].encoding=THREE.sRGBEncoding;return tex[i];};
  // los vidrios no escriben profundidad, asi se ve el interior a traves
@@ -5492,15 +5492,15 @@ function pgBuild(){if(PGG)return PGG;
   if(p.u){const U=pgArr(p.u,Int16Array),uv=new Float32Array(U.length);for(let i=0;i<U.length;i++)uv[i]=U[i]/p.us;g.setAttribute('uv',new THREE.BufferAttribute(uv,2));}
   if(p.c)g.setAttribute('color',new THREE.BufferAttribute(pgArr(p.c,Uint8Array),3,true));
   g.setIndex(new THREE.BufferAttribute(p.i4?pgArr(p.i,Uint32Array):pgArr(p.i,Uint16Array),1));g.computeBoundingSphere();return {m:p.m,w:p.w,k:p.k,geo:g};});
- return PGG;}
-function makePagani(team,num,name){
+ const out={G:PGG,M:PGM};PGC.set(D,out);return out;}
+function makePagani(team,num,name,D){const {G:PGG,M:PGM}=pgBuild(D||PAGANI_D);
  const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
  const mk=(geo,m,parent,sh)=>{const o=new THREE.Mesh(geo,m);o.castShadow=sh;o.receiveShadow=true;parent.add(o);return o;};
  const wheels=[],fronts=[],corner={},swg=new THREE.Group();swg.position.set(...PG_SW.c);body.add(swg);
  // cuatro esquinas: pivote (gira con la direccion las de adelante) y adentro la rueda que rueda; el lado -x es el espejo
  for(const w of ['f','b'])for(const sx of [1,-1]){const c=PG_WC[w],pv=new THREE.Group();pv.position.set(c[0]*sx,c[1],c[2]);pv.scale.x=sx;root.add(pv);
   const sp=new THREE.Group();pv.add(sp);wheels.push(sp);if(w==='f')fronts.push(pv);(corner[w]||(corner[w]=[])).push({pv,sp});}
- for(const p of pgBuild()){const m=PGM[p.m];
+ for(const p of PGG){const m=PGM[p.m];
   if(!p.w){mk(p.geo,m,body,!m.transparent);continue;}
   if(p.w==='s'){mk(p.geo,m,swg,false);continue;}
   for(const k of corner[p.w])mk(p.geo,m,p.k==='wheel'?k.sp:k.pv,true);}
@@ -5541,14 +5541,14 @@ function makeRolls(team,num,name){
 // GT Sport RS (las mismas fisicas que todos los autos especiales) y cuando llegan se cambia solo (swapCar). Si no bajan, queda el GT.
 // v135: los dos monopatines (350 y 265 KB) tambien se bajan aparte: mono = el monopatin, monop = el piloto (el del codigo 3131 necesita los dos).
 // bigWait es la lista de archivos que le faltan a ese auto; cuando estan todos se cambia solo.
-const BIG={ray:{f:'datos/rayo-1.json',d:null,p:null},pg:{f:'datos/pagani-1.json',d:null,p:null},rr:{f:'datos/rolls-1.json',d:null,p:null},mono:{f:'datos/mono-1.json',d:null,p:null},monop:{f:'datos/monop-1.json',d:null,p:null}};
+const BIG={ray:{f:'datos/rayo-1.json',d:null,p:null},pg:{f:'datos/pagani-1.json',d:null,p:null},rr:{f:'datos/rolls-1.json',d:null,p:null},mono:{f:'datos/mono-1.json',d:null,p:null},monop:{f:'datos/monop-1.json',d:null,p:null},pgf:{f:'datos/pagani-fino-1.json',d:null,p:null}};// v137: pgf = Pagani fino (80 mil triangulos, solo en Ultra)
 function bigLoad(k){const b=BIG[k];if(!b||b.d||b.p)return;
  b.p=fetch(b.f).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}).then(d=>{if(!d||!Array.isArray(d.parts)||(k==='mono'?!Array.isArray(d.mats):k!=='monop'&&!Array.isArray(d.tex)))throw new Error('datos');
-  b.d=d;if(k==='ray')RAYO_D=d;else if(k==='pg')PAGANI_D=d;else if(k==='rr')RR_D=d;else if(k==='mono')MONO_D=d;else MONO_P=d;
+  b.d=d;if(k==='ray')RAYO_D=d;else if(k==='pg')PAGANI_D=d;else if(k==='rr')RR_D=d;else if(k==='mono')MONO_D=d;else if(k==='monop')MONO_P=d;
   for(const c of cars)if(c.m&&c.m.bigWait&&c.m.bigWait.every(x=>BIG[x].d))swapCar(c);}).catch(()=>{}).finally(()=>{b.p=null;});}
 function bigCar(ks,make,team,num,name){const miss=ks.filter(k=>!BIG[k].d);if(!miss.length)return make(team,num,name);miss.forEach(bigLoad);const m=makeSportsCar(team,num,name);m.bigWait=ks;return m;}
 function makeRayoL(team,num,name){return bigCar(['ray'],makeRayo,team,num,name);}
-function makePaganiL(team,num,name){return bigCar(['pg'],makePagani,team,num,name);}
+function makePaganiL(team,num,name){return sel.q===1?bigCar(['pgf'],(t,n,nm)=>makePagani(t,n,nm,BIG.pgf.d),team,num,name):bigCar(['pg'],makePagani,team,num,name);}
 function makeRollsL(team,num,name){return bigCar(['rr'],makeRolls,team,num,name);}
 function makeMonoL(team,num,name,pil){return bigCar(pil?['mono','monop']:['mono'],(t,n,nm)=>makeMono(t,n,nm,pil),team,num,name);}
 function addCockpit(car){const m=car.m;if(m.kit||m.mono||m.ray||m.pg||m.rr)return;// v117: el Pagani trae su propio interior (tablero, volante, asientos)// monopatin: sin cabina, la camara va en los ojos del piloto
@@ -6552,7 +6552,7 @@ let hmMus=(()=>{try{return localStorage.getItem('gp3d_musica')!=='0';}catch(e){r
 // v134: Licencias (en Configuracion): de quien es cada cosa que no hicimos nosotros y con que licencia (las CC BY piden nombrar al autor)
 const LICS=[
  ['Rayo McQueen (código 9595)','Modelo "Rayo McQueen Modernizado" de Daniel Pachon en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego (texturas y medidas). El personaje es de Disney·Pixar; este es un modelo hecho por un fan.','https://sketchfab.com/3d-models/rayo-mcqueen-modernizado-f0f84510ec89420abf6a4aa4a293879b'],
- ['Pagani Imola (código 2021)','Modelo "2021 Pagani Imola" de ddiaz-design en Sketchfab. Licencia CC BY-NC-SA 4.0 (sin fines de lucro). Adaptado para el juego: con menos triángulos y sin las partes que no se ven.','https://sketchfab.com/3d-models/2021-pagani-imola-41d59a9e413944ba82e4a230db4c170c'],
+ ['Pagani Imola (código 2021)','Modelo "2021 Pagani Imola" de ddiaz-design en Sketchfab. Licencia CC BY-NC-SA 4.0 (sin fines de lucro). Adaptado para el juego: con menos triángulos y sin las partes que no se ven (en calidad Ultra, una versión más detallada).','https://sketchfab.com/3d-models/2021-pagani-imola-41d59a9e413944ba82e4a230db4c170c'],
  ['Rols Roise Culinan (código 1904)','Modelo "Rolls Royce Cullinan" de NewViStudios en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: sin los logos ni la estatuita del capó.','https://sketchfab.com/3d-models/rolls-royce-cullinan-61f16a1d5be2403abcdd8fa552f730f7'],
  ['Trazados de los circuitos','Base de datos "f1-circuits" de Tomislav Bacinger. Licencia MIT.','https://github.com/bacinger/f1-circuits'],
  ['Edificios, agua, bosques y ciudades','© colaboradores de OpenStreetMap. Licencia ODbL.','https://www.openstreetmap.org/copyright'],
@@ -6857,7 +6857,7 @@ peSync();
 // 4888: corres con el superauto rojo de franjas (diseño propio); anda igual que el F1
 // duran solo la proxima carrera y se pueden usar juntos
 const CODE={on:false,sport:false,assist:false,grass:false,hyper:false,sc4:false,sl:false,f6:false,mono:false,mono2:false,ray:false,pg:false,rr:false,de:'',vel:'',velDe:'',buf:'',t:0};
-function setCode(k,v){if(v&&BIG[k])bigLoad(k);if(v&&k==='mono2'){bigLoad('mono');bigLoad('monop');}if(k===false||['sport','hyper','sc4','sl','f6','mono','mono2','ray','pg','rr'].includes(k))CODE.de='';// de: quien te puso el auto (si quiso que se sepa)
+function setCode(k,v){if(v&&BIG[k])bigLoad(k==='pg'&&sel.q===1?'pgf':k);if(v&&k==='mono2'){bigLoad('mono');bigLoad('monop');}if(k===false||['sport','hyper','sc4','sl','f6','mono','mono2','ray','pg','rr'].includes(k))CODE.de='';// de: quien te puso el auto (si quiso que se sepa)
  if(k===false){CODE.on=CODE.sport=CODE.assist=CODE.grass=CODE.hyper=CODE.sc4=CODE.sl=CODE.f6=CODE.mono=CODE.mono2=CODE.ray=CODE.pg=CODE.rr=false;CODE.vel=CODE.velDe='';}else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist||CODE.grass||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6||CODE.mono||CODE.mono2||CODE.ray||CODE.pg||CODE.rr;
  $('codeBtn').classList.toggle('on',any);$('codeBtn2').classList.toggle('on',any);}
 // v127: con un boton de nombre (CODE.hide) los cuadritos quedan vacios, asi no se ve el codigo
@@ -7016,7 +7016,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=136;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=137;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
