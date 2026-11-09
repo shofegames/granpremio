@@ -3027,52 +3027,79 @@ function plate(pts,t){const s=new THREE.Shape();s.moveTo(pts[0][0],pts[0][1]);fo
  const g=new THREE.ExtrudeGeometry(s,{depth:t,bevelEnabled:false});g.rotateY(-PI/2);g.translate(t/2,0,0);return g;}
 const _up=new V3(0,1,0);
 function strutM(a,b){const A=new V3(...a),B=new V3(...b),d=new V3().subVectors(B,A),L=d.length();_o3.position.copy(A).addScaledVector(d,0.5);_o3.quaternion.setFromUnitVectors(_up,d.normalize());_o3.scale.set(1,L,1);_o3.updateMatrix();return _o3.matrix.clone();}
-// v121/v123: diseño de cada escuderia trucha como su F1 2026 real (de las fotos del GP de Austria 2026), sin logos, auto Alta.
-// Media carroceria: X(t) t 0..0,5 = de abajo hacia el lomo (0,25 = mitad del costado), Y(v) v 0..1 = de la cola a la trompa.
-// V(z) pasa metros del auto (cola -2,2 .. trompa 3,0) a v. P = poligono [[t,v],...], S = linea [[t,v],...]
-const LIVA_V=z=>0.4667+0.1696*z;
-const LIVA={
- // SF-26: rojo brillante, la parte de arriba blanca desde el cockpit sobre el airbox y la tapa del motor (con un filete negro),
- // la cola roja con el numero
- ferari(g,t,X,Y,P,S,V){const w=[[0.3,V(0.5)],[0.5,V(0.32)],[0.5,V(-1.5)],[0.44,V(-1.78)],[0.32,V(-1.5)],[0.28,V(-0.4)]];P(w,'#ffffff');
-  S(w.slice(3).concat([w[0]]),'#141414',5);P([[0.085,V(-2.3)],[0.12,V(-2.3)],[0.12,V(3.1)],[0.085,V(3.1)]],shade(t.c1,-0.35));},
- // MCL40: papaya con una franja negra en diagonal: abajo adelante del ponton hasta arriba de la tapa del motor
- maclaren(g,t,X,Y,P,S,V){P([[0.085,V(1.15)],[0.2,V(1.28)],[0.5,V(0.18)],[0.5,V(-0.85)],[0.3,V(-0.55)],[0.085,V(0.05)]],'#141414');},
- // W17: negro, la trompa y el contorno del cockpit plateados, linea turquesa por el costado y rayas plateadas en el ponton
- mercedez(g,t,X,Y,P,S,V){P([[0.36,V(3.1)],[0.5,V(3.1)],[0.5,V(0.55)],[0.42,V(0.32)],[0.35,V(0.62)]],'#b9bec4');
-  S([[0.34,V(3.0)],[0.31,V(1.4)],[0.29,V(0.5)],[0.23,V(-0.7)]],t.c2,10);
-  for(let k=0;k<4;k++){const z=0.35-k*0.28;P([[0.13,V(z)],[0.17,V(z+0.05)],[0.29,V(z-0.12)],[0.25,V(z-0.17)]],'#b9bec4');}},
- // RB22: azul brillante, la punta de la trompa amarilla, rojo sobre la tapa del motor y amarillo arriba del airbox
- redbul(g,t,X,Y,P,S,V){P([[0,V(2.62)],[0.5,V(2.62)],[0.5,V(3.1)],[0,V(3.1)]],'#ffcc00');
-  P([[0.3,V(-0.22)],[0.5,V(-0.38)],[0.5,V(-1.5)],[0.36,V(-1.4)]],t.c2);P([[0.43,V(0.06)],[0.5,V(0.06)],[0.5,V(-0.38)],[0.43,V(-0.38)]],'#ffcc00');},
- // AMR26: verde con la parte de abajo mas oscura y lineas lima por el costado de la trompa y arriba del ponton
- asthon(g,t,X,Y,P,S,V){P([[0,V(-2.3)],[0.2,V(-2.3)],[0.2,V(3.1)],[0,V(3.1)]],'#024a42');
-  S([[0.2,V(3.0)],[0.2,V(-1.9)]],t.c2,8);S([[0.33,V(0.9)],[0.31,V(-0.3)],[0.27,V(-1.4)]],t.c2,7);},
- // A526: azul arriba y rosa abajo (pontones, costado de la trompa)
- alpin(g,t,X,Y,P,S,V){P([[0,V(-2.3)],[0.34,V(-2.3)],[0.34,V(1.0)],[0.3,V(1.8)],[0.3,V(3.1)],[0,V(3.1)]],t.c2);},
- // FW48: azul fuerte, azul muy oscuro abajo y un panel blanco abajo del ponton
- wiliams(g,t,X,Y,P,S,V){P([[0,V(-2.3)],[0.2,V(-2.3)],[0.2,V(3.1)],[0,V(3.1)]],t.c2);
-  P([[0.12,V(0.42)],[0.27,V(0.5)],[0.27,V(-0.95)],[0.12,V(-0.95)]],'#ffffff');},
- // VCARB 03: blanco con una franja azul que nace en la trompa y se agranda abajo del ponton, filete rojo arriba
- racingbuls(g,t,X,Y,P,S,V){const b=[[0.13,V(2.7)],[0.2,V(2.7)],[0.24,V(0.6)],[0.34,V(-1.0)],[0.34,V(-1.95)],[0.085,V(-1.95)],[0.085,V(0.6)]];P(b,t.c2);
-  S([[0.2,V(2.7)],[0.24,V(0.6)],[0.34,V(-1.0)],[0.34,V(-1.95)]],'#e10600',5);}
+// v140: la pintura del F1 de Alta se pinta segun el lugar de verdad de cada punto del auto. Antes se dibujaba sobre la textura
+// envuelta alrededor de 4 piezas distintas (casco y trompa, tapa del motor y los dos pontones) que compartian el mismo dibujo,
+// y en los pontones las franjas salian torcidas. Ahora cada pieza tiene su franja de la textura (v) y cada pixel toma el color
+// de su punto 3D (alto, largo, si mira para arriba). Colores sacados de fotos de los autos 2026 (fotos comparacion/v123).
+const LIVB={mono:[0,0.58,-2.2,3.0],eng:[0.6,0.79,-2.12,-0.06],pod:[0.81,1,-1.75,0.95]};
+function livBand(g,k){const [a,b,z0,z1]=LIVB[k],p=g.attributes.position,u=g.attributes.uv;for(let i=0;i<u.count;i++)u.setY(i,a+clamp((p.getZ(i)-z0)/(z1-z0),0,1)*(b-a));return g;}
+// q: k pieza (mono/eng/pod), y alto, z largo (trompa +3, cola -2,2), ny cuanto mira para arriba. Devuelve el color.
+const LIV3={
+ // SF-26: rojo; blanco arriba desde el cockpit: la tapa del motor y el techo de los pontones
+ ferari(q,t){if(q.k==='eng')return q.y>0.8&&q.z>-1.85?'#ffffff':t.c1;
+  if(q.k==='pod')return q.ny>0.45&&q.z<0.62&&q.z>-1.4?'#ffffff':t.c1;
+  return q.y>0.66&&q.z>-0.45&&q.z<0.66?'#ffffff':t.c1;},
+ // MCL40: papaya arriba, negro abajo (pontones, costado bajo del casco) y el airbox negro
+ maclaren(q,t){if(q.k==='eng')return q.y>0.97&&q.z>-0.5?'#141414':t.c1;
+  if(q.k==='pod')return q.y<0.43?'#141414':t.c1;return q.y<0.31&&q.z<1.7?'#141414':t.c1;},
+ // W17: negro; trompa y contorno del cockpit plateados, filete turquesa por el costado
+ mercedez(q,t){const sil='#aab1b8';if(q.k==='pod')return q.y>0.4&&q.y<0.435?t.c2:q.ny>0.5&&q.z>0.2?sil:t.c1;
+  if(q.k==='eng')return q.y>0.97&&q.z>-0.5?sil:t.c1;
+  if(q.z>1.55&&q.ny>-0.3)return sil;if(q.y>0.66&&q.z>-0.45&&q.z<0.66)return sil;return q.y>0.285&&q.y<0.315&&q.z>0.5?t.c2:t.c1;},
+ // RB22: azul; punta de la trompa amarilla, rojo en la tapa del motor, airbox amarillo, filete rojo en el ponton
+ redbul(q,t){if(q.k==='eng')return q.y>0.96&&q.z>-0.45?'#ffcc00':q.z>-1.5&&q.z<-0.35&&q.y>0.72?t.c2:t.c1;
+  if(q.k==='pod')return q.y>0.37&&q.y<0.4?t.c2:t.c1;return q.z>2.55?'#ffcc00':t.c1;},
+ // AMR26: verde, mas oscuro abajo, linea lima por el costado
+ asthon(q,t){const dk='#024a42';if(q.k==='pod')return q.y>0.44&&q.y<0.47?t.c2:q.y<0.44?dk:t.c1;
+  if(q.k==='eng')return t.c1;return q.y>0.33&&q.y<0.355&&q.z>0.3?t.c2:q.y<0.33?dk:t.c1;},
+ // A526: rosa abajo, azul arriba (techo de los pontones, tapa del motor, arriba del casco y de la trompa)
+ alpin(q,t){if(q.k==='eng')return t.c1;if(q.k==='pod')return q.ny>0.4||q.y>0.6?t.c1:t.c2;
+  if(q.z>1.5)return q.ny>0.35?t.c1:t.c2;return q.y>0.58?t.c1:t.c2;},
+ // FW48: azul fuerte arriba, azul muy oscuro abajo y un panel blanco al costado del ponton
+ wiliams(q,t){if(q.k==='pod')return q.y>0.42&&q.y<0.5&&q.z>-0.95&&q.z<0.45?'#ffffff':q.y<0.42?t.c2:t.c1;
+  if(q.k==='eng')return t.c1;return q.y<0.32?t.c2:t.c1;},
+ // VCARB 03: blanco; azul abajo de los pontones y de la cola, con un filete rojo
+ racingbuls(q,t){if(q.k==='pod')return q.y>0.42&&q.y<0.445&&q.z<0.5?'#e10600':q.y<0.42&&q.z<0.5?t.c2:t.c1;
+  if(q.k==='eng')return q.z<-1.25&&q.y<0.85?t.c2:t.c1;return q.y<0.3&&q.z<1.0?t.c2:t.c1;}
 };
-function liveryTex(team){return tex(1024,1024,(x,w,h)=>{
- const hc=document.createElement('canvas');hc.width=w/2;hc.height=h;const g=hc.getContext('2d');const X=t=>t*w,Y=v=>(1-v)*h;
+// el dibujo de antes (pintura propia y escuderias sin diseño): se dibuja como siempre y despues se lee en su lugar de antes
+function liveryOld(team,w,h){const hc=document.createElement('canvas');hc.width=w/2;hc.height=h;const g=hc.getContext('2d');const X=t=>t*w,Y=v=>(1-v)*h;
  g.fillStyle=team.c1;g.fillRect(0,0,w/2,h);
- const P=(pts,c)=>{g.fillStyle=c;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.closePath();g.fill();},S=(pts,c,lw)=>{g.strokeStyle=c;g.lineWidth=lw;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.stroke();},lv=LIVA[teamOf(team).liv];
- if(team.pat)livPattern(g,team,X,Y,w,h);else if(lv)lv(g,team,X,Y,P,S,LIVA_V);else{
+ if(team.pat)livPattern(g,team,X,Y,w,h);else{
  g.fillStyle=team.c2;g.fillRect(0,0,X(0.19),h);
  g.beginPath();g.moveTo(X(0.19),Y(0.1));g.bezierCurveTo(X(0.22),Y(0.3),X(0.38),Y(0.42),X(0.5),Y(0.55));g.lineTo(X(0.5),Y(0.78));g.bezierCurveTo(X(0.36),Y(0.6),X(0.24),Y(0.45),X(0.19),Y(0.32));g.closePath();g.fill();
  g.fillRect(X(0.465),0,X(0.035),Y(0.78));
  g.strokeStyle=team.ui;g.lineWidth=8;
  g.beginPath();g.moveTo(X(0.19),Y(0.32));g.bezierCurveTo(X(0.24),Y(0.45),X(0.36),Y(0.6),X(0.5),Y(0.78));g.stroke();
  g.beginPath();g.moveTo(X(0.195),0);g.lineTo(X(0.195),h);g.stroke();
- g.lineWidth=3;g.strokeStyle='rgba(255,255,255,.55)';g.beginPath();g.moveTo(X(0.205),Y(0.3));g.bezierCurveTo(X(0.25),Y(0.43),X(0.37),Y(0.58),X(0.5),Y(0.76));g.stroke();
- }
- const sh=g.createLinearGradient(0,0,X(0.5),0);sh.addColorStop(0,'rgba(0,0,0,.35)');sh.addColorStop(0.3,'rgba(0,0,0,0)');sh.addColorStop(0.8,'rgba(255,255,255,0)');sh.addColorStop(1,'rgba(255,255,255,.08)');g.fillStyle=sh;g.fillRect(0,0,X(0.5),h);
- g.fillStyle='#16171a';g.fillRect(0,0,X(0.085),h);
- x.drawImage(hc,0,0);x.save();x.translate(w,0);x.scale(-1,1);x.drawImage(hc,0,0);x.restore();});}
+ g.lineWidth=3;g.strokeStyle='rgba(255,255,255,.55)';g.beginPath();g.moveTo(X(0.205),Y(0.3));g.bezierCurveTo(X(0.25),Y(0.43),X(0.37),Y(0.58),X(0.5),Y(0.76));g.stroke();}
+ return g.getImageData(0,0,w/2,h);}
+// hornea media textura (u 0..0,5 = lado +x; el otro lado es el espejo). col(q) da el color de cada punto. Se guarda por escuderia.
+const LIVBK={};
+function livBake(key,col){if(LIVBK[key])return LIVBK[key];
+ const W=512,H=1024,img=new ImageData(W,H),D=img.data,ok=new Uint8Array(W*H),g=carGeos().livery,P=g.attributes.position.array,U=g.attributes.uv.array,N=g.attributes.normal.array,cc={};
+ const rgb=s=>cc[s]||(cc[s]=(()=>{const c=new THREE.Color(s);return [c.r*255,c.g*255,c.b*255];})()),q={k:'',y:0,z:0,ny:0,x:0,u:0};
+ for(let t=0;t<P.length/9;t++){const a=t*3,b=a+1,c=a+2;const ua=U[a*2],ub=U[b*2],uc=U[c*2];if(ua>0.5001||ub>0.5001||uc>0.5001)continue;
+  const va=U[a*2+1],vb=U[b*2+1],vc=U[c*2+1],vm=(va+vb+vc)/3,k=vm<0.59?'mono':vm<0.8?'eng':'pod';if(k==='pod'&&P[a*3]+P[b*3]+P[c*3]<0.6)continue;// el ponton de -x sale del espejo
+  const ax=ua*1024,ay=(1-va)*H,bx=ub*1024,by=(1-vb)*H,cx=uc*1024,cy=(1-vc)*H,den=(by-cy)*(ax-cx)+(cx-bx)*(ay-cy);if(Math.abs(den)<1e-9)continue;
+  const x0=Math.max(0,Math.floor(Math.min(ax,bx,cx))),x1=Math.min(W-1,Math.ceil(Math.max(ax,bx,cx))),y0=Math.max(0,Math.floor(Math.min(ay,by,cy))),y1=Math.min(H-1,Math.ceil(Math.max(ay,by,cy)));
+  for(let py=y0;py<=y1;py++)for(let px=x0;px<=x1;px++){const sx=px+0.5,sy=py+0.5,l1=((by-cy)*(sx-cx)+(cx-bx)*(sy-cy))/den,l2=((cy-ay)*(sx-cx)+(ax-cx)*(sy-cy))/den,l3=1-l1-l2;
+   if(l1<-0.02||l2<-0.02||l3<-0.02)continue;q.k=k;q.x=P[a*3]*l1+P[b*3]*l2+P[c*3]*l3;q.y=P[a*3+1]*l1+P[b*3+1]*l2+P[c*3+1]*l3;q.z=P[a*3+2]*l1+P[b*3+2]*l2+P[c*3+2]*l3;
+   q.ny=N[a*3+1]*l1+N[b*3+1]*l2+N[c*3+1]*l3;q.u=sx/1024;
+   let r=col(q);if(typeof r==='string')r=rgb(r);
+   // abajo del todo el piso oscuro, y un poco mas oscuro cuanto mas abajo
+   let s=1-0.3*clamp((0.34-q.y)/0.22,0,1);if(q.ny<-0.6||q.y<0.1){r=[22,23,26];s=1;}
+   const o=(py*W+px)*4;D[o]=r[0]*s;D[o+1]=r[1]*s;D[o+2]=r[2]*s;D[o+3]=255;ok[py*W+px]=1;}}
+ // agranda los bordes unos pixeles (asi no se ven costuras)
+ for(let it=0;it<4;it++){const nk=ok.slice();for(let py=0;py<H;py++)for(let px=0;px<W;px++){const i=py*W+px;if(ok[i])continue;
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const qx=px+dx,qy=py+dy;if(qx<0||qy<0||qx>=W||qy>=H)continue;const j=qy*W+qx;if(ok[j]){D.set(D.subarray(j*4,j*4+4),i*4);nk[i]=1;break;}}}ok.set(nk);}
+ const cv=document.createElement('canvas');cv.width=W;cv.height=H;cv.getContext('2d').putImageData(img,0,0);LIVBK[key]=cv;return cv;}
+function liveryTex(team){const lv=!team.pat&&LIV3[teamOf(team).liv];
+ const key=lv?'L|'+teamOf(team).liv+'|'+team.c1+'|'+team.c2:'O|'+JSON.stringify([team.c1,team.c2,team.ui,team.pat||0]);
+ let col;if(lv)col=q=>lv(q,team);else{const old=liveryOld(team,1024,1024),OD=old.data;// lo viejo se lee en su lugar de antes (u igual, v por el largo)
+  col=q=>{const px=Math.min(511,Math.floor(q.u*1024)),py=Math.min(1023,Math.max(0,Math.floor((1-(q.z-ZMIN)/ZLEN)*1024))),o=(py*512+px)*4;return [OD[o],OD[o+1],OD[o+2]];};}
+ const half=livBake(key,col);
+ return tex(1024,1024,(x,w,h)=>{x.drawImage(half,0,0);x.save();x.translate(w,0);x.scale(-1,1);x.drawImage(half,0,0);x.restore();});}
 // diseños de la pintura propia (sobre media carroceria: X 0..0,5 va de abajo hacia arriba por el costado, Y de la trompa hacia atras)
 function livPattern(g,t,X,Y,w,h){const p=t.pat;g.fillStyle=t.c1;g.fillRect(0,0,X(0.5),h);
  if(p===1){g.fillStyle=t.ui;g.fillRect(X(0.2),0,X(0.012),h);}
@@ -3110,7 +3137,7 @@ function carGeos(){if(CARG)return CARG;const C={};
   mono.setIndex(keep);}
  const eng=loft([[-2.12,0,0.05,0.42,0.05,3],[-1.65,0,0.1,0.52,0.1,3],[-1.1,0,0.17,0.69,0.15,3],[-0.6,0,0.2,0.85,0.2,3.2],[-0.25,0,0.18,0.9,0.21,3.2],[-0.06,0,0.15,0.9,0.19,3]],r2,s2);
  const pod=s=>loft([[-1.75,s*0.26,0.08,0.24,0.06,3,1],[-1.25,s*0.36,0.15,0.29,0.13,3,0.6],[-0.7,s*0.47,0.22,0.36,0.19,3.2,0.42],[-0.2,s*0.55,0.26,0.43,0.21,3.6,0.35],[0.3,s*0.58,0.25,0.5,0.17,4,0.35],[0.7,s*0.58,0.24,0.54,0.12,4.5,0.45],[0.95,s*0.56,0.21,0.555,0.085,5,0.6]],r2,s2);
- return mergeGeos([mono,eng,pod(1),pod(-1)]);};
+ return mergeGeos([livBand(mono,'mono'),livBand(eng,'eng'),livBand(pod(1),'pod'),livBand(pod(-1),'pod')]);};
  C.livery=livBody(64,16,32,6);C.liveryLo=livBody(24,6,14,3);
  // carbono
  const cb=[];
@@ -7018,7 +7045,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=139;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=140;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
