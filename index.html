@@ -5746,9 +5746,11 @@ function aiStep(c,dt){
  if(SC.on||YEL.length)tgt=flagCap(c,tgt);// v108
  if(c.pit===1)tgt=Math.min(tgt,Math.sqrt(42*42+50*Math.max(0,track.pit.eA-pitSr(c))));
  c.acc=0;
- if(c.v<tgt){const a=(13*(1-Math.pow(c.v/96,2))+1.5)*(dS<160?c.launch:1)*(1-0.15*Math.min(WET,1));c.acc=a;c.v=Math.min(tgt,c.v+a*dt);}else{const b=38-8*Math.min(WET,1);c.acc=-b;c.v=Math.max(tgt,c.v-b*dt);}
- let defL=null;const calm=SC.on||yellowAhead(c)<Infinity;
+ if(c.v<tgt){const a=(13*(1-Math.pow(c.v/96,2))+1.5)*(dS<160?c.launch:1)*(1-0.15*Math.min(WET,1));c.acc=a;c.v=Math.min(tgt,c.v+a*dt);}else{const b=(38-8*Math.min(WET,1))*(c.errT>0&&c.v<=tgt/c.errK+0.5?0.5:1);/* v133: un error chico afloja de a poco, no clava los frenos */c.acc=-b;c.v=Math.max(tgt,c.v-b*dt);}
+ let defL=null,fol=Infinity;const calm=SC.on||yellowAhead(c)<Infinity;
  for(const o of cars){if(o===c||o.out||(o.pit>=2&&Math.abs(o.lat)>HALF+0.5))continue;const gap=(o.prog-c.s)*ds;const ld=o.lat-c.lane;
+  // v133: el de atras se anticipa y frena de a poco para quedar a unos 6 m del de adelante (antes, al alcanzarlo, frenaba de golpe en un cuadro, hasta 120 km/h, y el que venia atras se lo comia)
+  if(gap>0&&gap<45&&Math.abs(ld)<2&&c.v>o.v){const vf=Math.max(0,o.v)+Math.sqrt(48*Math.max(0,gap-6.5));if(vf<fol)fol=vf;}
   // lado a lado: se separan en vez de atravesarse
   if(Math.abs(gap)<5.4&&Math.abs(ld)<2.1){const sg=ld!==0?Math.sign(ld):(c.lane>0?-1:1);c.lane-=sg*(2.1-Math.abs(ld))*Math.min(1,dt*8);}
   // defensa: si alguien viene pegado atras en una recta, se cierra hacia su lado (un solo movimiento, sin zigzag)
@@ -5756,7 +5758,8 @@ function aiStep(c,dt){
   if(gap<=0||gap>sty.ov)continue;
   if(Math.abs(ld)<2.4&&o.v<c.v+1.5){if((dS>140||o.v<10)&&(!calm||o.dead||o.v<4)){// v114: a un auto roto o parado siempre se lo pasa
    const want=o.lat+(o.lat>0?-3.4:3.4);c.laneT=clamp(want,-(HALF-1.4),HALF-1.4);c.overT=1.6;}
-   if(gap<7.5&&Math.abs(ld)<1.9)c.v=Math.min(c.v,Math.max(o.v-0.5,0));}}
+   if(gap<5.4&&Math.abs(ld)<1.9)c.v=Math.min(c.v,Math.max(o.v,0));}}// pegados de verdad: no se atraviesan
+ if(c.v>fol){c.v=Math.max(fol,c.v-46*dt);c.acc=Math.min(c.acc,-12);}
  c.overT-=dt;
  if(c.overT<=0){const want=track.line[i]*0.85+c.pref;c.laneT=clamp(lerp(c.startLane,want,sstep(60,320,dS)),-(HALF-1.4),HALF-1.4);
   if(defL!==null&&sty.def>0.3)c.laneT=clamp(lerp(c.laneT,defL,0.55*sty.def),-(HALF-1.4),HALF-1.4);
