@@ -1,0 +1,24 @@
+Gran Premio 3D
+Copyright (c) 2026 Shofe Games. Todos los derechos reservados. All rights reserved.
+
+ESPAÑOL
+Este juego (el código, los diseños, los autos hechos por Shofe Games, los circuitos armados para el juego, los menús,
+los textos y los sonidos) es propiedad de Shofe Games. Se puede jugar gratis en https://shofegames.github.io/granpremio/
+pero NO se permite copiarlo, modificarlo, publicarlo en otro sitio ni usarlo para otro juego sin permiso escrito.
+Para pedir permiso: shofegames@gmail.com
+
+ENGLISH
+This game (code, designs, the cars made by Shofe Games, the circuits built for the game, menus, texts and sounds) is
+owned by Shofe Games. You may play it for free at https://shofegames.github.io/granpremio/ but you may NOT copy,
+modify, republish or reuse it in another game without written permission. Contact: shofegames@gmail.com
+
+PARTES DE TERCEROS / THIRD-PARTY PARTS
+Estas partes no son de Shofe Games y siguen con sus propias licencias (también listadas en el juego, en
+Configuración > Licencias). These parts are not owned by Shofe Games and keep their own licenses:
+- "Rayo McQueen Modernizado" de Daniel Pachon (Sketchfab), CC BY 4.0 (datos/rayo-1.json)
+- "2021 Pagani Imola" de ddiaz-design (Sketchfab), CC BY-NC-SA 4.0 (datos/pagani-1.json, datos/pagani-fino-1.json)
+- "Rolls Royce Cullinan" de NewViStudios (Sketchfab), CC BY 4.0 (datos/rolls-1.json)
+- Trazados de los circuitos / circuit layouts: bacinger/f1-circuits de Tomislav Bacinger, MIT License
+- Mapas / maps: © colaboradores de OpenStreetMap / OpenStreetMap contributors, ODbL
+- three.js (r128), MIT License
+- Fuente / font Titillium Web, SIL Open Font License

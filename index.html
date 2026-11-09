@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="es">
+<!-- Gran Premio 3D · © 2026 Shofe Games. Todos los derechos reservados. Prohibido copiarlo o publicarlo en otro sitio sin permiso (shofegames@gmail.com). Las partes de terceros (modelos de Sketchfab, datos de OpenStreetMap, trazados f1-circuits, three.js, fuentes) siguen con sus propias licencias: ver Configuracion > Licencias. -->
 <head>
 <meta charset="utf-8">
 <!-- seguridad: solo se cargan scripts de cdnjs, estilos y fuentes de Google Fonts; nada mas puede entrar ni salir -->
@@ -6585,7 +6586,7 @@ const LICS=[
  ['Edificios, agua, bosques y ciudades','© colaboradores de OpenStreetMap. Licencia ODbL.','https://www.openstreetmap.org/copyright'],
  ['Motor 3D','three.js (r128). Licencia MIT.','https://github.com/mrdoob/three.js'],
  ['Letra','Titillium Web, de Google Fonts. Licencia SIL Open Font License.','https://fonts.google.com/specimen/Titillium+Web']];
-function licOpen(){huPad('Licencias','<p class="hint">Todo lo demás (autos F1, monopatines, Fitito, R107 SL, el superauto rojo, circuitos, menús y sonidos) lo hizo Shofe Games. Las escuderías y los pilotos son nombres truchos, inventados para el juego.</p>'+
+function licOpen(){huPad('Licencias','<p class="lic"><b>© 2026 Shofe Games. Todos los derechos reservados.</b><br>Gran Premio 3D es un juego de Shofe Games. No se puede copiar ni publicar en otro lado sin permiso (shofegames@gmail.com). Lo de abajo es de sus autores, con sus licencias.</p><p class="hint">Todo lo demás (autos F1, monopatines, Fitito, R107 SL, el superauto rojo, circuitos, menús y sonidos) lo hizo Shofe Games. Las escuderías y los pilotos son nombres truchos, inventados para el juego.</p>'+
  LICS.map(([t,d,u])=>'<div class="lic"><b>'+esc(t)+'</b><br>'+esc(d)+'<br><a href="'+u+'" target="_blank" rel="noopener noreferrer">'+esc(u)+'</a></div>').join(''),[['Volver',hmConfig],['Listo',huPadClose,1]]);}
 function hmConfig(){
  // v110: Bajo, Medio, Alta y Ultra, con lo que hace cada uno
@@ -7045,7 +7046,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=140;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=141;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
