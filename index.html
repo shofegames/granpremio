@@ -649,7 +649,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <p class="hint warn hidden" id="saveWarn">El campeonato guardado estaba dañado o modificado a mano, así que se descartó.</p>
     <div class="keys" id="keysHelp">
       <kbd>↑</kbd><kbd>W</kbd> acelerar &nbsp; <kbd>↓</kbd><kbd>S</kbd> frenar &nbsp; <kbd>←</kbd><kbd>→</kbd> doblar<br>
-      <kbd>Shift</kbd> o <kbd>Espacio</kbd> ERS &nbsp; <kbd>C</kbd> camara &nbsp; <kbd>R</kbd> volver a la pista &nbsp; <kbd>P</kbd> pausa &nbsp; <kbd>M</kbd> sonido &nbsp; <kbd>B</kbd> boxes<br>
+      <kbd>Espacio</kbd>, <kbd>Shift</kbd> o <kbd>E</kbd> prende/apaga el ERS &nbsp; <kbd>C</kbd> camara &nbsp; <kbd>R</kbd> volver a la pista &nbsp; <kbd>P</kbd> pausa &nbsp; <kbd>M</kbd> sonido &nbsp; <kbd>B</kbd> boxes<br>
       Largada: acelerá justo cuando se apagan las luces. Si ya estás a fondo, patinás.
     </div>
     <p class="hint" id="padHelp">¿Tenés un control de PlayStation o Xbox? Conectalo y tocá cualquier botón: acelerás y frenás de a poco con los gatillos.</p>
@@ -3891,7 +3891,7 @@ const TUT_STEPS=[
  {t:'Largada',d:()=>'Cuando se apaguen las 5 luces rojas, acelerá con '+tk('↑ o W','el botón Acelerar')+'.',ok:c=>state==='race'&&c.v>20},
  {t:'Doblar',d:()=>'Doblá con '+tk('← → o A y D','las flechas de la izquierda')+' y seguí la pista.',ok:(c,dt)=>(TUT.acc+=Math.abs(c.steer)>0.35&&c.v>15?dt:0)>1.5},
  {t:'Frenar',d:()=>'Antes de cada curva frená con '+tk('↓ o S','el botón Freno')+'. Si entrás muy rápido te vas afuera.',ok:(c,dt)=>(TUT.acc+=c.braking&&c.v>30?dt:0)>0.4},
- {t:'ERS',d:()=>'En las rectas usá el ERS ('+tk('Espacio o Shift','el botón ERS')+'): da más velocidad. Se vuelve a cargar cuando frenás.',ok:(c,dt)=>(TUT.acc+=c.ersOn?dt:0)>1},
+ {t:'ERS',d:()=>'En las rectas usá el ERS ('+tk('apretá una vez Espacio, Shift o E; se apaga al frenar','el botón ERS')+'): da más velocidad. Se vuelve a cargar cuando frenás.',ok:(c,dt)=>(TUT.acc+=c.ersOn?dt:0)>1},
  {t:'Mapa y posición',d:()=>'Arriba a la izquierda ves tu puesto, la vuelta y el tiempo. Arriba a la derecha, el mapa con todos los autos.',ok:(c,dt)=>(TUT.acc+=dt)>7},
  {t:'Boxes',d:()=>tk('Apretá B','Tocá Box')+' para entrar a boxes: el auto va solo a la entrada y te cambian las gomas. Si el auto está muy roto, ahí también lo arreglan.',ok:c=>c.pit>=3||sess.laps-c.lastLaps<=1},
  {t:'¡Listo!',d:()=>'Ya sabés lo básico. Terminá la carrera, o salí con '+tk('P (pausa)','Pausa')+' y Menú. Podés volver a ver esto en Configuración.',ok:(c,dt)=>(TUT.acc+=dt)>9}];
@@ -5768,12 +5768,15 @@ function aiStep(c,dt){
  if(!c.finished&&laps>=sess.laps){c.finished=true;c.finishTime=rt;}
 }
 const keys={};
+// v142: en el teclado el ERS se prende y se apaga apretando una vez (Espacio, Shift o E); se apaga solo al frenar o sin bateria.
+// Antes habia que mantenerlo y muchos teclados no leen flecha arriba + flecha al costado + espacio a la vez: no doblaba.
+let KERS=false;
 const touchIn={left:false,right:false,gas:false,brake:false,ers:false};
 function input(){return{
  steer:(((keys.ArrowLeft||keys.KeyA||touchIn.left)?1:0)-((keys.ArrowRight||keys.KeyD||touchIn.right)?1:0))||PAD.steer,
  thr:(keys.ArrowUp||keys.KeyW||touchIn.gas||(touchIn.ers&&!touchIn.brake))?1:PAD.thr,
  brk:(keys.ArrowDown||keys.KeyS||touchIn.brake)?1:PAD.brk,
- ers:!!(keys.ShiftLeft||keys.ShiftRight||keys.Space||touchIn.ers||PAD.ers)};}
+ ers:!!(KERS||touchIn.ers||PAD.ers)};}
 function playerStep(dt){
  const c=player,{P,NL,H,N,ds}=track;const inp=input();
  const live=state==='race'&&!c.finished;
@@ -5818,7 +5821,7 @@ function playerStep(dt){
  if(live&&!c.pit&&!solo())wearTyres(c,dt,1+0.5*Math.abs(c.steer)*Math.min(1,Math.abs(c.v)/50)+(inp.brk&&c.v>30?0.3:0)+(surf==='grava'||surf==='pasto'?0.6:surf==='rojo'?1.5:0));
  // limites de pista: con las 4 ruedas afuera del asfalto y los pianos mas de medio segundo, la vuelta se anula
  if(live&&!c.grass&&!c.lapBad&&(c.timing||!solo())&&a>HALF+(track.kerb[i]?1.8:0.2)+1.0){c.offT+=dt;if(c.offT>0.5){c.lapBad=true;showMsg('Vuelta anulada · límites de pista',1800);}}
- c.ersOn=inp.ers&&thr>0&&c.ers>0.01&&live&&!c.pit;
+ c.ersOn=inp.ers&&thr>0&&c.ers>0.01&&live&&!c.pit;if(KERS&&(inp.brk>0.5||c.ers<=0.01||!live||c.pit))KERS=false;
  // online: si filcman mantiene la F y vas adelante, tu auto rinde un poco menos (12% menos de velocidad maxima, 30% menos de empuje)
  const slow=c.lento||(c.slowT>0&&performance.now()<c.slowT);// lento: filcman le puso "mas lento" para esta carrera
  const vmax=((surf==='asf'||surf==='kerb'?93:surf==='azul'?78:surf==='rojo'?55:surf==='pasto'?45:28)+(c.ersOn?7:0))*dmgSpeed(c)*(slow?0.88:1);
@@ -6425,7 +6428,7 @@ function pauseHelp(){const r=a=>a.map(([k,v])=>'<div class="k"><b>'+k+'</b><span
  if(isTouch)h+='<h4>Botones de la pantalla</h4>'+r([['◀ ▶','Doblar a la izquierda y a la derecha'],['Acelerar','Mantenelo apretado para acelerar'],['Freno','Frena; parado, va marcha atrás'],['ERS','Acelera solo y con energía extra mientras lo apretás (se gasta y se carga frenando)']].concat(top));
  const p=PAD.on?padGet():null;
  if(p){const ps=padIsPS(p),b=(x,y)=>ps?x:y;h+='<h4>Control</h4>'+r([[b('R2','RT'),'Acelerar (de a poco según cuánto lo apretás)'],[b('L2','LT'),'Frenar; parado, marcha atrás'],['Palanca o cruceta','Doblar'],[b('✕ o R1','A o RB'),'ERS: energía extra'],[b('□','X'),'Pedir parada en boxes'],[b('L1','LB'),'Cambia las gomas en el panel de box'],[b('△','Y'),'Cambiar cámara'],[b('Share','Select'),'Volver a la pista si te quedaste trabado'],[b('Options','Start'),'Pausa']]);}
- if(!isTouch)h+='<h4>Teclado</h4>'+r([['↑ o W','Acelerar'],['↓ o S','Frenar; parado, marcha atrás'],['← → o A D','Doblar'],['Espacio o Shift','ERS: energía extra para pasar (se gasta y se carga frenando)'],['B','Pedir parada en boxes (1, 2 y 3 eligen las gomas en el panel)'],['C','Cambiar cámara'],['R','Volver a la pista si te quedaste trabado'],['M','Prender o apagar el sonido'],['P o Esc','Pausa']]);
+ if(!isTouch)h+='<h4>Teclado</h4>'+r([['↑ o W','Acelerar'],['↓ o S','Frenar; parado, marcha atrás'],['← → o A D','Doblar'],['Espacio, Shift o E','Prende y apaga el ERS (energía extra para pasar). No hace falta mantenerlo: se apaga solo al frenar o cuando se gasta, y se carga frenando'],['B','Pedir parada en boxes (1, 2 y 3 eligen las gomas en el panel)'],['C','Cambiar cámara'],['R','Volver a la pista si te quedaste trabado'],['M','Prender o apagar el sonido'],['P o Esc','Pausa']]);
  if(isTouch)h+='<h4>Arriba</h4>'+'<div class="k"><span>La tabla de posiciones, el mapa del circuito y, abajo, la velocidad, el ERS y cuánto les queda a las gomas.</span></div>';
  $('pHelp').innerHTML=h;}
 function pauseGame(){if(state!=="race"&&state!=="countdown")return;pauseHelp();
@@ -7046,7 +7049,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=141;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=142;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
@@ -7491,6 +7494,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
  if(e.code==='Escape'&&state==='menu'&&!PE.open){if(!$('huPad').classList.contains('hidden'))huPadClose();else if(!$('menu').classList.contains('hidden')&&$('onlinePad').classList.contains('hidden'))hmShow();}
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)&&state!=='menu')e.preventDefault();
  if(e.repeat)return;
+ if(['Space','ShiftLeft','ShiftRight','KeyE'].includes(e.code)&&state!=='menu')KERS=!KERS;
  if(e.code==='KeyC'&&state!=='menu')nextCam();
  if(e.code==='KeyR')resetPlayer();
  if(e.code==='KeyB')boxToggle();
