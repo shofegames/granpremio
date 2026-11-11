@@ -6174,7 +6174,7 @@ function playerStep(dt){
    if(pL<pA){const sg=Math.sign(la)||1;c.pos.x+=rx*sg*pL;c.pos.z+=rz*sg*pL;o.lane-=sg*pL*0.4;c.v*=0.985;}
    else if(al<0){c.pos.x-=fx*pA;c.pos.z-=fz*pA;const vv=c.v;c.v=Math.min(c.v,o.v*0.95);o.v+=Math.max(0,vv-o.v)*0.25;
     if(live&&vv-o.v>5){addDamage(c,(vv-o.v)/40*0.22,la>0?'fr':'fl');addDamage(o,(vv-o.v)/40*0.15,'rw');}
-    if(live&&c.isPlayer&&vv-o.v>12&&sess.type==='race'&&!sess.online&&!o.dead&&performance.now()-(c.penT||0)>6000){c.penT=performance.now();penAdd(c,5,'chocar a '+o.driver);}}
+    if(live&&c.isPlayer&&vv-o.v>20&&sess.type==='race'&&!sess.online&&!o.dead&&performance.now()-(c.penT||0)>20000){c.penT=performance.now();penAdd(c,5,'chocar a '+o.driver);}}
    else{c.pos.x+=fx*pA;c.pos.z+=fz*pA;if(live&&o.v-c.v>7)addDamage(c,(o.v-c.v)/40*0.1,'rw');o.v=Math.min(o.v,c.v*0.95);}
    if(shake<0.3&&live)sndHit(0.3);shake=Math.max(shake,0.35);}}
  k=nearest(c.pos,k);let d=k-c.idx;if(d>N/2)d-=N;if(d<-N/2)d+=N;c.prog+=d;c.idx=k;c.pos.y=groundY(c);
@@ -6244,9 +6244,10 @@ function updateCarVisual(c,dt){
 // penalizaciones (solo en carrera, no en clasificacion ni contra reloj ni online): a la tercera vuelta anulada por limites de pista
 // y por chocar fuerte de atras a otro auto, +5 s que se suman a tu tiempo final
 function penAdd(c,s,why){c.pen=(c.pen||0)+s;showMsg('⏱️ Penalización: +'+s+' segundos por '+why,2600);radio('Nos dieron '+s+' segundos de penalización por '+why+'. Hay que recuperarlos en pista.');}
-function penTL(c){c.tl=(c.tl||0)+1;const k=c.tl%3;
+// v157: menos seguido (pedido del usuario): a la quinta vuelta anulada recien te penalizan (antes a la tercera)
+function penTL(c){c.tl=(c.tl||0)+1;const k=c.tl%5;
  if(k===0)penAdd(c,5,'límites de pista');
- else{showMsg('⚠️ Vuelta anulada · advertencia por límites de pista ('+k+'/3)',2000);if(k===2)radio('Cuidado con los límites de pista: una más y nos penalizan.');}}
+ else{showMsg('⚠️ Vuelta anulada · advertencia por límites de pista ('+k+'/5)',2000);if(k===4)radio('Cuidado con los límites de pista: una más y nos penalizan.');}}
 // radio del ingeniero: mensajes cortos durante la carrera (adelantamientos, gomas, daño, distancia con el de adelante y el de atras)
 const RAD={t:0,pos:0,pt:0,dmgW:false,twW:false,chk:0};
 function radio(t){const e=$('radio');if(!e||TUT.on)return;e.textContent='📻 '+t;e.classList.remove('hidden');clearTimeout(RAD.t);RAD.t=setTimeout(()=>e.classList.add('hidden'),4500);
@@ -7526,7 +7527,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=156;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=157;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
