@@ -105,6 +105,10 @@ body.touch #tutBox{top:calc(env(safe-area-inset-top,0px) + 40px);width:min(380px
 body.split #msg{left:25%;font-size:24px}
 #p2hud{position:absolute;top:12px;right:12px;display:flex;gap:12px;align-items:center;padding:8px 14px;border-radius:12px;font-weight:700;z-index:4;pointer-events:none}#p2hud b{font-size:20px;font-style:italic;color:var(--accent)}#p2hud small{color:var(--muted)}#p2hud .e{color:#3cc8ff}
 #splitLine{display:none}body.split #splitLine{display:block;position:absolute;top:0;bottom:0;left:50%;width:4px;margin-left:-2px;background:#0b0d12;z-index:3;pointer-events:none}
+/* v158: editor de circuitos comodo en el celu y "Editar al detalle" */
+#edCv{display:block;width:min(100%,calc((100vh - 150px)*1.5));aspect-ratio:3/2;height:auto;margin:0 auto;touch-action:none;border-radius:12px;cursor:crosshair;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+.ed-btns{flex-wrap:wrap;margin:8px 0}.ed-t{margin:10px 0 4px}#edDet .seg button{font-size:13px;padding-left:8px;padding-right:8px}
+@media (max-height:540px){#edCv{width:min(100%,calc((100vh - 150px)*1.5))}#edHint{display:none}}
 /* v155: pantalla dividida con lo mismo de los dos lados (el panel del jugador 2 es una copia con ids p2_) y 2 jugadores en el celu */
 #hud2{display:none}body.split #hud2{display:block}#p2hud{display:none!important}
 .p2tag{display:none}body.split .p2tag{display:block;font-size:12px;font-style:italic;font-weight:900;color:var(--accent);line-height:1}
@@ -3014,7 +3018,7 @@ function buildWorld(ci){
  // montanas, nubes y sol
  {const cx=(T.minX+T.maxX)/2,cz=(T.minZ+T.maxZ)/2;const sk=SKIES[circ.sky];
   let ext=0;for(const p of P)ext=Math.max(ext,Math.hypot(p.x-cx,p.z-cz));const R1=Math.max(1500,ext+800);
-  SKYO.ridges=[ridge(cx,cz,R1+550,150,360,sk.ridge[1],sk.hor,300),ridge(cx,cz,R1,40,170,sk.ridge[0],sk.hor,300)];world.add(...SKYO.ridges);SKYO.clouds=[];Object.assign(SKYO,{cloud:sk.cloud,sun:sk.sun,glowO:sk.glow,glowS:sk.glowS,cx,cz});
+  const MK=circ.mtn==null?1:circ.mtn;SKYO.ridges=[ridge(cx,cz,R1+550,150*MK,360*MK,sk.ridge[1],sk.hor,300),ridge(cx,cz,R1,40*MK,170*MK,sk.ridge[0],sk.hor,300)];world.add(...SKYO.ridges);SKYO.clouds=[];Object.assign(SKYO,{cloud:sk.cloud,sun:sk.sun,glowO:sk.glow,glowS:sk.glowS,cx,cz});
   for(let i=0;i<(sk.clouds||40);i++){const cm=new THREE.SpriteMaterial({map:T_CLOUDS[i%3],color:sk.cloud,transparent:true,depthWrite:false,opacity:rnd(0.6,0.95),fog:false});
    const s=new THREE.Sprite(cm);SKYO.clouds.push(s);const a=rnd(0,PI*2),r=rnd(300,ext+1000);s.position.set(cx+Math.cos(a)*r,rnd(170,420),cz+Math.sin(a)*r);const sz=rnd(200,440);s.scale.set(sz,sz*0.5,1);world.add(s);}
   const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:T_GLOW,color:sk.sun,transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,opacity:sk.glow}));
@@ -6010,75 +6014,102 @@ const CUST_KEY='gp3d_mis_circuitos';
 function custList(){try{const L=JSON.parse(localStorage.getItem(CUST_KEY)||'[]');return Array.isArray(L)?L.filter(custValid).slice(0,12):[];}catch(e){return [];}}
 function custSaveList(L){try{localStorage.setItem(CUST_KEY,JSON.stringify(L.slice(0,12)));return true;}catch(e){return false;}}
 function custName(s){return String(s||'').replace(/[^A-Za-z0-9 áéíóúÁÉÍÓÚñÑüÜ._-]/g,'').replace(/\s+/g,' ').trim().slice(0,20);}
-function custValid(o){return !!o&&typeof o==='object'&&typeof o.n==='string'&&o.n===custName(o.n)&&o.n.length>0&&Array.isArray(o.p)&&o.p.length>=16&&o.p.length<=240&&o.p.length%2===0&&o.p.every(v=>Number.isInteger(v)&&Math.abs(v)<=1000);}
-// codigo para compartir: GP1. + base64 (url) del nombre y los puntos en pasos de 5 m
-function custCode(o){const s=JSON.stringify({n:o.n,p:o.p});return 'GP1.'+btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+// v158: "Editar al detalle": cada circuito tuyo guarda tambien como es (d): paisaje, montañas, subidas y bajadas, edificios,
+// barreras, ancho, agua y cielo. Va adentro del codigo para compartir (los codigos viejos sin d siguen andando).
+const DOPT=[['f','Paisaje',['Pasto','Bosque','Desierto','Ciudad','Tropical']],['m','Montañas',['Sin','Algunas','Muchas']],['e','Subidas y bajadas',['Plano','Algunas','Muchas']],
+ ['b','Edificios',['Ninguno','Pocos','Muchos']],['wg','Barreras',['Pegadas','Normales','Lejos']],['w','Ancho de la pista',['Angosta','Normal','Ancha']],
+ ['a','Agua',['Sin agua','Con lago']],['s','Cielo',['Soleado','Atardecer','Nublado']]];
+const DDEF={f:0,m:1,e:0,b:0,wg:1,w:1,a:0,s:0};
+function custDet(d){const r={...DDEF};if(d&&typeof d==='object')for(const [k,,o] of DOPT)if(Number.isInteger(d[k])&&d[k]>=0&&d[k]<o.length)r[k]=d[k];return r;}
+const custW=d=>[12,16,20][d.w],custWG=d=>[3,12,22][d.wg];
+function custValid(o){return !!o&&typeof o==='object'&&typeof o.n==='string'&&o.n===custName(o.n)&&o.n.length>0&&Array.isArray(o.p)&&o.p.length>=16&&o.p.length<=240&&o.p.length%2===0&&o.p.every(v=>Number.isInteger(v)&&Math.abs(v)<=1000)&&(o.d==null||typeof o.d==='object');}
+// codigo para compartir: GP1. + base64 (url) del nombre, los puntos en pasos de 5 m y los detalles
+function custCode(o){const s=JSON.stringify({n:o.n,p:o.p,d:custDet(o.d)});return 'GP1.'+btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function custDecode(code){try{let s=String(code||'').trim();if(!s.startsWith('GP1.'))return null;s=s.slice(4).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';
- const o=JSON.parse(decodeURIComponent(escape(atob(s))));if(!o||typeof o!=='object')return null;const r={n:custName(o.n),p:o.p};return custValid(r)?r:null;}catch(e){return null;}}
-// de los puntos guardados (pasos de 5 m) al circuito del juego
-function custCirc(o){const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);
- return {name:'★ '+o.n,custom:true,dif:2,ro:[0.5,0],desc:'Tu circuito',gp:'GRAN PREMIO '+o.n.toUpperCase(),sky:'day',flags:['AR','UY','BR','IT','ES','FR','DE','MX','CHK'],pts};}
-// revisa la pista: largo, curvas muy cerradas y partes de la pista que quedan pegadas (o se cruzan)
-function custCheck(pts){let T;try{T=computeTrack({pts,ro:[0.5,0]});}catch(e){return {ok:false,msg:'No se pudo armar la pista. Probá con otra forma.'};}
+ const o=JSON.parse(decodeURIComponent(escape(atob(s))));if(!o||typeof o!=='object')return null;const r={n:custName(o.n),p:o.p,d:custDet(o.d)};return custValid(r)?r:null;}catch(e){return null;}}
+// subidas y bajadas: una curva suave que cierra la vuelta (sumas de senos enteros), distinta para cada dibujo
+function custElev(p,amp){let h=0;for(const v of p)h=(h*31+v)|0;const ph=[0,1,2].map(k=>((h>>>(k*7))&127)/127*Math.PI*2),E=[];
+ for(let k=0;k<=60;k++){const t=k/60*Math.PI*2;E.push([k,Math.round(amp*(0.55*Math.sin(t+ph[0])+0.3*Math.sin(2*t+ph[1])+0.15*Math.sin(3*t+ph[2]))*10)/10]);}return E;}
+// de los puntos guardados (pasos de 5 m) y los detalles al circuito del juego
+function custCirc(o){const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);const d=custDet(o.d),name='★ '+o.n;
+ const c={name,custom:true,dif:2,ro:[0.5,0],desc:'Tu circuito',gp:'GRAN PREMIO '+o.n.toUpperCase(),sky:['day','sunset','overcast'][d.s],flags:['AR','UY','BR','IT','ES','FR','DE','MX','CHK'],pts,
+  w:custW(d),wg:custWG(d),flora:['park','forest','desert','park','tropic'][d.f],mtn:[0.2,1,2.3][d.m]};
+ if(d.wg===0)c.street=true;if(d.f===2)c.ground='sand';if(d.f===3)c.ground='city';if(d.a)c.river=true;if(d.e)c.elev=custElev(o.p,[0,7,18][d.e]);
+ // edificios: al lado de la pista, como en los callejeros (con colores de ciudad)
+ if(d.b)SB[name]={walls:d.f===2?['#f0e9db','#e3d7c1','#d9cdb5','#efe2c4']:['#c9d4de','#a4b6c8','#e6e9ec','#dccb9e','#d9b8a0','#b8c9b8'],types:d.b===2?['glass','band','classic']:['classic','small','band'],
+  h:d.b===2?[25,90]:[10,32],gap:d.wg===0?3:6,sparse:d.b===2?0.15:0.55};else delete SB[name];
+ return c;}
+// revisa la pista: largo, curvas muy cerradas y partes de la pista que quedan pegadas (o se cruzan). Con pista ancha o barreras lejos necesita mas lugar.
+function custCheck(pts,dd){const d=custDet(dd),w=custW(d),need=w+custWG(d)+10;let T;try{T=computeTrack({pts,ro:[0.5,0],w});}catch(e){return {ok:false,msg:'No se pudo armar la pista. Probá con otra forma.'};}
  const L=T.L;if(L<1500)return {ok:false,msg:'La pista es muy corta ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más grande.',T};
  if(L>9000)return {ok:false,msg:'La pista es muy larga ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más chica.',T};
  let kmax=0;for(let i=0;i<T.N;i++)kmax=Math.max(kmax,T.kAbs[i]);if(kmax>0.07)return {ok:false,msg:'Hay una curva demasiado cerrada. Hacela un poco más abierta.',T};
  const N=T.N,step=4,gapIdx=Math.round(160/T.ds);let dmin=1e9;
- for(let i=0;i<N;i+=step)for(let j=i+gapIdx;j<N;j+=step){if(N-(j-i)<gapIdx)continue;const d=Math.hypot(T.P[i].x-T.P[j].x,T.P[i].z-T.P[j].z);if(d<dmin)dmin=d;}
- if(dmin<40)return {ok:false,msg:'Hay partes de la pista que se tocan o se cruzan. Separalas un poco.',T};
+ for(let i=0;i<N;i+=step)for(let j=i+gapIdx;j<N;j+=step){if(N-(j-i)<gapIdx)continue;const dd2=Math.hypot(T.P[i].x-T.P[j].x,T.P[i].z-T.P[j].z);if(dd2<dmin)dmin=dd2;}
+ if(dmin<need)return {ok:false,msg:dmin<40?'Hay partes de la pista que se tocan o se cruzan. Separalas un poco.':'Con este ancho y estas barreras, hay partes de la pista muy pegadas. Separalas o elegí barreras más cerca.',T};
  return {ok:true,msg:'¡Pista lista! '+(L/1000).toFixed(2).replace('.',',')+' km. Ya la podés correr.',T};}
 // del dibujo (pixeles) a los puntos de control: uno cada ~70 m, empezando en la recta mas larga (asi la largada y los boxes quedan en una recta)
 function custFromStroke(raw,mpp){if(raw.length<10)return null;const P=raw.map(([x,y])=>[x*mpp,y*mpp]);P.push(P[0]);
  let L=0;const acc=[0];for(let i=1;i<P.length;i++){L+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);acc.push(L);}
  const n=Math.max(8,Math.min(110,Math.round(L/70)));const C=[];let k=0;
  for(let s=0;s<n;s++){const d=s*L/n;while(k<acc.length-2&&acc[k+1]<d)k++;const t=(d-acc[k])/Math.max(1e-6,acc[k+1]-acc[k]);C.push([P[k][0]+(P[k+1][0]-P[k][0])*t,P[k][1]+(P[k+1][1]-P[k][1])*t]);}
- // centrar
  let cx=0,cz=0;for(const c of C){cx+=c[0];cz+=c[1];}cx/=C.length;cz/=C.length;for(const c of C){c[0]-=cx;c[1]-=cz;}
- // la recta mas larga: puntos seguidos con poco giro
  const m=C.length,turn=i=>{const a=C[(i-1+m)%m],b=C[i],c=C[(i+1)%m];const h1=Math.atan2(b[0]-a[0],b[1]-a[1]),h2=Math.atan2(c[0]-b[0],c[1]-b[1]);return Math.abs(wrapA(h2-h1));};
  let best=0,bl=-1,run=0;for(let i=0;i<2*m;i++){if(turn(i%m)<0.2){run++;if(run>bl&&run<=m){bl=run;best=(i-run+1+m)%m;}}else run=0;}
  const R=C.slice(best).concat(C.slice(0,best));return R.map(([x,z])=>[Math.round(x/5)*5,Math.round(z/5)*5]);}
-// dibuja el editor: grilla de 200 m, la pista suavizada (verde si esta bien, roja si no) y la largada
-function edDraw(){const cv=ED.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,mpp=ED.M/W;x.fillStyle='#14321c';x.fillRect(0,0,W,H);
+// dibuja el editor: grilla de 200 m, la pista suavizada (verde si esta bien, roja si no) y la largada; el color del fondo sigue el paisaje
+function edDraw(){const cv=ED.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,mpp=ED.M/W,d=custDet(ED.d);
+ x.fillStyle=['#14321c','#0f2a16','#5a4a2c','#30343a','#1d3a1c'][d.f];x.fillRect(0,0,W,H);
  x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;const g=200/mpp;for(let v=0;v<W;v+=g){x.beginPath();x.moveTo(v,0);x.lineTo(v,H);x.stroke();}for(let v=0;v<H;v+=g){x.beginPath();x.moveTo(0,v);x.lineTo(W,v);x.stroke();}
- if(ED.drawing&&ED.raw.length>1){x.strokeStyle='#ffd400';x.lineWidth=4;x.beginPath();x.moveTo(ED.raw[0][0],ED.raw[0][1]);for(const p of ED.raw)x.lineTo(p[0],p[1]);x.stroke();return;}
- const T=ED.track;if(!T)return;const ox=W/2,oy=H/2;
- x.strokeStyle=ED.ok?'#3b3f47':'#7a2a2a';x.lineWidth=Math.max(3,16/mpp);x.lineJoin='round';x.beginPath();for(let i=0;i<=T.N;i++){const p=T.P[i%T.N];const X=ox+p.x/mpp,Y=oy+p.z/mpp;i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
+ if(ED.drawing&&ED.raw.length>1){x.strokeStyle='#ffd400';x.lineWidth=5;x.lineCap='round';x.lineJoin='round';x.beginPath();x.moveTo(ED.raw[0][0],ED.raw[0][1]);for(const p of ED.raw)x.lineTo(p[0],p[1]);x.stroke();
+  x.fillStyle='#fff';x.beginPath();x.arc(ED.raw[0][0],ED.raw[0][1],9,0,7);x.fill();return;}
+ const T=ED.track;if(!T){x.fillStyle='rgba(255,255,255,.55)';x.font='600 26px "Titillium Web",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('Dibujá acá con el dedo o el mouse',W/2,H/2);return;}
+ const ox=W/2,oy=H/2;
+ x.strokeStyle=ED.ok?'#1b1d22':'#7a2a2a';x.lineWidth=Math.max(4,custW(d)/mpp);x.lineJoin='round';x.beginPath();for(let i=0;i<=T.N;i++){const p=T.P[i%T.N];const X=ox+p.x/mpp,Y=oy+p.z/mpp;i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
  x.strokeStyle=ED.ok?'#e8e8e8':'#ff6b6b';x.lineWidth=1.5;x.stroke();
  const p0=T.P[0],p1=T.P[3];const a=Math.atan2(p1.z-p0.z,p1.x-p0.x);x.save();x.translate(ox+p0.x/mpp,oy+p0.z/mpp);x.rotate(a);x.fillStyle='#fff';x.fillRect(-2,-9,4,18);
  x.fillStyle='#ffd400';x.beginPath();x.moveTo(14,0);x.lineTo(6,-6);x.lineTo(6,6);x.closePath();x.fill();x.restore();}
-function edSet(pts){ED.pts=pts||[];ED.track=null;ED.ok=false;ED.msg='';if(ED.pts.length>=8){const r=custCheck(ED.pts);ED.ok=r.ok;ED.msg=r.msg;ED.track=r.T||null;}
+function edSet(pts){ED.pts=pts||[];ED.track=null;ED.ok=false;ED.msg='';if(ED.pts.length>=8){const r=custCheck(ED.pts,ED.d);ED.ok=r.ok;ED.msg=r.msg;ED.track=r.T||null;}
  const m=$('edMsg');if(m){m.textContent=ED.msg||'Dibujá una vuelta entera sin levantar el dedo. Empezá donde quieras la largada y andá en el sentido de la carrera.';m.className='padmsg'+(ED.msg?(ED.ok?' ok':' bad'):'');}
  for(const id of ['edRace','edSave','edCopy'])if($(id))$(id).disabled=!ED.ok;edDraw();}
-function edOpen(){if(state!=='menu')return;const L=custList();
- let h='<p class="hint">Dibujá la pista con el mouse o el dedo: una vuelta cerrada, en el sentido en que se corre. Cada cuadrado son 200 metros.</p>'+
-  '<canvas id="edCv" width="720" height="480" style="width:100%;touch-action:none;border-radius:12px;cursor:crosshair;display:block"></canvas>'+
+const edPts=o=>{const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);return pts;};
+function edOpen(){if(state!=='menu')return;const L=custList();ED.d=custDet(ED.d);
+ let h='<p class="hint" id="edHint">Dibujá la pista con el dedo o el mouse: una vuelta cerrada, en el sentido en que se corre. Cada cuadrado son 200 metros.</p>'+
+  '<canvas id="edCv" width="720" height="480"></canvas>'+
   '<p class="padmsg" id="edMsg"></p>'+
+  '<div class="acbtns ed-btns"><button class="btn pri" id="edRace" disabled>▶ Correr</button><button class="btn" id="edSave" disabled>Guardar</button><button class="btn" id="edCopy" disabled>Copiar código</button><button class="btn" id="edClear">Borrar dibujo</button></div>'+
   '<label class="lbl">Nombre de tu circuito<input class="inp" id="edName" maxlength="20" value="'+esc(ED.name||'Mi circuito')+'"></label>'+
-  '<div class="acbtns" style="flex-wrap:wrap;margin:8px 0"><button class="btn pri" id="edRace" disabled>▶ Correr</button><button class="btn" id="edSave" disabled>Guardar</button><button class="btn" id="edCopy" disabled>Copiar código</button><button class="btn" id="edClear">Borrar dibujo</button></div>'+
+  '<button class="btn wide" id="edDetBtn" style="margin-top:8px">⚙️ Editar al detalle</button>'+
+  '<div id="edDet" class="dl-sec'+(ED.detOpen?'':' hidden')+'"><h4>⚙️ Cómo es tu circuito</h4>'+
+   DOPT.map(([k,t,o])=>'<p class="hint ed-t">'+t+'</p><div class="seg wrap ed-seg" data-dk="'+k+'">'+o.map((n,i)=>'<button data-v="'+i+'"'+(ED.d[k]===i?' class="sel"':'')+'>'+n+'</button>').join('')+'</div>').join('')+
+   '<p class="hint">Barreras pegadas: como en un callejero, sin pasto ni grava. Lejos: mucho lugar para escaparte (necesita más espacio entre las partes de la pista).</p></div>'+
   '<div class="dl-sec"><h4>📥 Cargar el circuito de un amigo</h4><input class="inp" id="edCode" placeholder="Pegá el código (empieza con GP1.)" spellcheck="false" autocapitalize="off"><button class="btn sm" id="edLoad" style="margin-top:6px">Cargar</button></div>'+
   '<div class="dl-sec"><h4>📁 Mis circuitos</h4>'+(L.length?L.map((o,i)=>'<div class="upg"><span><b>'+esc(o.n)+'</b></span><button class="btn sm" data-cr="'+i+'">Correr</button><button class="btn sm" data-ce="'+i+'">Editar</button><button class="btn sm" data-cd="'+i+'">Borrar</button></div>').join(''):'<p class="hint">Todavía no guardaste ninguno.</p>')+'</div>';
  huPad('Crear circuito',h,[['Cerrar',huPadClose]]);
  ED.cv=$('edCv');const cv=ED.cv,pos=e=>{const r=cv.getBoundingClientRect();return [(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height];};
- cv.onpointerdown=e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);ED.drawing=true;ED.raw=[pos(e)];edDraw();};
- cv.onpointermove=e=>{if(!ED.drawing)return;const p=pos(e),l=ED.raw[ED.raw.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])>6){ED.raw.push(p);edDraw();}};
+ cv.onpointerdown=e=>{e.preventDefault();try{cv.setPointerCapture(e.pointerId);}catch(x){}ED.drawing=true;ED.raw=[pos(e)];edDraw();};
+ cv.onpointermove=e=>{if(!ED.drawing)return;e.preventDefault();const p=pos(e),l=ED.raw[ED.raw.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])>6){ED.raw.push(p);edDraw();}};
  cv.onpointerup=cv.onpointercancel=e=>{if(!ED.drawing)return;ED.drawing=false;const W=cv.width,H=cv.height,mpp=ED.M/W;
   const pts=custFromStroke(ED.raw.map(([x,y])=>[x-W/2,y-H/2]),mpp);if(!pts){ED.raw=[];edSet([]);const m=$('edMsg');m.textContent='Dibujá una vuelta más larga.';m.className='padmsg bad';return;}edSet(pts);};
+ // en el celu: que el dedo dibuje y no mueva la ventana
+ cv.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});cv.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
  $('edName').oninput=()=>{ED.name=custName($('edName').value);};
- const cur=()=>({n:custName($('edName').value)||'Mi circuito',p:ED.pts.flat().map(v=>Math.round(v/5))});
+ const cur=()=>({n:custName($('edName').value)||'Mi circuito',p:ED.pts.flat().map(v=>Math.round(v/5)),d:{...ED.d}});
  $('edClear').onclick=()=>{ED.raw=[];edSet([]);};
+ $('edDetBtn').onclick=()=>{ED.detOpen=!ED.detOpen;$('edDet').classList.toggle('hidden',!ED.detOpen);if(ED.detOpen)$('edDet').scrollIntoView({block:'nearest',behavior:'smooth'});};
+ for(const sg of $('huPadB').querySelectorAll('.ed-seg'))for(const b of sg.children)b.onclick=()=>{ED.d[sg.dataset.dk]=+b.dataset.v;for(const x of sg.children)x.classList.toggle('sel',x===b);edSet(ED.pts);};
  $('edRace').onclick=()=>{if(ED.ok)custRace(cur());};
  $('edSave').onclick=()=>{if(!ED.ok)return;const o=cur(),L2=custList().filter(x=>x.n!==o.n);L2.unshift(o);const ok=custSaveList(L2);ED.name=o.n;edOpen();edSet(ED.pts);const m=$('edMsg');m.textContent=ok?'Guardado en Mis circuitos.':'No se pudo guardar en este dispositivo.';m.className='padmsg '+(ok?'ok':'bad');};
  $('edCopy').onclick=()=>{if(!ED.ok)return;const c=custCode(cur()),m=$('edMsg');const done=t=>{m.textContent=t;m.className='padmsg ok';};
   try{navigator.clipboard.writeText(c).then(()=>done('Código copiado: pasáselo a tus amigos por WhatsApp.'),()=>{$('edCode').value=c;done('Copiá el código de abajo y pasáselo a tus amigos.');});}catch(e){$('edCode').value=c;done('Copiá el código de abajo y pasáselo a tus amigos.');}};
  $('edLoad').onclick=()=>{const o=custDecode($('edCode').value),m=$('edMsg');if(!o){m.textContent='Ese código no sirve. Tiene que empezar con GP1.';m.className='padmsg bad';return;}
-  const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);ED.name=o.n;$('edName').value=o.n;edSet(pts);};
+  ED.name=o.n;ED.d=custDet(o.d);edOpen();edSet(edPts(o));};
  for(const b of $('huPadB').querySelectorAll('[data-cr]'))b.onclick=()=>custRace(custList()[+b.dataset.cr]);
- for(const b of $('huPadB').querySelectorAll('[data-ce]'))b.onclick=()=>{const o=custList()[+b.dataset.ce];if(!o)return;const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);ED.name=o.n;$('edName').value=o.n;edSet(pts);$('edCv').scrollIntoView({block:'center'});};
+ for(const b of $('huPadB').querySelectorAll('[data-ce]'))b.onclick=()=>{const o=custList()[+b.dataset.ce];if(!o)return;ED.name=o.n;ED.d=custDet(o.d);edOpen();edSet(edPts(o));$('edCv').scrollIntoView({block:'center'});};
  for(const b of $('huPadB').querySelectorAll('[data-cd]'))b.onclick=()=>{const L2=custList();const o=L2[+b.dataset.cd];if(!o||!confirm('¿Borrar "'+o.n+'"?'))return;L2.splice(+b.dataset.cd,1);custSaveList(L2);edOpen();edSet(ED.pts);};
  edSet(ED.pts);}
 // correr en un circuito tuyo: se agrega al final de CIRCUITS mientras dura la carrera y se saca al volver al menu
-function custRace(o){if(!o||state!=='menu'||CUST.on)return;const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);if(!custCheck(pts).ok)return;
+function custRace(o){if(!o||state!=='menu'||CUST.on)return;const pts=edPts(o);if(!custCheck(pts,o.d).ok)return;
  huPadClose();CUST.prev=sel.circuit;CIRCUITS.push(custCirc(o));CUST.on=true;const ci=CIRCUITS.length-1;WK=null;CH=null;sel.mode=0;
  loadShow(ci);setTimeout(()=>{try{buildWorld(ci);}catch(e){console.warn('[circuito] no se pudo armar',e);custEnd();loadHide();goMenu();edOpen();const m=$('edMsg');if(m){m.textContent='No se pudo armar esa pista. Probá con otra forma.';m.className='padmsg bad';}return;}
   sess={type:'race',laps:sel.laps,grid:null};startRace();loadHide();},40);}
@@ -7527,7 +7558,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=157;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=158;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
