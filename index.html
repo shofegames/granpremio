@@ -6937,6 +6937,7 @@ const NET={url:'https://sbcvsgqzdhwhpxkspyvf.supabase.co',key:[104,57,18,63,10,4
 const NET_ERR={usuario:'El usuario tiene que tener de 3 a 14 letras, números o _',pass:'La contraseña tiene que tener al menos 6 caracteres',
  nombre:'Ese nombre no se puede usar, elegí otro',espera:'Hay muchas cuentas nuevas en este momento: probá en un minuto',existe:'Ese usuario ya existe, elegí otro',
  datos:'Usuario, contraseña o código incorrectos',bloqueado:'Demasiados intentos: esperá 5 minutos y probá de nuevo',
+ facil:'Esa contraseña es muy fácil de adivinar: elegí otra (que no sea tu usuario ni algo como 123456)',
  red:'No se pudo conectar con el ranking. Revisá internet y probá de nuevo',sesion:'Tu sesión venció: entrá de nuevo'};
 async function rpc(fn,args){const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),10000);
  try{const r=await fetch(NET.url+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:NET.key,'Content-Type':'application/json'},body:JSON.stringify(args),signal:ctl.signal});
@@ -6978,7 +6979,7 @@ async function acGo(){if(NET.busy)return;const u=$('acUser').value.trim(),p=$('a
  NET.busy=true;$('acGo').disabled=true;acMsg('Conectando…');
  const r=acMode==='register'?await rpc('gp_register',{p_user:u,p_pass:p}):acMode==='reset'?await rpc('gp_reset',{p_user:u,p_code:code,p_pass:p}):await rpc('gp_login',{p_user:u,p_pass:p});
  NET.busy=false;$('acGo').disabled=false;
- if(r.error||typeof r.token!=='string'||typeof r.user!=='string'){acMsg(NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ if(r.error||typeof r.token!=='string'||typeof r.user!=='string'){acMsg(r.why==='facil'?NET_ERR.facil:NET_ERR[r.error]||NET_ERR.red,'bad');return;}
  NET.sess={u:r.user,t:r.token};NET.best={};netSave();acctSync();$('acPass').value='';
  if(r.code){$('acRec').textContent=String(r.code).slice(0,5)+'-'+String(r.code).slice(5);$('acForm').classList.add('hidden');$('acTabs').classList.add('hidden');$('acDone').classList.remove('hidden');}
  else acClose();}
@@ -7049,7 +7050,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=142;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=143;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
@@ -7278,8 +7279,8 @@ function p2pDc(u,q,dc){q.dc=dc;
  dc.onopen=()=>{q.heard=performance.now();P2P.tries.set(u,0);olRender();};
  dc.onclose=()=>{if(P2P.peers.get(u)===q){p2pDrop(u);olRender();}};
  dc.onmessage=e=>{if(typeof e.data!=='string'||e.data.length>600)return;let m;try{m=JSON.parse(e.data);}catch(x){return;}
-  if(m&&m.p&&typeof m.p==='object'&&m.p.u===u){q.heard=performance.now();olOnMsg('p',m.p);}
-  else if(m&&m.z&&typeof m.z==='object'&&m.z.u===u)olOnMsg('z',m.z);};}
+  if(m&&m.p&&typeof m.p==='object'&&m.p.u===u){q.heard=performance.now();olOnMsg('p',m.p,true);}
+  else if(m&&m.z&&typeof m.z==='object'&&m.z.u===u)olOnMsg('z',m.z,true);};}
 // esperar los caminos posibles (asi va todo en un solo mensaje, sin mandar candidatos sueltos)
 function iceDone(pc){return new Promise(r=>{if(pc.iceGatheringState==='complete')return r();
  const f=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',f);r();}};pc.addEventListener('icegatheringstatechange',f);setTimeout(r,2500);});}
@@ -7380,7 +7381,8 @@ async function olStart(){if(!ONL.host||NET.busy)return;const L0=olPresent();if(L
  const order=L.map(p=>p.u);for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
  const go={race:r.race,ci:c.ci,laps:c.laps,rain:c.rain,order,lo:+(5*0.9+rnd(0.5,1.5)).toFixed(2)};rtSend('go',go);olGo(go);if(outN)setTimeout(()=>showMsg('No corren (sin conexión directa): '+outN,2600),1500);}
 // mensajes de los demas
-function olOnMsg(ev,p){
+// v143: las posiciones (p) y el freno de filcman (z) solo valen si llegan por la conexion directa de ese jugador (direct), nunca por el canal de la sala
+function olOnMsg(ev,p,direct){if((ev==="p"||ev==="z")&&!direct)return;
  if(ev==='_on'){olMsg('');rtSend('hola',myInfo());if(ONL.took&&ONL.host)rtSend('lider',{u:NET.sess.u});olRender();return;}// v103: filcman avisa que ahora es el lider
  if(ev==='_err'){olMsg('No se pudo entrar a la sala en vivo','bad');return;}
  if(ev==='_off'){if(ONL.code)olMsg('Se cortó la conexión, reconectando…','bad');return;}
@@ -7409,10 +7411,10 @@ function olOnMsg(ev,p){
   else{ONL.host=false;if(!ONL.inRace)olMsg(vip(p.u)?'✦ filcman es el líder de la sala ✦':p.u+' es el líder de la sala',vip(p.u)?'vipj':'ok');}
   rtSend('hola',myInfo());olRender();return;}
  if(ev==='cerrada'){if(ONL.host)return;ONL.closedMsg='La sala se cerró porque se fue '+(ONL.hostName||'el que la creó');if(!ONL.inRace){olLeave();olView(NET.sess?'home':'noacc');olMsg(ONL.closedMsg,'bad');}return;}
- if(ev==='go'){if(ONL.host||ONL.inRace)return;if(!Array.isArray(p.order)||!p.order.every(u=>OK_NAME.test(u))||!Number.isInteger(p.ci)||p.ci<0||p.ci>=CIRCUITS.length||![3,5,8].includes(p.laps)||!isNum(p.lo)||p.lo<4||p.lo>7)return;
+ if(ev==='go'){if(ONL.host||ONL.inRace)return;if(!Array.isArray(p.order)||p.order.length<2||p.order.length>8||new Set(p.order).size!==p.order.length||!p.order.every(u=>OK_NAME.test(u)&&(ONL.players.has(u)||(NET.sess&&u===NET.sess.u)))||!Number.isInteger(p.ci)||p.ci<0||p.ci>=CIRCUITS.length||![3,5,8].includes(p.laps)||!isNum(p.lo)||p.lo<4||p.lo>7)return;
   if(!NET.sess||!p.order.includes(NET.sess.u)){olMsg(ONL.players.size&&![...ONL.players.keys()].some(p2pOk)?'No pudiste correr: tu conexión no es directa (el WiFi la bloquea). Probá con otra red o con datos del celu.':'Largaron sin vos: esperá la próxima','bad');return;}olGo(p);return;}
  if(ev==='p'){const c=cars.find(o=>o.remote&&o.driver===p.u);const pl=ONL.players.get(p.u);if(pl)pl.last=performance.now();
-  if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||!p.a.every(isNum))return;
+  if(!c||!ONL.inRace||!Array.isArray(p.a)||p.a.length<8||p.a.length>16||!p.a.every(isNum)||Math.abs(p.a[0])>1e5||Math.abs(p.a[1])>1e5||Math.abs(p.a[2])>1e4||Math.abs(p.a[4])>400||Math.abs(p.a[5])>1e7)return;
   // puede llegar dos veces (directo y por Supabase): se usa solo el mas nuevo
   if(Number.isInteger(p.n)){if(isNum(c.lastN)&&p.n<=c.lastN&&p.n>c.lastN-1000)return;c.lastN=p.n;}c.snap.push({t:performance.now(),a:p.a});if(c.snap.length>4)c.snap.shift();c.heard=performance.now();return;}
  if(ev==='z'){if(!ONL.inRace||p.u!=='filcman'||!NET.sess||NET.sess.u==='filcman'||!isNum(p.g)||!player||player.finished)return;
