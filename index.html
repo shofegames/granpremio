@@ -343,6 +343,10 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .acct .seg{margin-top:14px}
 .lbl{display:block;text-align:left;font-size:13px;color:var(--muted);font-weight:700;margin-top:12px}
 .lbl .inp{margin-top:4px;display:block}
+#huPadB .dl-sec{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04)}
+#huPadB .dl-sec h4{margin:0 0 6px;font-size:15px}#huPadB .dl-sec p{margin:0 0 8px}#huPadB .dl-t{color:var(--text);font-size:17px}
+#huPadB .rl{display:flex;flex-direction:column;align-items:center;gap:2px;margin:6px 0 10px;padding:10px;border-radius:10px;background:rgba(0,0,0,.25)}
+#huPadB .rl b{font-size:22px;font-weight:900;color:var(--muted);text-align:center}#huPadB .rl b.win{color:var(--accent,#ffd400)}#huPadB .rl span{font-size:13px;color:var(--muted)}
 .btn.bad{background:#d63a2f;border-color:#d63a2f;color:#fff}
 .linkbtn{display:block;margin:10px auto 0;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:13px;font-family:inherit}
 .reccode{font-size:30px;font-weight:900;letter-spacing:.12em;text-align:center;padding:14px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--accent);margin:10px 0;-webkit-user-select:text;user-select:text}
@@ -590,6 +594,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <nav class="hm-nav" id="hmNav">
       <button class="hm-main" data-a="play"><b>Jugar</b><small>Carrera, fin de semana, campeonato y más</small></button>
       <div class="hm-sub hidden" id="hmPlay">
+        <button id="hmDaily" class="hm-daily"><b>🔥 Desafíos del día</b><small id="hmDailyS">Desafío loco, ruleta y auto escondido</small></button>
         <button data-m="0"><b>Carrera rápida</b><small>Una carrera en el circuito que elijas</small></button>
         <button data-m="1"><b>Fin de semana</b><small>Clasificación y carrera</small></button>
         <button data-m="2"><b>Campeonato</b><small>Todos los circuitos, con tabla de pilotos y equipos</small></button>
@@ -3908,6 +3913,115 @@ function tutStep(dt){if(!TUT.on||!player)return;
  if(TUT_STEPS[TUT.i].ok(player,dt)){TUT.okT=TUT.i===TUT_STEPS.length-1?0.01:1.2;tutShow();if(!muted&&actx)sndBurst(0.12,'bandpass',1800,4,0.25);}}
 function tutEnd(){if(!TUT.on&&!TUT.prev)return;TUT.on=false;$('tutBox').classList.add('hidden');
  if(TUT.prev){Object.assign(sel,TUT.prev);TUT.prev=null;menuWeather();applyWeather();}}
+// v146: desafios del dia (todo se guarda en este dispositivo, no usa el servidor): desafio loco con racha, ruleta del dia y auto escondido.
+// El dia es el del celu o la compu. El desafio loco y el auto escondido dependen solo de la fecha, asi a todos les toca lo mismo.
+// v147: el dia cambia a las 00:00 de Argentina (UTC-3, sin horario de verano) para todos, este donde este el celu o la compu.
+// DL_OFF sirve para probar (horas de mas); siempre 0 en el juego.
+var DL_OFF=0;
+function dlNow(){return new Date(Date.now()-3*3600000+DL_OFF*3600000);}
+function dlDay(o){const d=dlNow();d.setUTCDate(d.getUTCDate()+(o||0));return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');}
+function dlNum(){return Math.floor(dlNow().getTime()/86400000);}
+// si cambio el dia con el juego abierto: se actualiza el boton y, si la ventana de desafios esta abierta, la ventana
+var DL_SEEN='';
+function dlTick(){const d=dlDay();if(d===DL_SEEN)return;const first=!DL_SEEN;DL_SEEN=d;if(first)return;dlChip();
+ if(!$('huPad').classList.contains('hidden')&&$('huPadT').textContent==='Desafíos del día')dailyOpen();}
+setInterval(dlTick,20000);
+function dlHash(n,s){let h=Math.imul(n,2654435761)^Math.imul(s+1,40503);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return h>>>0;}
+const dlCi=s=>CIRCUITS.findIndex(c=>c.name.includes(s));
+// el desafio loco: circuito, auto (codigo), clima (w como sel.weather), hora (tod), si largas ultimo y que hay que lograr
+const DESAF=[
+ {t:'Monopatín contra los F1',d:'Corré con el monopatín con piloto en Monza y ganá la carrera.',ci:'Monza',car:'mono2',ok:p=>p===1,m:'había que ganar'},
+ {t:'Mónaco sin un rasguño',d:'Terminá las 3 vueltas en Mónaco sin chocar ni una vez.',ci:'Mónaco',ok:(p,c)=>c.dmg<0.005,m:'había que terminar sin daño'},
+ {t:'De último a primero',d:'Largás último en Interlagos. Llegá al podio.',ci:'Interlagos',last:true,ok:p=>p<=3,m:'había que llegar al podio'},
+ {t:'Noche de tormenta',d:'Spa de noche y con tormenta. Terminá entre los 5 primeros.',ci:'Spa',w:4,tod:2,ok:p=>p<=5,m:'había que terminar entre los 5 primeros'},
+ {t:'El Fitito valiente',d:'Con el Fitito en Suzuka, terminá entre los 5 primeros.',ci:'Suzuka',car:'f6',ok:p=>p<=5,m:'había que terminar entre los 5 primeros'},
+ {t:'Pagani al atardecer',d:'Ganá en Abu Dabi con el Pagani Imola.',ci:'Abu Dabi',car:'pg',tod:1,ok:p=>p===1,m:'había que ganar'},
+ {t:'Rayo en Las Vegas',d:'Con el Rayo McQueen en Las Vegas, subite al podio.',ci:'Las Vegas',car:'ray',ok:p=>p<=3,m:'había que llegar al podio'},
+ {t:'Lujo bajo la lluvia',d:'Con el Rols Roise Culinan en Silverstone con lluvia, terminá entre los 5 primeros.',ci:'Silverstone',car:'rr',w:1,ok:p=>p<=5,m:'había que terminar entre los 5 primeros'},
+ {t:'Mónaco mojado',d:'Mónaco con lluvia: llegá al podio.',ci:'Mónaco',w:1,ok:p=>p<=3,m:'había que llegar al podio'},
+ {t:'Monopatín desde el fondo',d:'Largás último en Bahréin con el monopatín. Terminá entre los 5 primeros.',ci:'Bahréin',car:'mono',last:true,ok:p=>p<=5,m:'había que terminar entre los 5 primeros'},
+ {t:'Hiperauto sin un rayón',d:'Con el Hiperauto Vento en Monza, ganá sin chocar.',ci:'Monza',car:'hyper',ok:(p,c)=>p===1&&c.dmg<0.005,m:'había que ganar sin daño'},
+ {t:'Último en Mónaco',d:'Largás último en Mónaco, donde casi no se puede pasar. Terminá entre los 5 primeros.',ci:'Mónaco',last:true,ok:p=>p<=5,m:'había que terminar entre los 5 primeros'}
+];
+// pasos de 5 (sin divisor comun con 12): los 12 desafios salen una vez cada 12 dias, sin repetirse
+function dlToday(){return DESAF[(dlNum()*5)%DESAF.length];}
+const DL_KEY='gp3d_desafio';
+function dlLoad(){try{const o=JSON.parse(localStorage.getItem(DL_KEY)||'null');if(o&&typeof o==='object')return {last:typeof o.last==='string'?o.last:'',streak:isInt(o.streak,0,1e5)?o.streak:0,best:isInt(o.best,0,1e5)?o.best:0,medals:isInt(o.medals,0,1e5)?o.medals:0};}catch(e){}
+ return {last:'',streak:0,best:0,medals:0};}
+function dlSave(o){try{localStorage.setItem(DL_KEY,JSON.stringify(o));}catch(e){}}
+// la racha sigue viva si el ultimo desafio cumplido fue hoy o ayer
+function dlStreak(){const o=dlLoad();return o.last===dlDay()||o.last===dlDay(-1)?o.streak:0;}
+const DLR={prev:null};
+// arma la carrera que pide (clima, hora, auto, grilla) en el circuito ci y la larga; al volver al menu todo queda como estaba (dlEnd)
+function dlSess(o){setCode(false);if(o.car&&o.car!=='f1')setCode(o.car,true);
+ sess={type:'race',laps:3,grid:o.last?roster().filter(c=>!c.isPlayer).map(c=>c.id).concat('ME'):null,daily:o};}
+function dlRace(ci,o){if(state!=='menu'||ci<0)return;if(!DLR.prev)DLR.prev={circuit:sel.circuit,weather:sel.weather,tod:sel.tod,laps:sel.laps,mode:sel.mode};
+ huPadClose();sel.weather=o.w||0;sel.tod=o.tod||0;sel.laps=3;sel.mode=0;WK=null;CH=null;
+ withCircuit(ci,()=>{sel.circuit=ci;dlSess(o);startRace();});}
+function dlAgain(){const o=sess.daily;if(!o){startRace();return;}dlSess(o);startRace();}
+function dlEnd(){if(!DLR.prev)return;Object.assign(sel,DLR.prev);DLR.prev=null;menuWeather();applyWeather();}
+// al terminar: si era el desafio loco, dice si lo cumpliste y suma la medalla y la racha (una vez por dia)
+function dlResult(pos){const o=sess.daily;if(!o||o.kind!=='loco'||!player)return;const el=$('rCar');
+ if(player.dnf||!o.def.ok(pos,player)){el.textContent='✖ Desafío no cumplido: '+o.def.m+'. ¡Probá de nuevo!';el.className='rcar bad';return;}
+ const s=dlLoad(),today=dlDay();
+ if(s.last===today){el.textContent='✔ ¡Desafío cumplido otra vez! (la medalla de hoy ya la tenías) · Racha: '+s.streak+' 🔥';el.className='rcar ok';return;}
+ s.streak=s.last===dlDay(-1)?s.streak+1:1;s.last=today;s.medals++;s.best=Math.max(s.best,s.streak);dlSave(s);
+ el.textContent='🔥 ¡Desafío cumplido! Racha: '+s.streak+(s.streak===1?' día':' días')+' · Medallas: '+s.medals;el.className='rcar ok';dlChip();}
+// lo que dice el boton del inicio
+function dlChip(){const e=$('hmDailyS');if(!e)return;const done=dlLoad().last===dlDay(),st=dlStreak();
+ e.textContent=(done?'✔ Desafío de hoy cumplido':'Desafío loco, ruleta y auto escondido')+(st?' · racha '+st+' 🔥':'');}
+
+// ruleta del dia: una tirada por dia (auto al azar, a veces uno secreto, y circuito al azar); con lo que salga se corre todas las veces que quieras ese dia
+const RL_KEY='gp3d_ruleta';
+const RL_POOL=[['f1',4],['sport',3],['hyper',2],['sc4',2],['sl',2],['f6',2],['mono',2],['mono2',1],['ray',1],['pg',1],['rr',1]];
+const rlName=k=>k==='f1'?'F1 de tu escudería':GIFT[k];
+function rlLoad(){try{const o=JSON.parse(localStorage.getItem(RL_KEY)||'null');if(o&&o.d===dlDay()&&Object.prototype.hasOwnProperty.call(GIFT,o.k)&&isInt(o.ci,0,CIRCUITS.length-1))return o;}catch(e){}return null;}
+function rlPick(){let t=0;for(const [,w] of RL_POOL)t+=w;let r=Math.random()*t;for(const [k,w] of RL_POOL){r-=w;if(r<0)return k;}return 'f1';}
+function rlSpin(){if(rlLoad())return;const k=rlPick(),ci=Math.floor(Math.random()*CIRCUITS.length);try{localStorage.setItem(RL_KEY,JSON.stringify({d:dlDay(),k,ci}));}catch(e){}
+ const el=$('rlName'),btn=$('rlBtn');if(!el||!btn)return;btn.disabled=true;const names=RL_POOL.map(([q])=>rlName(q));let i=Math.floor(Math.random()*names.length),t=0,step=45;
+ const go=()=>{if(!document.body.contains(el))return;el.textContent=names[i++%names.length];t+=step;step*=1.13;
+  if(t<2600){setTimeout(go,step);return;}
+  el.textContent=rlName(k);el.classList.add('win');$('rlCirc').textContent='en '+cdn(CIRCUITS[ci]);btn.disabled=false;btn.textContent='¡Correr!';btn.classList.add('pri');
+  btn.onclick=()=>dlRace(ci,{kind:'ruleta',car:k});if(!muted&&actx)sndBurst(0.12,'bandpass',1800,4,0.25);};
+ go();}
+
+// auto escondido: cada dia un auto secreto estacionado al costado de la pista en un circuito (con lugar al costado: sin calles, puente ni tunel).
+// Si pasas a menos de 16 m, es tuyo para esa carrera (como un regalo). Una vez por dia.
+const HUNT_CARS=['ray','pg','rr','hyper','sc4','sl','f6'];
+function huntToday(){const n=dlNum(),L=CIRCUITS.map((c,i)=>i).filter(i=>{const c=CIRCUITS[i];return !c.street&&!c.bridge&&!c.tunnel&&!(c.wg<9);});
+ return {ci:L[(n*7+3)%L.length],k:HUNT_CARS[(n*3+1)%HUNT_CARS.length],f:0.25+(dlHash(n,4)%1000)/2000,side:dlHash(n,5)%2?1:-1};}
+const HUNT={m:null,on:false,k:'',i:0,side:1,pos:null};
+function huntFound(){try{return localStorage.getItem('gp3d_caza')===dlDay();}catch(e){return false;}}
+function huntReset(){if(HUNT.m){if(HUNT.m.root.parent)HUNT.m.root.parent.remove(HUNT.m.root);disposeObj(HUNT.m.root);}HUNT.m=null;HUNT.on=false;}
+const huntBig=k=>k==='pg'&&sel.q===1?'pgf':['ray','pg','rr'].includes(k)?k:'';
+function huntStart(){huntReset();if(sess.online||!track)return;const H=huntToday();if(curCirc!==H.ci||huntFound())return;
+ const {N,H:HD}=track;let i=Math.floor(N*H.f),best=1e9;
+ // el tramo mas recto cerca de ahi (asi se ve de lejos y no queda en una curva)
+ for(let j=Math.floor(N*H.f);j<Math.floor(N*(H.f+0.12));j++){const a=((j-4)%N+N)%N,b=(j+4)%N,c=Math.abs(wrapA(HD[b]-HD[a]));if(c<best){best=c;i=j%N;}}
+ HUNT.on=true;HUNT.k=H.k;HUNT.i=i;HUNT.side=H.side;const bk=huntBig(H.k);if(bk)bigLoad(bk);}
+function huntStep(){if(!HUNT.on||!player||!carsGroup)return;const k=HUNT.k;
+ if(!HUNT.m){const bk=huntBig(k);if(bk&&!BIG[bk].d)return;
+  const t=TEAMS[dlNum()%TEAMS.length],m=k==='ray'?makeRayoL(t,7,''):k==='pg'?makePaganiL(t,7,''):k==='rr'?makeRollsL(t,7,''):k==='hyper'?makeHypercar(t,7,''):k==='sc4'?makeSuper(t,7,''):k==='sl'?makeSL(t,7,''):makeF6(t,7,'');
+  const i=HUNT.i,P=track.P[i],NL=track.NL[i],lat=(HALF+4.2)*HUNT.side;
+  m.root.position.set(P.x+NL.x*lat,P.y,P.z+NL.z*lat);m.root.rotation.y=track.H[i]+0.45*HUNT.side;carsGroup.add(m.root);HUNT.m=m;HUNT.pos=m.root.position.clone();}
+ if(state!=='race'||player.finished||player.pit)return;
+ if(player.pos.distanceTo(HUNT.pos)<16){try{localStorage.setItem('gp3d_caza',dlDay());}catch(e){}huntReset();
+  giftFlags(CODE,k);CODE.de='';swapCar(player);showMsg('🔎 ¡Encontraste el '+GIFT[k]+' escondido! Ahora corrés con él',3200);if(!muted&&actx)sndBurst(0.2,'bandpass',1400,3,0.3);}}
+
+// ventana "Desafios del dia" (boton en Jugar)
+function dailyOpen(){const d=dlToday(),o=dlLoad(),done=o.last===dlDay(),st=dlStreak(),r=rlLoad(),H=huntToday(),hf=huntFound();
+ let h='<div class="dl-sec"><h4>🔥 Desafío loco</h4><p><b class="dl-t">'+esc(d.t)+'</b><br>'+esc(d.d)+' (3 vueltas)</p>'+
+  '<p class="hint">'+(done?'✔ Ya lo cumpliste hoy. ':'')+'Racha: <b>'+st+(st===1?' día':' días')+'</b> 🔥 · Medallas: '+o.medals+(o.best>1?' · Mejor racha: '+o.best:'')+'. Si un día no lo cumplís, la racha vuelve a cero.</p>'+
+  '<button class="btn pri" id="dlGo">'+(done?'Jugarlo otra vez':'¡Jugar!')+'</button></div>';
+ h+='<div class="dl-sec"><h4>🎰 Ruleta del día</h4><p>Una tirada por día: te toca un auto (a veces uno secreto) y un circuito al azar.</p>'+
+  '<div class="rl"><b id="rlName"'+(r?' class="win"':'')+'>'+(r?esc(rlName(r.k)):'¿?')+'</b><span id="rlCirc">'+(r?'en '+esc(cdn(CIRCUITS[r.ci])):'')+'</span></div>'+
+  '<button class="btn'+(r?' pri':'')+'" id="rlBtn">'+(r?'¡Correr!':'Girar la ruleta')+'</button></div>';
+ h+='<div class="dl-sec"><h4>🔎 Auto escondido</h4><p>'+(hf?'✔ Hoy ya lo encontraste. Mañana hay otro.':'Hoy hay un auto secreto estacionado al costado de la pista en <b class="dl-t">'+esc(cdn(CIRCUITS[H.ci]))+'</b>. Si pasás cerca, es tuyo para esa carrera.')+'</p>'+
+  (hf?'':'<button class="btn" id="huGo">Ir a buscarlo</button>')+'</div>';
+ huPad('Desafíos del día',h,[['Listo',huPadClose,1]]);
+ $('dlGo').onclick=()=>dlRace(dlCi(d.ci),{kind:'loco',def:d,car:d.car,w:d.w,tod:d.tod,last:d.last});
+ $('rlBtn').onclick=r?()=>dlRace(r.ci,{kind:'ruleta',car:r.k}):rlSpin;
+ if(!hf)$('huGo').onclick=()=>dlRace(H.ci,{kind:'caza'});}
 // v107: pone el daño que llego de otro lado (online o la repeticion): % de daño, cuanto esta roto cada ala y si se prendio fuego.
 // Con fly=true, la pieza que recien se rompe sale volando (como en tu pantalla); sin fly solo se muestra como esta.
 function dmgApply(c,dm,fl,fr,rw,dead,fly){c.dmg=clamp(dm,0,1);const D=c.m.dmg;
@@ -6256,7 +6370,7 @@ async function worldStart(){if(NET.busy)return;const ci=sel.circuit,name=CIRCUIT
 /* ---------------- flujo ---------------- */
 function setAccent(){document.documentElement.style.setProperty('--accent',TEAMS[sel.team].ui);}
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-function goMenu(){state="menu";setCode(false);looseClear();scReset();tutEnd();WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
+function goMenu(){state="menu";setCode(false);looseClear();scReset();tutEnd();dlEnd();huntReset();WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
  hmShow();RPL.on=false;$('rpBar').classList.add('hidden');/* v136: si te mandaban al menu mirando la repeticion quedaba la barra */$('hud').classList.add('hidden');$('pause').classList.add('hidden');$('results').classList.add('hidden');$('lights').classList.add('hidden');
  sel.circuit=curCirc;setAccent();menuWeather();applyWeather();refreshMenu();buildRace();}
 function startRace(){if(maintBlocked()){maintShow();return;}/* v128 */$('verBar').classList.add('hidden');$('olNet').classList.add('hidden');ONL.netT=0;rplReset();looseClear();scReset();
@@ -6281,7 +6395,7 @@ function startRace(){if(maintBlocked()){maintShow();return;}/* v128 */$('verBar'
  $('pEnd').classList.toggle('hidden',!solo());$('pEnd').textContent=sess.type==='tt'?'Terminar tanda':'Terminar clasificación';$('boxPanel').classList.add('hidden');
  // v99: en el modo carrera se recuerda el objetivo de esta fecha
  if(CH&&CH.career&&sess.type==='race'){const o=CH.objs[CH.round];if(o)setTimeout(()=>{if(state==='countdown'||state==='race')showMsg('Objetivo: '+o.t,2600);},2100);}
- $('c').focus();
+ huntStart();$('c').focus();
 }
 // cambia de circuito solo si hace falta (con pantalla de carga)
 function withCircuit(ci,fn){if(curCirc===ci){fn();return;}sel.circuit=ci;loadShow(ci);setTimeout(()=>{buildWorld(ci);fn();loadHide();},30);}
@@ -6386,7 +6500,7 @@ function showResults(){
  let h='';res.forEach((r,i)=>{h+='<tr class="'+(r.isPlayer?'me':'')+'"><td class="p">'+(i+1)+'</td><td class="c"><i style="background:'+r.team.c1+'"></i></td><td>'+esc(r.driver)+'</td><td style="color:var(--muted)">'+r.team.name+'</td><td class="t">'+r.gap+'</td>'+(r.pts!=null?'<td class="t pts">'+(r.pts?'+'+r.pts:'')+'</td>':'')+'</tr>';});
  $('rTable').innerHTML=h;
  // v99: XP, logros y el objetivo del modo carrera (traidos del Hiperultra)
- huXPLine(huAfterSession(res,pos,ty));{const cl=careerCheck(res,pos);$('rCar').textContent=cl;$('rCar').className='rcar'+(cl?(cl[0]==='✔'?' ok':' bad'):' hidden');}
+ huXPLine(huAfterSession(res,pos,ty));{const cl=careerCheck(res,pos);$('rCar').textContent=cl;$('rCar').className='rcar'+(cl?(cl[0]==='✔'?' ok':' bad'):' hidden');}if(sess.daily)dlResult(pos);
  const B=[];
  if(!WK)B.push(['Revancha',startRace,1],['Menú',goMenu]);
  else{const last=WK.si>=WK.sessions.length-1;
@@ -6395,7 +6509,7 @@ function showResults(){
   else B.push(['Otro fin de semana',()=>{WK=newWeekend(curCirc);startSession();},1]);
   B.push(['Repetir '+SNAME[ty].toLowerCase(),startRace],['Menú',goMenu]);}
  if(rplCan())B.splice(B.length-1,0,['Repetición',rplStart]);// v99: antes de Menú
- setBtns(B);$('results').classList.remove('hidden');
+ setBtns(sess.daily?[['Intentar de nuevo',dlAgain,1],['Menú',goMenu]]:B);$('results').classList.remove('hidden');
 }
 // guarda el resultado de la sesion y pasa a la siguiente (la clasif arma la grilla; con sprint, el sprint arma la de la carrera)
 function nextSession(){const res=sess.res,ty=sess.type;
@@ -6538,6 +6652,7 @@ function huProfile(){const L=huLvl(HU.xp),s=HU.st,t=huTier(HU.rep),n=ACH.filter(
  let h='<p><b style="font-size:22px;color:var(--text)">'+esc(playerName())+'</b> · #'+playerNum()+' · '+TEAMS[sel.team].name+'</p>';
  h+='<div class="rxp"><b>Nivel '+L.l+'</b><span>'+L.cur+' / '+L.need+' XP</span><div class="bar"><i style="width:'+(L.cur/L.need*100).toFixed(1)+'%"></i></div></div>';
  h+='<p style="margin-top:10px">Modo carrera: <b style="color:var(--text)">'+HU_TIER[t][1]+'</b> · '+HU.rep+' de reputación'+(t<3?' · te faltan '+(HU_TIER[t+1][0]-HU.rep)+' para '+HU_TIER[t+1][1]:'')+'</p>';
+ h+='<p>🔥 Racha de desafíos: <b style="color:var(--text)">'+dlStreak()+'</b> · Medallas: '+dlLoad().medals+'</p>';
  h+='<div class="hu-grid">'+[[s.races,'Carreras'],[s.wins,'Victorias'],[s.pods,'Podios'],[s.poles,'Poles'],[s.fast,'Vueltas rápidas'],[s.champs,'Campeonatos'],[s.rainWins,'Victorias en lluvia'],[s.online,'Carreras online'],[Math.round(s.km),'Km recorridos'],[s.circs.length+'/'+CIRCUITS.length,'Circuitos corridos']]
   .map(([v,nm])=>'<div class="hu-stat"><b>'+v+'</b><span>'+nm+'</span></div>').join('')+'</div>';
  h+='<p class="hint" style="margin-top:10px">Ganás XP terminando carreras, clasificaciones y campeonatos (con los códigos de trampa no se suma). Se guarda en este dispositivo.</p>';
@@ -6565,7 +6680,7 @@ function huOffers(h){const sk=makeSkills(),of=careerOffers(sk),rk=teamRanks(sk);
  huPad('Modo carrera',h,[['Cerrar',huPadClose]]);for(const b of $('huPadB').querySelectorAll('.hu-offer'))b.onclick=()=>careerSign(of[+b.dataset.k].ti,sk);}
 /* ---------------- v100: pantalla de inicio (como la del Hiperultra): Jugar con los modos, online, ranking, garage, perfil, logros y configuracion ---------------- */
 const MODEN=['Carrera rápida','Fin de semana','Campeonato','Supera tu récord','Récord mundial','Modo carrera'];
-function hmShow(){$('home').classList.remove('hidden');$('menu').classList.add('hidden');hmPlay(false);huChip();newsPlace();}
+function hmShow(){$('home').classList.remove('hidden');$('menu').classList.add('hidden');hmPlay(false);huChip();newsPlace();dlChip();}
 function hmPlay(on){$('hmPlay').classList.toggle('hidden',!on);$('hmNav').querySelector('.hm-main').classList.toggle('on',on);}
 // de un modo de "Jugar" a la pantalla de armado de la carrera (escuderia, circuito, vueltas, clima...)
 function hmSetup(m){sel.mode=m;refreshMenu();$('home').classList.add('hidden');$('menu').classList.remove('hidden');$('menu').querySelector('.mp').scrollTop=0;circShow();}
@@ -6646,7 +6761,8 @@ function hmInit(){
  for(const b of $('hmNav').querySelectorAll(':scope>button'))b.onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();const a=b.dataset.a;
   if(a==='play')hmPlay($('hmPlay').classList.contains('hidden'));
   else if(a==='online')olOpen();else if(a==='rank')$('rankBtn').click();else if(a==='garage')hmGarage();else if(a==='profile')huProfile();else if(a==='ach')huAch();else if(a==='cfg')hmConfig();};
- for(const b of $('hmPlay').querySelectorAll('button'))b.onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();hmSetup(+b.dataset.m);};
+ for(const b of $('hmPlay').querySelectorAll('button[data-m]'))b.onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();hmSetup(+b.dataset.m);};
+ $('hmDaily').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();dailyOpen();};
  $('hmChip').onclick=huProfile;$('hmBack').onclick=hmShow;$('codeBtn2').onclick=codeOpen;}
 /* ---------------- v99: repeticion (traida del Hiperultra): se graban todos los autos 10 veces por segundo durante la carrera ---------------- */
 const RPL={fr:[],rec:0,on:false,t:0,speed:1,play:true,cam:0,ci:0,prev:'finished',uiT:0};
@@ -6722,7 +6838,7 @@ function tick(rdt){
   }
   if(state==='race'||state==='finished'||state==='countdown'){
    const steps=dt>1/45?2:1,h=dt/steps;
-   if(state==="race"||state==="finished"){scStep(dt);tutStep(dt);}// v108, v111
+   if(state==="race"||state==="finished"){scStep(dt);tutStep(dt);huntStep();}// v108, v111
    for(let s=0;s<steps;s++){playerStep(h);for(const c of cars)if(!c.isPlayer&&!c.remote&&(state==="race"||state==="finished"))aiStep(c,h);}
    // online: los autos de los demas llegan por la conexion en vivo y el tuyo se manda
    if(sess.online){const now=performance.now();for(const c of cars)if(c.remote)olCarStep(c,now);olSend(now);olNetHud(now);}
@@ -7069,10 +7185,10 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
  box.classList.remove('hidden');box.querySelector('.rqx').onclick=()=>{REQ.hide=key;box.classList.add('hidden');};
  for(const j of box.querySelectorAll('[data-rq]'))j.onclick=async()=>{for(const k of box.querySelectorAll('button'))k.disabled=true;const u=j.dataset.rq;
   try{await rpc('gp_maint_allow',{p_token:NET.sess.t,p_user:u,p_allow:j.dataset.ok==='1'});}catch(e){}timSend(u);reqCheck();if(!$('visPad').classList.contains('hidden'))visAdmin(true);};}
-function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
+function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=145;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=147;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
