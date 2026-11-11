@@ -6634,7 +6634,7 @@ function careerSign(ti,sk){sel.team=ti;setAccent();
  CH={v:2,career:true,season:HU.season,team:ti,name:sel.name,num:sel.num,laps:sel.laps,diff:sel.diff,sprint:false,round:0,cal:careerCal(),pts:{},tpts:{},wins:{},skill:sk,objs:[],
   roster:roster().map(c=>({id:c.id,ti:c.ti,driver:c.driver,isPlayer:!!c.isPlayer}))};
  const rk=teamRanks(sk)[ti];CH.objs=CH.cal.map(()=>objFor(rk));careerFix(CH);HU.int=[];HU.fired=false;huSave();
- CH.msgs.unshift({r:1,de:'Jefe de equipo',t:'¡Bienvenido a '+TEAMS[ti].name+'! Este año somos '+(rk<=1?'uno de los equipos de punta':rk<=3?'un equipo fuerte':rk<=5?'un equipo de mitad de tabla':'un equipo chico')+'. En cada carrera sumás puntos de desarrollo para mejorar el auto: usalos bien.'});saveChamp();careerHub();}
+ CH.msgs.unshift({r:1,de:'Jefe de equipo',t:'¡Bienvenido a '+TEAMS[ti].name+'! Este año somos '+(rk<=1?'uno de los equipos de punta':rk<=3?'un equipo fuerte':rk<=5?'un equipo de mitad de tabla':'un equipo chico')+'. En cada carrera ganás dinero para mejorar el auto: usalo bien.'});saveChamp();careerHub();}
 // resultado del objetivo de esta fecha (se llama al terminar la carrera)
 function careerCheck(res,pos){if(!CH||!CH.career||sess.type!=='race')return '';const o=CH.objs[CH.round];if(!o)return '';const me=res[pos-1];let ok=false;
  if(o.k==='win')ok=pos===1;else if(o.k==='top')ok=pos<=o.v;else if(o.k==='pts')ok=(me.pts||0)>=o.v;else if(o.k==='clean')ok=player.dmg<0.05&&pos<=cars.length;
@@ -6654,6 +6654,12 @@ function careerSkills(){const S={};for(let ti=0;ti<TEAMS.length;ti++){const b=CA
 const UPG=[['m','Motor','más velocidad en las rectas'],['a','Aerodinámica','más agarre en las curvas'],['f','Frenos','frena más fuerte'],['c','Confiabilidad','los choques rompen menos']];
 const UPG_MAX=5,UPG_COST=3;
 // cuanto suma cada mejora: velocidad, agarre, frenada y cuanto menos daño
+// v151: los puntos de desarrollo se muestran como dinero del equipo (cada punto = $100.000)
+// v151: elegir las vueltas de cada carrera (en las ofertas para la temporada nueva y en la pantalla del equipo para las que faltan)
+const LAPS_OK=[3,5,8,12,20];
+function lapSeg(id,cur){return '<div class="seg" id="'+id+'">'+LAPS_OK.map(v=>'<button data-v="'+v+'"'+(v===cur?' class="sel"':'')+'>'+v+' vueltas</button>').join('')+'</div>';}
+function lapSegOn(id,fn){const w=$(id);if(!w)return;for(const b of w.children)b.onclick=()=>{fn(+b.dataset.v);for(const x of w.children)x.classList.toggle('sel',x===b);};}
+const money=p=>"$"+(p*100000).toLocaleString("es-AR");
 function careerBonus(c){const u=c.up||{};return {v:(u.m||0)*0.006,g:(u.a||0)*0.008,b:(u.f||0)*0.05,r:(u.c||0)*0.12};}
 function teamStr(c,ti){return ((c.skill[ti+'a']||0)+(c.skill[ti+'b']||0))/2;}
 function careerRanks(c){const B=careerBonus(c),a=TEAMS.map((t,ti)=>({ti,v:teamStr(c,ti)+(ti===c.team?(B.v+B.g)/2:0)}));a.sort((x,y)=>y.v-x.v);const r=[];a.forEach((o,k)=>r[o.ti]=k);return r;}
@@ -6683,8 +6689,8 @@ function careerAfterRace(res){careerFix(CH);const pos=res.findIndex(r=>r.isPlaye
  const ri=res.findIndex(r=>r.id===CH.rival);let duel='';if(ri>=0){if(pos-1<ri){CH.duel.me++;duel='me';}else{CH.duel.riv++;duel='riv';}}
  const rv=CH.roster.find(r=>r.id===CH.rival),rn=rv?rv.driver:'tu rival',cn=cdn(CIRCUITS[CH.cal[CH.round]]),yo=playerName(),M=[],boss='Jefe de equipo';
  if(dnf)M.push([boss,'Rompiste el auto en '+cn+'. Los mecánicos van a trabajar toda la noche: cuidalo más.']);
- else if(pos===1)M.push([boss,'¡Ganaste en '+cn+'! Todo el equipo está festejando. Sumaste '+dp+' puntos de desarrollo.']);
- else if(ok)M.push([boss,'Bien en '+cn+': cumpliste el objetivo. Sumaste '+dp+' puntos de desarrollo para el auto.']);
+ else if(pos===1)M.push([boss,'¡Ganaste en '+cn+'! Todo el equipo está festejando. Ganaste '+money(dp)+' para mejorar el auto.']);
+ else if(ok)M.push([boss,'Bien en '+cn+': cumpliste el objetivo. Ganaste '+money(dp)+' para mejorar el auto.']);
  else M.push([boss,'En '+cn+' no cumpliste el objetivo ('+(o?o.t.toLowerCase():'')+'). La próxima tiene que salir mejor.']);
  if(!dnf&&pos<=3)M.push(['Prensa',pos===1?'"'+yo+' gana en '+cn+' y todos hablan de su carrera."':'"Podio para '+yo+' en '+cn+'."']);
  if(duel)M.push(['Prensa',duel==='me'?'"'+yo+' le ganó otra vez a '+rn+'. El duelo va '+CH.duel.me+' a '+CH.duel.riv+'."':'"'+rn+' le ganó el duelo a '+yo+'. Va '+CH.duel.riv+' a '+CH.duel.me+'."']);
@@ -6703,10 +6709,10 @@ function careerSeasonHist(pos){if(!CH||!CH.career)return;careerFix(CH);const fai
 function careerHub(){if(!CH||!CH.career){huCareerOpen();return;}const c=careerFix(CH),r=c.round,o=c.objs[r],t=TEAMS[c.team],my=careerRanks(c)[c.team];
  let h=huCareerHead();
  h+='<div class="dl-sec"><h4>🏁 Fecha '+(r+1)+' de '+c.cal.length+': '+esc(cdn(CIRCUITS[c.cal[r]]))+'</h4><p>Objetivo del jefe: <b class="dl-t">'+esc(o?o.t:'')+'</b></p>'+
-  '<label class="cq"><input type="checkbox" id="cqChk"'+(c.noq?'':' checked')+'> Con clasificación antes de la carrera</label></div>';
- h+='<div class="dl-sec"><h4>🔧 Tu auto · '+esc(t.name)+'</h4><p>Ahora tu auto es el <b class="dl-t">'+(my+1)+'º de '+TEAMS.length+'</b>. Puntos de desarrollo: <b class="dl-t">'+c.dp+'</b> (cada mejora cuesta '+UPG_COST+').</p>'+
-  UPG.map(([k,n,d])=>'<div class="upg"><span><b>'+n+'</b><small>'+d+'</small></span><i>'+'●'.repeat(c.up[k])+'○'.repeat(UPG_MAX-c.up[k])+'</i><button class="btn sm" data-up="'+k+'"'+(c.dp<UPG_COST||c.up[k]>=UPG_MAX?' disabled':'')+'>'+(c.up[k]>=UPG_MAX?'Al máximo':'Mejorar')+'</button></div>').join('')+
-  '<p class="hint">Los otros equipos también mejoran sus autos durante el año.</p></div>';
+  '<label class="cq"><input type="checkbox" id="cqChk"'+(c.noq?'':' checked')+'> Con clasificación antes de la carrera</label><p class="hint" style="margin:8px 0 4px">Vueltas de cada carrera:</p>'+lapSeg('crLapS',c.laps)+'</div>';
+ h+='<div class="dl-sec"><h4>🔧 Tu auto · '+esc(t.name)+'</h4><p>Ahora tu auto es el <b class="dl-t">'+(my+1)+'º de '+TEAMS.length+'</b>. 💰 Dinero para mejorar: <b class="dl-t">'+money(c.dp)+'</b> (cada mejora cuesta '+money(UPG_COST)+').</p>'+
+  UPG.map(([k,n,d])=>'<div class="upg"><span><b>'+n+'</b><small>'+d+'</small></span><i>'+'●'.repeat(c.up[k])+'○'.repeat(UPG_MAX-c.up[k])+'</i><button class="btn sm" data-up="'+k+'"'+(c.up[k]>=UPG_MAX?' disabled':'')+'>'+(c.up[k]>=UPG_MAX?'Al máximo':'Mejorar')+'</button></div>').join('')+
+  '<p class="padmsg" id="upgMsg"></p><p class="hint">Los otros equipos también mejoran sus autos durante el año.</p></div>';
  const rv=c.roster.find(x=>x.id===c.rival);
  if(rv)h+='<div class="dl-sec"><h4>⚔️ Tu rival: '+esc(rv.driver)+' ('+esc(TEAMS[rv.ti].name)+')</h4><p>Duelos ganados: vos <b class="dl-t">'+c.duel.me+'</b> · '+esc(rv.driver)+' <b class="dl-t">'+c.duel.riv+'</b></p></div>';
  if(c.iv)h+='<div class="dl-sec"><h4>🎤 Entrevista</h4><p>'+esc(c.iv.q)+'</p>'+c.iv.a.map((a,i)=>'<button class="btn sm ivb" data-iv="'+i+'">'+esc(a[0])+'</button>').join('')+'</div>';
@@ -6715,10 +6721,12 @@ function careerHub(){if(!CH||!CH.career){huCareerOpen();return;}const c=careerFi
  const drv=c.roster.map(x=>({x,p:c.pts[x.id]||0})).sort((a,b)=>b.p-a.p),mp=drv.findIndex(d=>d.x.isPlayer);
  h+='<div class="dl-sec"><h4>🏆 Campeonato</h4>'+drv.slice(0,5).map((d,i)=>'<p class="tb'+(d.x.isPlayer?' me':'')+'">'+(i+1)+'. '+esc(d.x.driver)+' · '+d.p+' pts</p>').join('')+(mp>=5?'<p class="tb me">'+(mp+1)+'. '+esc(drv[mp].x.driver)+' · '+drv[mp].p+' pts</p>':'')+'</div>';
  huPad('Modo carrera',h,[['▶ Correr en '+cdn(CIRCUITS[c.cal[r]]),()=>{huPadClose();startRound();},1],['Mi historia',careerHist],['Cerrar',huPadClose]]);
- for(const b of $('huPadB').querySelectorAll('[data-up]'))b.onclick=()=>{const k=b.dataset.up;if(c.dp<UPG_COST||c.up[k]>=UPG_MAX)return;c.dp-=UPG_COST;c.up[k]++;saveChamp();careerHub();};
+ for(const b of $('huPadB').querySelectorAll('[data-up]'))b.onclick=()=>{const k=b.dataset.up;if(c.up[k]>=UPG_MAX)return;
+  if(c.dp<UPG_COST){const m=$('upgMsg');m.textContent='No tenés dinero suficiente: te faltan '+money(UPG_COST-c.dp)+'. Ganás más corriendo bien y cumpliendo los objetivos.';m.className='padmsg bad';return;}
+  c.dp-=UPG_COST;c.up[k]++;saveChamp();careerHub();const m=$('upgMsg');if(m){m.textContent='¡Listo! Mejoraste '+UPG.find(u=>u[0]===k)[1].toLowerCase()+'.';m.className='padmsg ok';}};
  for(const b of $('huPadB').querySelectorAll('[data-iv]'))b.onclick=()=>{const a=c.iv.a[+b.dataset.iv];HU.rep=Math.max(0,HU.rep+a[1]);c.mood=clamp(c.mood+a[2],0,100);
   c.msgs.unshift({r:r,de:'Prensa',t:'"'+a[0]+'", dijo '+playerName()+'.'});c.msgs=c.msgs.slice(0,10);c.iv=null;huSave();saveChamp();careerHub();};
- $('cqChk').onchange=()=>{c.noq=!$('cqChk').checked;saveChamp();};}
+ $('cqChk').onchange=()=>{c.noq=!$('cqChk').checked;saveChamp();};lapSegOn('crLapS',v=>{c.laps=v;saveChamp();});}
 // tu historia: cada temporada terminada
 function careerHist(){const H=(Array.isArray(HU.hist)?HU.hist:[]).slice().reverse(),tit=H.filter(x=>x.p===1).length;
  let h=H.length?'<p>Títulos: <b class="dl-t">'+tit+'</b> · Temporadas terminadas: '+H.length+'</p>':'';
@@ -6761,10 +6769,11 @@ function huCareerOpen(){const sv=loadChamp(CAR_KEY);let h=huCareerHead();
  if(sv){CH=careerFix(sv);careerHub();return;}
  huOffers(h);}
 function huOffers(h){const sk=careerSkills(),of=careerOffers(sk),rk=teamRanks(sk),cl=HU.clen==null?8:HU.clen;
- h+='<p style="margin-top:10px">'+(HU.fired?'<b>Tu equipo anterior no te renovó el contrato.</b> ':'')+'Te ofrecen contrato para la temporada '+HU.season+' ('+sel.laps+' vueltas por carrera). Elegí cuántas carreras y tu equipo:</p><div class="seg" id="cLen">'+[[8,'8 carreras'],[12,'12 carreras'],[0,'Todos los circuitos']].map(([v,n])=>'<button data-v="'+v+'"'+(cl===v?' class="sel"':'')+'>'+n+'</button>').join('')+'</div><div class="hu-offers">'+of.map((o,k)=>{const t=TEAMS[o.ti],L=CAR_OBJ[o.rank<=1?0:o.rank<=3?1:o.rank<=5?2:3];
+ h+='<p style="margin-top:10px">'+(HU.fired?'<b>Tu equipo anterior no te renovó el contrato.</b> ':'')+'Te ofrecen contrato para la temporada '+HU.season+'. Elegí cuántas carreras, cuántas vueltas y tu equipo:</p><div class="seg" id="cLen">'+[[8,'8 carreras'],[12,'12 carreras'],[0,'Todos los circuitos']].map(([v,n])=>'<button data-v="'+v+'"'+(cl===v?' class="sel"':'')+'>'+n+'</button>').join('')+'</div>'+lapSeg('ofLapS',sel.laps)+'<div class="hu-offers">'+of.map((o,k)=>{const t=TEAMS[o.ti],L=CAR_OBJ[o.rank<=1?0:o.rank<=3?1:o.rank<=5?2:3];
   return '<button class="hu-offer" data-k="'+k+'"><i style="background:linear-gradient(135deg,'+t.c1+' 0 60%,'+t.c2+' 60%)"></i><b>'+t.name+'</b><span>'+RANKN[rk[o.ti]]+'</span><small>Te van a pedir: '+L.map(x=>x[1].toLowerCase()).join(', ')+'</small></button>';}).join('')+'</div>';
  huPad('Modo carrera',h,[['Mi historia',careerHist],['Cerrar',huPadClose]]);for(const b of $('huPadB').querySelectorAll('.hu-offer'))b.onclick=()=>careerSign(of[+b.dataset.k].ti,sk);
- for(const b of $('cLen').children)b.onclick=()=>{HU.clen=+b.dataset.v;huSave();for(const x of $('cLen').children)x.classList.toggle('sel',x===b);};}
+ for(const b of $('cLen').children)b.onclick=()=>{HU.clen=+b.dataset.v;huSave();for(const x of $('cLen').children)x.classList.toggle('sel',x===b);};
+ lapSegOn('ofLapS',v=>{sel.laps=v;});}
 /* ---------------- v100: pantalla de inicio (como la del Hiperultra): Jugar con los modos, online, ranking, garage, perfil, logros y configuracion ---------------- */
 const MODEN=['Carrera rápida','Fin de semana','Campeonato','Supera tu récord','Récord mundial','Modo carrera'];
 function hmShow(){$('home').classList.remove('hidden');$('menu').classList.add('hidden');hmPlay(false);huChip();newsPlace();dlChip();}
@@ -7276,7 +7285,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=150;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=151;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
