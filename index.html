@@ -7153,8 +7153,12 @@ function hmConfig(){
  h+='<h3>Cómo manejan los rivales</h3><div class="seg wrap" id="cfSty">'+['Mezclados','Agresivos','Defensivos','Equilibrados','Constantes'].map((n,i)=>'<button data-v="'+i+'">'+n+'</button>').join('')+'</div><p class="hint" id="cfStyH">'+STYHINT[sel.sty]+'</p>';
  h+='<h3>Cómo se maneja</h3><div class="keys">'+$('keysHelp').innerHTML+'</div><p class="hint">'+esc($('padHelp').textContent)+'</p><p class="hint">'+esc($('limitsHelp').textContent)+'</p>';
  // v139: contacto del juego (el Gmail que hizo el usuario para el juego; nunca el personal)
- h+='<h3>Contacto</h3><div class="lic">¿Encontraste un error, tenés una idea o querés decirnos algo? Escribinos a<br><a href="mailto:shofegames@gmail.com?subject=Gran%20Premio%203D" target="_blank" rel="noopener">shofegames@gmail.com</a></div>';
+ // v160: el mail se copia al tocarlo (antes era un link mailto: que abria Outlook)
+ h+='<h3>Contacto</h3><div class="lic">¿Encontraste un error, tenés una idea o querés decirnos algo? Escribinos a<br><b style="user-select:all">shofegames@gmail.com</b><br><button class="btn sm" id="cfMail" style="margin-top:6px">📋 Copiar el mail</button> <span id="cfMailT" class="hint"></span></div>';
  huPad('Configuración',h,[['Licencias',licOpen],['Tutorial',tutStart],['Listo',huPadClose,1]]);// v111, v134
+ $('cfMail').onclick=()=>{const M='shofegames@gmail.com',t=$('cfMailT'),ok=()=>{t.textContent='¡Copiado! Pegalo en tu mail o en WhatsApp.';};
+  const old=()=>{try{const i=document.createElement('textarea');i.value=M;i.style.position='fixed';i.style.opacity='0';document.body.appendChild(i);i.select();const r=document.execCommand('copy');i.remove();if(r)ok();else t.textContent='Mantené apretado el mail de arriba para copiarlo.';}catch(e){t.textContent='Mantené apretado el mail de arriba para copiarlo.';}};
+  try{navigator.clipboard.writeText(M).then(ok,old);}catch(e){old();}};
  const seg=(id,cur,fn)=>{for(const b of $(id).children){b.classList.toggle('sel',b.dataset.v===String(cur));b.onclick=()=>{for(const x of $(id).children)x.classList.toggle('sel',x===b);fn(b.dataset.v);};}};
  seg('cfQ',sel.q,v=>{$('cfQh').textContent=QHINT[+v];[...$('segQ').children].find(b=>b.dataset.v===v).click();});
  seg('cfS',muted?0:1,v=>{if((v==='0')!==muted)toggleSound();});
@@ -7619,7 +7623,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=159;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=160;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
