@@ -805,6 +805,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <div id="olLobby" class="hidden">
       <div class="roomcode"><span>Código de la sala</span><b id="olRoom"></b><button class="btn sm" id="olCopy">Copiar</button></div>
       <div class="olplayers" id="olPlayers"></div>
+      <p class="hint" id="olMany"></p>
       <p class="hint hidden" id="olNetHint">Sin directa = el WiFi no deja conectarse directo con ese jugador, así que no va a poder correr. Pueden probar con otra red o con los datos del celu.</p>
       <div id="olHostCfg">
         <div class="rkhead"><button class="btn sm" id="olCPrev" aria-label="Circuito anterior">◀</button><b id="olCirc"></b><button class="btn sm" id="olCNext" aria-label="Circuito siguiente">▶</button></div>
@@ -7623,7 +7624,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=160;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=161;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
@@ -7935,7 +7936,9 @@ function olBye(){if(!ONL.host)return;const now=performance.now(),back=ONL.took&&
 function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
 function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
  const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+((p.me?ONL.host:p.u===ONL.hostName)?'líder':'')+(p.hy?' · hiperauto':p.sc?' · superauto':p.sl?' · R107 SL':p.f6?' · Fitito':p.rr?' · Rols Roise Culinan':p.pg?' · Pagani Imola':p.ray?' · Rayo McQueen':p.mono2?' · monopatín con piloto':p.mono?' · monopatín':p.gt?' · GT Sport':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
- $('olNetHint').classList.toggle('hidden',!L.some(p=>!p.me&&p2pState(p.u)==='sb'));$('olHostCfg').classList.toggle('hidden',!ONL.host);
+ // v161: hasta 8 por sala; mientras mas jugadores, mas conexiones directas tiene cada uno y peor anda
+ const mn=$('olMany'),many=L.length>=5;mn.textContent=many?'⚠️ Son '+L.length+' jugadores: puede andar más lento o a tirones, sobre todo en celulares o con internet lenta.':'Hasta 8 jugadores por sala. Mientras más jugadores, peor anda (cada uno se conecta con todos los demás).';mn.style.color=many?'#ffb84d':'';
+$('olNetHint').classList.toggle('hidden',!L.some(p=>!p.me&&p2pState(p.u)==='sb'));$('olHostCfg').classList.toggle('hidden',!ONL.host);
  if(ONL.host){$('olCirc').textContent=cdn(CIRCUITS[ONL.cfg.ci]);for(const b of $('olLaps').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.laps);for(const b of $('olW').children)b.classList.toggle('sel',+b.dataset.v===ONL.cfg.rain);
   $('olWait').textContent=L.length<2?'Pasale el código a tus amigos: cuando entren, aparecen en la lista.':'Cuando estén todos, tocá Largar.';}
  else{const c=ONL.cfg;$('olWait').textContent='Esperando que '+(ONL.hostName||'el que creó la sala')+' largue · '+cdn(CIRCUITS[c.ci])+' · '+c.laps+' vueltas · '+(c.rain?'Lluvia':'Seco');}}
