@@ -343,6 +343,7 @@ h3{font-size:15px;color:var(--text);margin:26px 0 10px;font-weight:700}
 .acct .seg{margin-top:14px}
 .lbl{display:block;text-align:left;font-size:13px;color:var(--muted);font-weight:700;margin-top:12px}
 .lbl .inp{margin-top:4px;display:block}
+.btn.bad{background:#d63a2f;border-color:#d63a2f;color:#fff}
 .linkbtn{display:block;margin:10px auto 0;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:13px;font-family:inherit}
 .reccode{font-size:30px;font-weight:900;letter-spacing:.12em;text-align:center;padding:14px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--accent);margin:10px 0;-webkit-user-select:text;user-select:text}
 .rkhead{display:flex;align-items:center;gap:10px;margin-top:14px}
@@ -705,6 +706,7 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
     <div class="seg" id="acTabs"><button data-m="login">Entrar</button><button data-m="register">Crear cuenta</button></div>
     <div id="acForm">
       <label class="lbl">Usuario<input class="inp" id="acUser" maxlength="14" autocomplete="username" spellcheck="false" autocapitalize="off"></label>
+      <label class="lbl hidden" id="acNewRow">Contraseña nueva<input class="inp" id="acNew" type="password" maxlength="72" autocomplete="new-password"></label>
       <label class="lbl hidden" id="acCodeRow">Código de recuperación<input class="inp" id="acCode" maxlength="11" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX"></label>
       <label class="lbl"><span id="acPassLbl">Contraseña</span><input class="inp" id="acPass" type="password" maxlength="72" autocomplete="current-password"></label>
       <p class="hint" id="acHint"></p>
@@ -5646,7 +5648,8 @@ c.tw=Math.min(1.15,c.tw+Math.abs(c.v)*dt/(track.L*TYRE.life[c.m.ci])*f);
  if(c.isPlayer&&c.tw>0.85&&!c.twWarn){c.twWarn=true;showMsg('Gomas gastadas · apretá B para boxes',2400);}}
 function setCompound(c,ci){c.m.ci=ci;const fm=wheelFace(ci,c.m.blur);for(const f of c.m.faces)f.material=fm;}
 // v104: los choques rompen mas (DMG_K) y con 100% de daño el auto no anda mas: se prende fuego y abandona la carrera
-const DMG_K=1.8;
+// v145: el usuario pidio la mitad de daño por choque (un golpe que sacaba 40% ahora saca 20%); todo lo demas del daño queda igual
+const DMG_K=0.9;
 function carBurn(c){c.dead=c.dnf=true;c.dmg=1;c.pitReq=false;c.pitForced=false;c.ersOn=false;
  const D=c.m.dmg;if(D){for(const z of ['fl','fr','rw'])if(D[z]<1)partFly(c,z);D.fl=D.fr=D.rw=1;carDamageVisual(c);}for(const z of ['fl','fr','rw','body'])carDebris(c,z,24);
  if(c.isPlayer||camera.position.distanceTo(c.pos)<60)sndHit(1);
@@ -6539,7 +6542,9 @@ function huProfile(){const L=huLvl(HU.xp),s=HU.st,t=huTier(HU.rep),n=ACH.filter(
   .map(([v,nm])=>'<div class="hu-stat"><b>'+v+'</b><span>'+nm+'</span></div>').join('')+'</div>';
  h+='<p class="hint" style="margin-top:10px">Ganás XP terminando carreras, clasificaciones y campeonatos (con los códigos de trampa no se suma). Se guarda en este dispositivo.</p>';
  h+='<p class="hint">'+(NET.sess?'Cuenta online: <b style="color:var(--text)">'+esc(NET.sess.u)+'</b>. Tus vueltas van al ranking mundial.':'Sin cuenta online: tus vueltas no van al ranking mundial.')+' Tu nombre y número se cambian en el Garage.</p>';
- huPad('Tu piloto',h,[['Logros '+n+'/'+ACH.length,huAch,1],[NET.sess?'Mi cuenta':'Cuenta online',()=>{huPadClose();$('acctBtn').click();}],['Listo',huPadClose]]);}
+ if(NET.sess)h+='<div class="acbtns"><button class="btn sm" id="pfPass">Cambiar contraseña</button><button class="btn sm" id="pfDel">Borrar mi cuenta</button></div>';
+ huPad('Tu piloto',h,[['Logros '+n+'/'+ACH.length,huAch,1],[NET.sess?'Salir de mi cuenta':'Entrar a mi cuenta',()=>{if(NET.sess){acOpen();huProfile();showMsg('Saliste de tu cuenta',1600);}else{huPadClose();acOpen();}}],['Listo',huPadClose]]);
+ if(NET.sess){$('pfPass').onclick=()=>{huPadClose();acMine('change');};$('pfDel').onclick=()=>{huPadClose();acMine('delete');};}}
 // logros: los conseguidos en color con la fecha
 function huAch(){const n=ACH.filter(a=>HU.ach[a.id]).length;
  const h='<p>Conseguiste '+n+' de '+ACH.length+'.</p><div class="hu-grid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">'+ACH.map(a=>{const d=HU.ach[a.id];
@@ -6946,7 +6951,7 @@ async function rpc(fn,args){const ctl=new AbortController(),t=setTimeout(()=>ctl
 function netSave(){try{if(NET.sess)localStorage.setItem('gp3d_cuenta',JSON.stringify(NET.sess));else localStorage.removeItem('gp3d_cuenta');}catch(e){}}
 function acctSync(){acctSync0();if(typeof maintCheck==='function')maintCheck();}
 function acctSync0(){const s=NET.sess;$('acctTxt').textContent=s?'Conectado como '+s.u+' · tus mejores vueltas van al ranking online':'Sin cuenta: tus vueltas no van al ranking online';
- $('acctBtn').textContent=s?'Salir de la cuenta':'Entrar / crear cuenta';
+ $('acctBtn').textContent=s?'Salir de mi cuenta':'Entrar a mi cuenta';
  // visitas: que el servidor sepa con que cuenta se esta jugando; a filcman se le muestra el ojo
  if(VIS.id)visPing();visAdmin(false);}
 // al abrir el juego: si habia una sesion guardada, se revisa que siga valiendo
@@ -6962,17 +6967,34 @@ function netLap(lt,gs){const c=player;if(!NET.sess||c.cheat||c.grass||curCirc<0)
 // ventana de cuenta: entrar, crear cuenta o poner contraseña nueva con el codigo de recuperacion
 let acMode='login';
 function acMsg(t,cls){const m=$('acMsg');m.textContent=t;m.className='padmsg'+(cls?' '+cls:'');}
-function acSet(m){acMode=m;const reg=m==='register',rst=m==='reset';
- $('acTitle').textContent=rst?'Contraseña nueva':'Tu cuenta';$('acTabs').classList.toggle('hidden',rst);
+// v144: la misma ventana tambien sirve para cambiar la contraseña (con la actual) y para borrar la cuenta (con la contraseña)
+function acSet(m){acMode=m;const reg=m==='register',rst=m==='reset',chg=m==='change',del=m==='delete',mine=chg||del;
+ $('acTitle').textContent=rst?'Contraseña nueva':chg?'Cambiar contraseña':del?'Borrar mi cuenta':'Tu cuenta';$('acTabs').classList.toggle('hidden',rst||mine);
  for(const b of $('acTabs').children)b.classList.toggle('sel',b.dataset.m===m);
- $('acCodeRow').classList.toggle('hidden',!rst);$('acPassLbl').textContent=rst?'Contraseña nueva':'Contraseña';
+ $('acUser').parentElement.classList.toggle('hidden',mine);$('acCodeRow').classList.toggle('hidden',!rst);$('acNewRow').classList.toggle('hidden',!chg);
+ $('acPassLbl').textContent=rst?'Contraseña nueva':chg?'Contraseña actual':del?'Tu contraseña':'Contraseña';
  $('acPass').setAttribute('autocomplete',reg||rst?'new-password':'current-password');
- $('acHint').textContent=reg?'Inventá un usuario (de 3 a 14 letras o números) y una contraseña de al menos 6. No uses la misma contraseña que en otras páginas.':rst?'Poné tu usuario, el código de recuperación que anotaste y una contraseña nueva.':'';
- $('acGo').textContent=reg?'Crear cuenta':rst?'Cambiar contraseña':'Entrar';$('acForgot').textContent=rst?'Volver':'Me olvidé la contraseña';$('acForgot').classList.toggle('hidden',reg);acMsg('');}
+ $('acHint').textContent=reg?'Inventá un usuario (de 3 a 14 letras o números) y una contraseña de al menos 6. No uses la misma contraseña que en otras páginas.':rst?'Poné tu usuario, el código de recuperación que anotaste y una contraseña nueva.'
+  :chg?'Poné tu contraseña de ahora y una nueva de al menos 6. Si estabas conectado en otro celu o compu, ahí se cierra la cuenta.'
+  :del?'Se borran para siempre tu usuario, tus tiempos del ranking y tu fantasma. Tu nivel y tus logros de este dispositivo quedan. Poné tu contraseña para confirmar.':'';
+ $('acGo').textContent=reg?'Crear cuenta':rst?'Cambiar contraseña':chg?'Cambiar contraseña':del?'Borrar mi cuenta para siempre':'Entrar';$('acGo').classList.toggle('bad',del);
+ $('acForgot').textContent=rst?'Volver':'Me olvidé la contraseña';$('acForgot').classList.toggle('hidden',reg||mine);acMsg('');}
+// abrir la ventana para cambiar la contraseña o borrar la cuenta (con la cuenta abierta)
+function acMine(m){if(!NET.sess)return;$('acForm').classList.remove('hidden');$('acDone').classList.add('hidden');$('acPass').value='';$('acNew').value='';$('acCode').value='';acSet(m);$('acctPad').classList.remove('hidden');$('acPass').focus();}
+async function acMineGo(){const p=$('acPass').value,nw=$('acNew').value,chg=acMode==='change';
+ if(p.length<6){acMsg(NET_ERR.datos,'bad');return;}if(chg&&nw.length<6){acMsg(NET_ERR.pass,'bad');return;}
+ if(!chg&&!confirm('¿Seguro que querés borrar tu cuenta '+NET.sess.u+'? No se puede deshacer.'))return;
+ NET.busy=true;$('acGo').disabled=true;acMsg('Conectando…');
+ const r=chg?await rpc('gp_change_pass',{p_token:NET.sess.t,p_old:p,p_new:nw}):await rpc('gp_delete_account',{p_token:NET.sess.t,p_pass:p});
+ NET.busy=false;$('acGo').disabled=false;$('acPass').value='';$('acNew').value='';
+ if(r.error==='sesion'){NET.sess=null;netSave();acctSync();acMsg(NET_ERR.sesion,'bad');return;}
+ if(!r.ok){acMsg(r.why==='facil'?NET_ERR.facil:r.error==='datos'?'La contraseña no es correcta':r.error==='no'?'Esta cuenta no se puede borrar':NET_ERR[r.error]||NET_ERR.red,'bad');return;}
+ if(chg){acMsg('¡Listo! Tu contraseña nueva ya funciona.','ok');setTimeout(acClose,1500);return;}
+ NET.sess=null;NET.best={};netSave();acctSync();acMsg('Tu cuenta se borró.','ok');setTimeout(acClose,1500);}
 function acOpen(){if(NET.sess){const t=NET.sess.t;NET.sess=null;NET.best={};netSave();acctSync();rpc('gp_logout',{p_token:t});return;}
  $('acForm').classList.remove('hidden');$('acDone').classList.add('hidden');$('acPass').value='';$('acCode').value='';acSet('login');$('acctPad').classList.remove('hidden');$('acUser').focus();}
 function acClose(){$('acctPad').classList.add('hidden');$('acPass').value='';}
-async function acGo(){if(NET.busy)return;const u=$('acUser').value.trim(),p=$('acPass').value,code=$('acCode').value.trim();
+async function acGo(){if(NET.busy)return;if(acMode==='change'||acMode==='delete')return acMineGo();const u=$('acUser').value.trim(),p=$('acPass').value,code=$('acCode').value.trim();
  if(!/^[A-Za-z0-9_]{3,14}$/.test(u)){acMsg(NET_ERR.usuario,'bad');return;}
  if(p.length<6){acMsg(acMode==='login'?NET_ERR.datos:NET_ERR.pass,'bad');return;}
  if(acMode==='reset'&&code.replace('-','').length!==10){acMsg('El código tiene 10 letras y números','bad');return;}
@@ -7050,7 +7072,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=143;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=145;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
