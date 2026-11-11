@@ -2089,6 +2089,16 @@ let TUNK=0,TUNL=null;// TUNK: cuanto estas adentro del tunel (0 a 1), para bajar
 function tunArc(a,n){const o=[];for(let k=0;k<=n;k++){const t=Math.PI*k/n;o.push([a*Math.cos(t),TUN0+(TUNH-TUN0)*Math.sin(t)]);}return o;}
 // v112: puente de Suzuka: losa de hormigon debajo del tramo de arriba (de muro a muro, 1 m de espesor) y columnas hasta el piso,
 // nunca arriba del tramo de abajo. Los muros del puente son los de siempre (van a la altura de la pista)
+// v159: hasta donde llega el pasto al costado de la pista (con subidas). Nunca pasa por arriba de otra parte de la pista: en las curvas
+// muy cerradas de los circuitos dibujados se doblaba y tapaba el asfalto. base(i) = lo que pide; se achica hasta que el borde quede libre.
+function vergeLim(T,sg,base){const {P,NL,N,ds}=T,C=20,m=new Map(),out=new Float32Array(N),H2=(HALF+0.6)*(HALF+0.6);
+ for(let i=0;i<N;i++){const k=Math.floor(P[i].x/C)+','+Math.floor(P[i].z/C);if(!m.has(k))m.set(k,[]);m.get(k).push(i);}
+ const clear=(i,d)=>{const x=P[i].x+NL[i].x*sg*d,z=P[i].z+NL[i].z*sg*d,cx=Math.floor(x/C),cz=Math.floor(z/C);
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const L=m.get((cx+dx)+','+(cz+dz));if(!L)continue;
+   for(const j of L){if(j===i)continue;if(T.hasBr&&Math.abs(P[j].y-P[i].y)>4)continue;const ex=P[j].x-x,ez=P[j].z-z;if(ex*ex+ez*ez<H2)return false;}}return true;};
+ for(let i=0;i<N;i++){let hi=base(i);if(clear(i,hi)){out[i]=hi;continue;}let lo=HALF;for(let k=0;k<7;k++){const mid=(lo+hi)/2;if(clear(i,mid))lo=mid;else hi=mid;}out[i]=lo;}
+ for(let r=0;r<2;r++){for(let i=1;i<=N;i++){const k=i%N,j=(i-1)%N;out[k]=Math.min(out[k],out[j]+0.6*ds);}for(let i=N-2;i>=-1;i--){const k=(i+N)%N,j=(i+1)%N;out[k]=Math.min(out[k],out[j]+0.6*ds);}}
+ return out;}
 function buildBridge(world,T){const {P,NL,N,ds}=T,pos=[],idx=[],ok=i=>T.br[i]===1;let n=0;
  const v=(i,lat,dy)=>{pos.push(P[i].x+NL[i].x*lat,P[i].y+dy,P[i].z+NL[i].z*lat);return n++;};
  for(let i=0;i<N;i++){const j=(i+1)%N;if(!ok(i)||!ok(j))continue;
@@ -2840,7 +2850,7 @@ function buildWorld(ci){
  if(T.elev){buildTerrain(T,circ.river&&!MAP?{z:waterZ,y:wl}:null);world.add(TERR.mesh);
   const X0=TERR.x0,Z0=TERR.z0,X1=X0+TERR.nx*TERR.res,Z1=Z0+TERR.nz*TERR.res,E=5000;for(const [ax,az,bx,bz] of [[X0-E,Z0-E,X1+E,Z0],[X0-E,Z1,X1+E,Z1+E],[X0-E,Z0,X0,Z1],[X1,Z0,X1+E,Z1]]){const q=new THREE.Mesh(new THREE.PlaneGeometry(bx-ax,bz-az),GROUND);q.rotation.x=-PI/2;q.position.set((ax+bx)/2,circ.river&&!MAP&&az<Z0-1?wl-2:T.yBase,(az+bz)/2);q.receiveShadow=true;world.add(q);}
   // v115: en el puente de Suzuka no hay pasto al costado (quedaba flotando arriba de la pista de abajo, como una losa invisible)
-  for(const sg of [1,-1]){const lim=q=>{const R=1/Math.max(T.kAbs[q],1e-4);return T.ks[q]*sg>0?Math.min(WALL+3,R*0.9):WALL+3;};world.add(ribbonIf(i=>!(circ.bridge&&i*ds>=circ.bridge[0]-30&&i*ds<=circ.bridge[1]+30),sg>0?q=>lim(q):()=>-HALF,sg>0?()=>HALF:q=>-lim(q),0,0,10,GROUND));}}
+  for(const sg of [1,-1]){const VL=vergeLim(T,sg,q=>{let R=1e4;for(let d=-6;d<=6;d++){const j=(q+d+T.N)%T.N;if(T.ks[j]*sg>0)R=Math.min(R,1/Math.max(T.kAbs[j],1e-4));}return Math.min(WALL+3,R*0.85);}),lim=q=>VL[q];world.add(ribbonIf(i=>!(circ.bridge&&i*ds>=circ.bridge[0]-30&&i*ds<=circ.bridge[1]+30),sg>0?q=>lim(q):()=>-HALF,sg>0?()=>HALF:q=>-lim(q),0,0,10,GROUND));}}
  else{const ground=new THREE.Mesh(new THREE.PlaneGeometry(7000,7000,120,120),GROUND);ground.rotation.x=-PI/2;ground.receiveShadow=true;world.add(ground);}
  // asfalto, goma, pianos, pasto sintetico, grava
  world.add(flatRibbon(()=>true,()=>HALF,()=>-HALF,0.05,14,MATS.road));
@@ -6016,6 +6026,8 @@ function custSaveList(L){try{localStorage.setItem(CUST_KEY,JSON.stringify(L.slic
 function custName(s){return String(s||'').replace(/[^A-Za-z0-9 áéíóúÁÉÍÓÚñÑüÜ._-]/g,'').replace(/\s+/g,' ').trim().slice(0,20);}
 // v158: "Editar al detalle": cada circuito tuyo guarda tambien como es (d): paisaje, montañas, subidas y bajadas, edificios,
 // barreras, ancho, agua y cielo. Va adentro del codigo para compartir (los codigos viejos sin d siguen andando).
+// v159: el dibujo se suaviza y las curvas muy cerradas se redondean solas; si la linea se cruza una vez con si misma, ahi hay un
+// puente (como Suzuka): una de las dos pasadas sube 9,5 m con rampas y pasa por arriba de la otra.
 const DOPT=[['f','Paisaje',['Pasto','Bosque','Desierto','Ciudad','Tropical']],['m','Montañas',['Sin','Algunas','Muchas']],['e','Subidas y bajadas',['Plano','Algunas','Muchas']],
  ['b','Edificios',['Ninguno','Pocos','Muchos']],['wg','Barreras',['Pegadas','Normales','Lejos']],['w','Ancho de la pista',['Angosta','Normal','Ancha']],
  ['a','Agua',['Sin agua','Con lago']],['s','Cielo',['Soleado','Atardecer','Nublado']]];
@@ -6030,51 +6042,100 @@ function custDecode(code){try{let s=String(code||'').trim();if(!s.startsWith('GP
 // subidas y bajadas: una curva suave que cierra la vuelta (sumas de senos enteros), distinta para cada dibujo
 function custElev(p,amp){let h=0;for(const v of p)h=(h*31+v)|0;const ph=[0,1,2].map(k=>((h>>>(k*7))&127)/127*Math.PI*2),E=[];
  for(let k=0;k<=60;k++){const t=k/60*Math.PI*2;E.push([k,Math.round(amp*(0.55*Math.sin(t+ph[0])+0.3*Math.sin(2*t+ph[1])+0.15*Math.sin(3*t+ph[2]))*10)/10]);}return E;}
+// v159: donde la linea de la pista se cruza con si misma (puntos de la pista i<j, separados por lo menos 160 m) y en que angulo
+function custCross(T){const {P,N,ds}=T,gap=Math.round(160/ds),X=[];
+ for(let i=0;i<N;i++){const a=P[i],b=P[(i+1)%N];
+  for(let j=i+gap;j<N;j++){if(N-(j-i)<gap)break;const c=P[j];if(Math.abs(c.x-a.x)>12||Math.abs(c.z-a.z)>12)continue;const e=P[(j+1)%N];
+   const d1x=b.x-a.x,d1z=b.z-a.z,d2x=e.x-c.x,d2z=e.z-c.z,den=d1x*d2z-d1z*d2x;if(Math.abs(den)<1e-9)continue;
+   const t=((c.x-a.x)*d2z-(c.z-a.z)*d2x)/den,u=((c.x-a.x)*d1z-(c.z-a.z)*d1x)/den;if(t<0||t>1||u<0||u>1)continue;
+   const ang=Math.acos(Math.min(1,Math.abs(d1x*d2x+d1z*d2z)/Math.hypot(d1x,d1z)/Math.hypot(d2x,d2z)));
+   if(!X.some(x=>Math.abs(x.i-i)<20&&Math.abs(x.j-j)<20))X.push({i,j,ang});}}
+ return X;}
+// v159: el plan del circuito: la pista, el cruce (si hay) con su puente y las subidas. err = por que no se puede.
+const PIT_B=600,PIT_F=450,BR_H=9.5;// lugar de la recta de boxes (antes y despues de la largada) y altura del puente
+function custPlan(pts,dd){const d=custDet(dd),w=custW(d);let T0;try{T0=computeTrack({pts,ro:[0.5,0],w});}catch(e){return {err:'No se pudo armar la pista. Probá con otra forma.'};}
+ const L=T0.L,ds=T0.ds,X=custCross(T0),amp=[0,7,18][d.e],r={T0,L,X};
+ const hillE=amp?custElev(pts.flat().map(v=>Math.round(v/5)),amp):null,hill=s=>{if(!hillE)return 0;const k=s/L*60,a=Math.floor(k),f=k-a;return hillE[a][1]+(hillE[Math.min(60,a+1)][1]-hillE[a][1])*f;};
+ if(X.length>1){r.err='La pista se cruza '+X.length+' veces. Solo se puede un cruce (un puente).';return r;}
+ const cd=(a,b)=>{const x=Math.abs(a-b)%L;return Math.min(x,L-x);},inPit=s=>s<PIT_F||s>L-PIT_B;
+ if(X.length){const x=X[0];if(x.ang<0.52){r.err='Las líneas se cruzan muy de costado. Cruzalas más derecho, como una X.';return r;}
+  const sa=x.i*ds,sb=x.j*ds,hb=clamp((w/2+8)/Math.sin(x.ang),25,90),Pl=hb+25,D=cd(sa,sb),R=Math.min(260,D-Pl-40);
+  if(R<90){r.err='El rulo del cruce es muy chico para un puente. Hacelo más grande.';return r;}
+  // arriba va la pasada que deja la recta de boxes tranquila (si las dos sirven, la segunda)
+  const okUp=(su,sl)=>!inPit(sl)&&![-1,1].some(g=>inPit((su+g*(Pl+R)+L)%L))&&!inPit(su);
+  let su=null,sl=null;if(okUp(sb,sa)){su=sb;sl=sa;}else if(okUp(sa,sb)){su=sa;sl=sb;}
+  if(su===null){r.err='El cruce queda muy cerca de la largada. Dibujalo en otra parte de la pista.';return r;}
+  r.bridge=[su-hb,su+hb];
+  const bump=s=>{const t=cd(s,su);if(t<=Pl)return 1;if(t>=Pl+R)return 0;return 0.5+0.5*Math.cos(Math.PI*(t-Pl)/R);};
+  const fade=s=>Math.min(clamp((cd(s,su)-(Pl+R))/150,0,1),clamp((cd(s,sl)-80)/150,0,1));
+  const n=Math.ceil(L/10);r.elev=[];for(let k=0;k<=n;k++){const s=k/n*L;r.elev.push([Math.round(s*10)/10,Math.round((hill(s)*fade(s)+BR_H*bump(s))*100)/100]);}}
+ else if(hillE)r.elev=hillE;
+ return r;}
 // de los puntos guardados (pasos de 5 m) y los detalles al circuito del juego
-function custCirc(o){const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);const d=custDet(o.d),name='★ '+o.n;
+function custCirc(o){const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);const d=custDet(o.d),name='★ '+o.n,pl=custPlan(pts,d);
  const c={name,custom:true,dif:2,ro:[0.5,0],desc:'Tu circuito',gp:'GRAN PREMIO '+o.n.toUpperCase(),sky:['day','sunset','overcast'][d.s],flags:['AR','UY','BR','IT','ES','FR','DE','MX','CHK'],pts,
   w:custW(d),wg:custWG(d),flora:['park','forest','desert','park','tropic'][d.f],mtn:[0.2,1,2.3][d.m]};
- if(d.wg===0)c.street=true;if(d.f===2)c.ground='sand';if(d.f===3)c.ground='city';if(d.a)c.river=true;if(d.e)c.elev=custElev(o.p,[0,7,18][d.e]);
+ if(d.wg===0)c.street=true;if(d.f===2)c.ground='sand';if(d.f===3)c.ground='city';if(d.a)c.river=true;if(pl.elev)c.elev=pl.elev;if(pl.bridge)c.bridge=pl.bridge;
  // edificios: al lado de la pista, como en los callejeros (con colores de ciudad)
  if(d.b)SB[name]={walls:d.f===2?['#f0e9db','#e3d7c1','#d9cdb5','#efe2c4']:['#c9d4de','#a4b6c8','#e6e9ec','#dccb9e','#d9b8a0','#b8c9b8'],types:d.b===2?['glass','band','classic']:['classic','small','band'],
   h:d.b===2?[25,90]:[10,32],gap:d.wg===0?3:6,sparse:d.b===2?0.15:0.55};else delete SB[name];
  return c;}
-// revisa la pista: largo, curvas muy cerradas y partes de la pista que quedan pegadas (o se cruzan). Con pista ancha o barreras lejos necesita mas lugar.
-function custCheck(pts,dd){const d=custDet(dd),w=custW(d),need=w+custWG(d)+10;let T;try{T=computeTrack({pts,ro:[0.5,0],w});}catch(e){return {ok:false,msg:'No se pudo armar la pista. Probá con otra forma.'};}
- const L=T.L;if(L<1500)return {ok:false,msg:'La pista es muy corta ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más grande.',T};
- if(L>9000)return {ok:false,msg:'La pista es muy larga ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más chica.',T};
- let kmax=0;for(let i=0;i<T.N;i++)kmax=Math.max(kmax,T.kAbs[i]);if(kmax>0.07)return {ok:false,msg:'Hay una curva demasiado cerrada. Hacela un poco más abierta.',T};
+// revisa la pista: largo, curvas muy cerradas, el cruce/puente y partes de la pista que quedan pegadas. Con pista ancha o barreras
+// lejos necesita mas lugar. Las partes que pasan una arriba de la otra (puente) no cuentan como pegadas.
+function custCheck(pts,dd){const d=custDet(dd),w=custW(d),need=w+custWG(d)+10,pl=custPlan(pts,d);if(!pl.T0)return {ok:false,msg:pl.err};
+ const T0=pl.T0,L=T0.L;if(L<1500)return {ok:false,msg:'La pista es muy corta ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más grande.',T:T0};
+ if(L>9000)return {ok:false,msg:'La pista es muy larga ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más chica.',T:T0};
+ let kmax=0;for(let i=0;i<T0.N;i++)kmax=Math.max(kmax,T0.kAbs[i]);if(kmax>0.07)return {ok:false,msg:'Hay una curva demasiado cerrada. Hacela un poco más abierta.',T:T0};
+ if(pl.err)return {ok:false,msg:pl.err,T:T0,X:pl.X};
+ let T=T0;if(pl.bridge){try{T=computeTrack({pts,ro:[0.5,0],w,elev:pl.elev});}catch(e){return {ok:false,msg:'No se pudo armar el puente. Probá con otra forma.',T:T0};}}
  const N=T.N,step=4,gapIdx=Math.round(160/T.ds);let dmin=1e9;
- for(let i=0;i<N;i+=step)for(let j=i+gapIdx;j<N;j+=step){if(N-(j-i)<gapIdx)continue;const dd2=Math.hypot(T.P[i].x-T.P[j].x,T.P[i].z-T.P[j].z);if(dd2<dmin)dmin=dd2;}
- if(dmin<need)return {ok:false,msg:dmin<40?'Hay partes de la pista que se tocan o se cruzan. Separalas un poco.':'Con este ancho y estas barreras, hay partes de la pista muy pegadas. Separalas o elegí barreras más cerca.',T};
- return {ok:true,msg:'¡Pista lista! '+(L/1000).toFixed(2).replace('.',',')+' km. Ya la podés correr.',T};}
-// del dibujo (pixeles) a los puntos de control: uno cada ~70 m, empezando en la recta mas larga (asi la largada y los boxes quedan en una recta)
+ for(let i=0;i<N;i+=step)for(let j=i+gapIdx;j<N;j+=step){if(N-(j-i)<gapIdx)continue;if(pl.bridge&&Math.abs(T.P[i].y-T.P[j].y)>4)continue;const dd2=Math.hypot(T.P[i].x-T.P[j].x,T.P[i].z-T.P[j].z);if(dd2<dmin)dmin=dd2;}
+ if(dmin<need)return {ok:false,msg:dmin<40?'Hay partes de la pista que se tocan. Separalas un poco (o cruzalas bien, como una X, para que haya un puente).':'Con este ancho y estas barreras, hay partes de la pista muy pegadas. Separalas o elegí barreras más cerca.',T:T0};
+ return {ok:true,msg:'¡Pista lista! '+(L/1000).toFixed(2).replace('.',',')+' km'+(pl.bridge?' con un puente':'')+'. Ya la podés correr.',T:T0,br:pl.bridge||null};}
+// v159: redondea las curvas demasiado cerradas: alisa los puntos de control cerca de cada una hasta que todas tengan un radio de 24 m o mas
+const CUST_KMAX=0.042;
+function custRound(C){const n=C.length;for(let it=0;it<25;it++){let T;try{T=computeTrack({pts:C,ro:[0.5,0],w:16});}catch(e){return C;}
+  const bad=new Set();for(let i=0;i<T.N;i++)if(T.kAbs[i]>CUST_KMAX){const k=Math.round(i/T.N*n);for(let q=-1;q<=1;q++)bad.add(((k+q)%n+n)%n);}
+  if(!bad.size)break;const D=C.map(p=>p.slice());for(const k of bad){const a=C[(k-1+n)%n],b=C[(k+1)%n];D[k]=[C[k][0]*0.5+(a[0]+b[0])*0.25,C[k][1]*0.5+(a[1]+b[1])*0.25];}C=D;}
+ return C;}
+// del dibujo (pixeles) a los puntos de control. v159: primero se alisa el trazo (sin los temblores del dedo), despues un punto cada ~60 m,
+// se redondean las curvas muy cerradas y se empieza en la recta mas larga (la largada y los boxes quedan en una recta, lejos del puente)
 function custFromStroke(raw,mpp){if(raw.length<10)return null;const P=raw.map(([x,y])=>[x*mpp,y*mpp]);P.push(P[0]);
- let L=0;const acc=[0];for(let i=1;i<P.length;i++){L+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);acc.push(L);}
- const n=Math.max(8,Math.min(110,Math.round(L/70)));const C=[];let k=0;
- for(let s=0;s<n;s++){const d=s*L/n;while(k<acc.length-2&&acc[k+1]<d)k++;const t=(d-acc[k])/Math.max(1e-6,acc[k+1]-acc[k]);C.push([P[k][0]+(P[k+1][0]-P[k][0])*t,P[k][1]+(P[k+1][1]-P[k][1])*t]);}
+ const along=(Q,step)=>{let L=0;const acc=[0];for(let i=1;i<Q.length;i++){L+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);acc.push(L);}
+  const n=Math.max(8,Math.round(L/step)),R=[];let k=0;for(let s=0;s<n;s++){const d=s*L/n;while(k<acc.length-2&&acc[k+1]<d)k++;const t=(d-acc[k])/Math.max(1e-6,acc[k+1]-acc[k]);R.push([Q[k][0]+(Q[k+1][0]-Q[k][0])*t,Q[k][1]+(Q[k+1][1]-Q[k][1])*t]);}return {R,L};};
+ // trazo parejo cada 4 m, alisado dos veces (promedio de +-28 m)
+ let {R:S,L}=along(P,4);const m0=S.length,W=7;for(let pass=0;pass<2;pass++){const Q=[];for(let i=0;i<m0;i++){let x=0,z=0;for(let d=-W;d<=W;d++){const p=S[((i+d)%m0+m0)%m0];x+=p[0];z+=p[1];}Q.push([x/(2*W+1),z/(2*W+1)]);}S=Q;}
+ S.push(S[0]);L=along(S,4).L;const n=Math.max(8,Math.min(110,Math.round(L/60)));let C=along(S,L/n).R.slice(0,n);
  let cx=0,cz=0;for(const c of C){cx+=c[0];cz+=c[1];}cx/=C.length;cz/=C.length;for(const c of C){c[0]-=cx;c[1]-=cz;}
- const m=C.length,turn=i=>{const a=C[(i-1+m)%m],b=C[i],c=C[(i+1)%m];const h1=Math.atan2(b[0]-a[0],b[1]-a[1]),h2=Math.atan2(c[0]-b[0],c[1]-b[1]);return Math.abs(wrapA(h2-h1));};
- let best=0,bl=-1,run=0;for(let i=0;i<2*m;i++){if(turn(i%m)<0.2){run++;if(run>bl&&run<=m){bl=run;best=(i-run+1+m)%m;}}else run=0;}
+ C=custRound(C);const m=C.length;
+ // cruce (si hay): la largada no puede quedar cerca (los boxes ocupan ~600 m antes y ~450 m despues)
+ let cr=[];try{const T=computeTrack({pts:C,ro:[0.5,0],w:16});cr=custCross(T).flatMap(x=>[x.i/T.N,x.j/T.N]);var Lt=T.L;}catch(e){var Lt=L;}
+ const turn=i=>{const a=C[(i-1+m)%m],b=C[i],c=C[(i+1)%m];const h1=Math.atan2(b[0]-a[0],b[1]-a[1]),h2=Math.atan2(c[0]-b[0],c[1]-b[1]);return Math.abs(wrapA(h2-h1));};
+ const startOk=b=>cr.every(f=>{const s=(((f*m-b)/m)%1+1)%1*Lt;return s>PIT_F+150&&s<Lt-PIT_B-150;});
+ const runs=[];let run=0;for(let i=0;i<2*m;i++){if(turn(i%m)<0.2){run++;if(run<=m)runs.push([run,(i-run+1+m)%m]);}else run=0;}
+ runs.sort((a,b)=>b[0]-a[0]);let best=runs.length?runs[0][1]:0;for(const [,b] of runs)if(startOk(b)){best=b;break;}
  const R=C.slice(best).concat(C.slice(0,best));return R.map(([x,z])=>[Math.round(x/5)*5,Math.round(z/5)*5]);}
-// dibuja el editor: grilla de 200 m, la pista suavizada (verde si esta bien, roja si no) y la largada; el color del fondo sigue el paisaje
+// dibuja el editor: grilla de 200 m, la pista suavizada (verde si esta bien, roja si no) y la largada; el color del fondo sigue el paisaje.
+// v159: el tramo del puente se dibuja otra vez arriba, con borde
 function edDraw(){const cv=ED.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,mpp=ED.M/W,d=custDet(ED.d);
  x.fillStyle=['#14321c','#0f2a16','#5a4a2c','#30343a','#1d3a1c'][d.f];x.fillRect(0,0,W,H);
  x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;const g=200/mpp;for(let v=0;v<W;v+=g){x.beginPath();x.moveTo(v,0);x.lineTo(v,H);x.stroke();}for(let v=0;v<H;v+=g){x.beginPath();x.moveTo(0,v);x.lineTo(W,v);x.stroke();}
  if(ED.drawing&&ED.raw.length>1){x.strokeStyle='#ffd400';x.lineWidth=5;x.lineCap='round';x.lineJoin='round';x.beginPath();x.moveTo(ED.raw[0][0],ED.raw[0][1]);for(const p of ED.raw)x.lineTo(p[0],p[1]);x.stroke();
   x.fillStyle='#fff';x.beginPath();x.arc(ED.raw[0][0],ED.raw[0][1],9,0,7);x.fill();return;}
  const T=ED.track;if(!T){x.fillStyle='rgba(255,255,255,.55)';x.font='600 26px "Titillium Web",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('Dibujá acá con el dedo o el mouse',W/2,H/2);return;}
- const ox=W/2,oy=H/2;
- x.strokeStyle=ED.ok?'#1b1d22':'#7a2a2a';x.lineWidth=Math.max(4,custW(d)/mpp);x.lineJoin='round';x.beginPath();for(let i=0;i<=T.N;i++){const p=T.P[i%T.N];const X=ox+p.x/mpp,Y=oy+p.z/mpp;i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
- x.strokeStyle=ED.ok?'#e8e8e8':'#ff6b6b';x.lineWidth=1.5;x.stroke();
+ const ox=W/2,oy=H/2,rw=Math.max(3,custW(d)/mpp);
+ const path=(a,b)=>{x.beginPath();for(let i=a;i<=b;i++){const p=T.P[((i%T.N)+T.N)%T.N];const X=ox+p.x/mpp,Y=oy+p.z/mpp;i>a?x.lineTo(X,Y):x.moveTo(X,Y);}};
+ x.lineJoin='round';x.lineCap='butt';path(0,T.N);x.strokeStyle=ED.ok?'#3b3f47':'#7a2a2a';x.lineWidth=rw;x.stroke();x.strokeStyle=ED.ok?'#e8e8e8':'#ff6b6b';x.lineWidth=1.5;x.stroke();
+ if(ED.br){const a=Math.floor(ED.br[0]/T.ds),b=Math.ceil(ED.br[1]/T.ds);path(a,b);x.strokeStyle='#cfd3d8';x.lineWidth=rw+10;x.stroke();x.strokeStyle='#3b3f47';x.lineWidth=rw;x.stroke();x.strokeStyle='#e8e8e8';x.lineWidth=1.5;x.stroke();
+  const q=T.P[Math.round((a+b)/2)%T.N];x.font='700 20px "Titillium Web",sans-serif';x.textAlign='center';x.textBaseline='bottom';x.lineWidth=4;x.strokeStyle='rgba(0,0,0,.7)';x.strokeText('puente',ox+q.x/mpp,oy+q.z/mpp-14);x.fillStyle='#fff';x.fillText('puente',ox+q.x/mpp,oy+q.z/mpp-14);}
  const p0=T.P[0],p1=T.P[3];const a=Math.atan2(p1.z-p0.z,p1.x-p0.x);x.save();x.translate(ox+p0.x/mpp,oy+p0.z/mpp);x.rotate(a);x.fillStyle='#fff';x.fillRect(-2,-9,4,18);
  x.fillStyle='#ffd400';x.beginPath();x.moveTo(14,0);x.lineTo(6,-6);x.lineTo(6,6);x.closePath();x.fill();x.restore();}
-function edSet(pts){ED.pts=pts||[];ED.track=null;ED.ok=false;ED.msg='';if(ED.pts.length>=8){const r=custCheck(ED.pts,ED.d);ED.ok=r.ok;ED.msg=r.msg;ED.track=r.T||null;}
+function edSet(pts){ED.pts=pts||[];ED.track=null;ED.ok=false;ED.msg='';ED.br=null;if(ED.pts.length>=8){const r=custCheck(ED.pts,ED.d);ED.ok=r.ok;ED.msg=r.msg;ED.track=r.T||null;ED.br=r.br||null;}
  const m=$('edMsg');if(m){m.textContent=ED.msg||'Dibujá una vuelta entera sin levantar el dedo. Empezá donde quieras la largada y andá en el sentido de la carrera.';m.className='padmsg'+(ED.msg?(ED.ok?' ok':' bad'):'');}
  for(const id of ['edRace','edSave','edCopy'])if($(id))$(id).disabled=!ED.ok;edDraw();}
 const edPts=o=>{const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);return pts;};
 function edOpen(){if(state!=='menu')return;const L=custList();ED.d=custDet(ED.d);
- let h='<p class="hint" id="edHint">Dibujá la pista con el dedo o el mouse: una vuelta cerrada, en el sentido en que se corre. Cada cuadrado son 200 metros.</p>'+
+ let h='<p class="hint">Dibujá la pista con el dedo o el mouse: una vuelta cerrada, en el sentido en que se corre. Cada cuadrado son 200 metros. Si cruzás la línea una vez, ahí se hace un puente.</p>'+
   '<canvas id="edCv" width="720" height="480"></canvas>'+
   '<p class="padmsg" id="edMsg"></p>'+
   '<div class="acbtns ed-btns"><button class="btn pri" id="edRace" disabled>▶ Correr</button><button class="btn" id="edSave" disabled>Guardar</button><button class="btn" id="edCopy" disabled>Copiar código</button><button class="btn" id="edClear">Borrar dibujo</button></div>'+
@@ -7558,7 +7619,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=158;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=159;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
