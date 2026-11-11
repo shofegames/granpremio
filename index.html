@@ -94,11 +94,40 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @keyframes flagW{from{transform:skewY(-8deg)}to{transform:skewY(8deg)}}
 body.touch #flagBox{top:calc(env(safe-area-inset-top,0px) + 6px);font-size:13px;padding:4px 10px 4px 8px}
 /* v111: tutorial (cartel con el paso de ahora) */
+#radio{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);left:50%;transform:translateX(-50%);max-width:min(520px,60vw);padding:8px 14px;border-radius:12px;font-size:15px;font-weight:600;pointer-events:none;z-index:3;border-left:4px solid #3cc8ff}
+body.touch #radio{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 70px);font-size:12px;padding:6px 10px;max-width:52vw}
 #tutBox{position:absolute;top:calc(env(safe-area-inset-top,0px) + 56px);left:50%;transform:translateX(-50%);width:min(460px,86vw);padding:10px 14px;border-radius:14px;pointer-events:none;z-index:3;border-left:4px solid var(--accent)}
 #tutBox small{display:block;color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}#tutBox b{display:block;font-size:18px;font-style:italic;margin:1px 0 2px}#tutBox span{display:block;color:var(--text);font-size:14px;line-height:1.35}
 #tutBox.ok{border-left-color:#2fd06b}#tutBox.ok b::after{content:" ✓";color:#2fd06b}
 body.touch #tutBox{top:calc(env(safe-area-inset-top,0px) + 40px);width:min(380px,52vw);padding:7px 10px}body.touch #tutBox b{font-size:15px}body.touch #tutBox span{font-size:12px}
 #msg.show{opacity:1}
+#msg2{position:absolute;top:30%;left:75%;transform:translate(-50%,-50%);font-size:24px;font-weight:900;font-style:italic;text-shadow:0 4px 24px rgba(0,0,0,.7);opacity:0;transition:opacity .25s;text-align:center;white-space:nowrap;pointer-events:none;z-index:4}#msg2.show{opacity:1}
+body.split #msg{left:25%;font-size:24px}
+#p2hud{position:absolute;top:12px;right:12px;display:flex;gap:12px;align-items:center;padding:8px 14px;border-radius:12px;font-weight:700;z-index:4;pointer-events:none}#p2hud b{font-size:20px;font-style:italic;color:var(--accent)}#p2hud small{color:var(--muted)}#p2hud .e{color:#3cc8ff}
+#splitLine{display:none}body.split #splitLine{display:block;position:absolute;top:0;bottom:0;left:50%;width:4px;margin-left:-2px;background:#0b0d12;z-index:3;pointer-events:none}
+/* v155: pantalla dividida con lo mismo de los dos lados (el panel del jugador 2 es una copia con ids p2_) y 2 jugadores en el celu */
+#hud2{display:none}body.split #hud2{display:block}#p2hud{display:none!important}
+.p2tag{display:none}body.split .p2tag{display:block;font-size:12px;font-style:italic;font-weight:900;color:var(--accent);line-height:1}
+body.split #hud2 .tl{left:calc(50% + 12px)}body.split #hud2 #p2_tower{left:calc(50% + 12px)}body.split #hud2 #p2_dash{left:75%;transform:translateX(-50%) scale(.8);transform-origin:50% 100%}
+body.split #topbtns{display:flex!important;flex-direction:row;left:50%!important;right:auto!important;width:max-content;transform:translateX(-50%);top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:5}
+body.split #bCam,body.split #bSnd,body.split #bBox{display:none}
+#touch2{display:none;position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);z-index:4;pointer-events:none}
+body.touch.split #touch2{display:flex}body.touch.split #touch{display:none!important}
+#touch2 .half{width:50%;display:flex;justify-content:space-between;align-items:flex-end;padding:0 calc(env(safe-area-inset-left,0px) + 10px);box-sizing:border-box}
+#touch2 .half.p2{padding:0 calc(env(safe-area-inset-right,0px) + 10px) 0 14px}#touch2 .half.p1{padding-right:14px}
+#touch2 .grp{display:flex;gap:6px;align-items:flex-end}
+#touch2 .tbtn{width:min(66px,calc(var(--sh,1vh)*15));height:min(66px,calc(var(--sh,1vh)*15));font-size:12px;padding:0}
+#touch2 .tbtn.sm{width:min(50px,calc(var(--sh,1vh)*11));height:min(50px,calc(var(--sh,1vh)*11));font-size:11px}
+#rot2{display:none;position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:14px 18px;border-radius:14px;font-weight:800;z-index:6;text-align:center;pointer-events:none}
+@media (orientation:portrait){body.touch.split #rot2{display:block}}
+/* en el celu, de a dos: solo el puesto arriba de cada mitad y el tablero chiquito al lado, sin tiempos ni tabla */
+body.touch.split .tl .timebox{display:none}body.touch.split #tower,body.touch.split #p2_tower{display:none}
+body.touch.split #dash,body.touch.split #p2_dash{top:calc(env(safe-area-inset-top,0px) + 6px);bottom:auto;transform:translateX(-50%) scale(.52);transform-origin:50% 0}
+body.touch.split #dash{left:calc(25% + 10px)}body.touch.split #hud2 #p2_dash{left:calc(75% + 40px);top:calc(env(safe-area-inset-top,0px) + 6px);bottom:auto;transform:translateX(-50%) scale(.52);transform-origin:50% 0}
+body.touch.split #msg,body.touch.split #msg2{font-size:16px;top:45%}body.touch.split #topbtns{top:calc(env(safe-area-inset-top,0px) + 6px);bottom:auto}body.touch.split #hud2 .tl{left:calc(50% + 44px)}
+body.touch.split #radio{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);max-width:42vw;font-size:11px}
+body.split #map{display:none}
+body.split #dash{left:25%;transform:translateX(-50%) scale(.8);transform-origin:50% 100%}body.split #topbtns{display:none}body.split #radio{left:25%;max-width:44vw}
 #lights{position:absolute;top:20%;left:50%;transform:translateX(-50%);display:flex;gap:12px;padding:14px 18px;border-radius:16px}
 #lights i{width:40px;height:40px;border-radius:50%;background:#2a0d0d;box-shadow:inset 0 0 0 3px #000}
 #lights i.on{background:radial-gradient(circle at 40% 35%,#ffb3ad,#ff1a1a 55%,#a00000);box-shadow:0 0 26px #ff2a2a,inset 0 0 0 3px #300}
@@ -578,13 +607,16 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
   </div>
   <div id="lights" class="glass hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="msg"></div>
+  <div id="msg2"></div><div id="p2hud" class="glass hidden"></div><div id="splitLine"></div>
   <div id="flagBox" class="hidden"><i></i><span id="flagTxt"></span></div>
+  <div id="radio" class="glass hidden"></div>
   <div id="tutBox" class="glass hidden"><small id="tutN"></small><b id="tutT"></b><span id="tutD"></span></div>
   <div id="rotate" class="glass">Gira el celu para jugar mejor</div>
   <div id="touch">
     <div class="grp"><button class="tbtn big steer" id="tLeft" aria-label="Izquierda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5 7.5 12l7.5 7.5"/></svg></button><button class="tbtn big steer" id="tRight" aria-label="Derecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg></button></div>
     <div class="grp"><button class="tbtn sm" id="tErs">ERS</button><button class="tbtn" id="tBrake">Freno</button><button class="tbtn big" id="tGas">Acelerar</button></div>
   </div>
+  <div id="touch2"><div class="half p1"><div class="grp"><button class="tbtn steer" data-p="1" data-k="left" aria-label="Izquierda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5 7.5 12l7.5 7.5"/></svg></button><button class="tbtn steer" data-p="1" data-k="right" aria-label="Derecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg></button></div><div class="grp"><button class="tbtn sm" data-p="1" data-k="ers">ERS</button><button class="tbtn" data-p="1" data-k="brake">Freno</button><button class="tbtn" data-p="1" data-k="gas">Acel.</button></div></div><div class="half p2"><div class="grp"><button class="tbtn steer" data-p="2" data-k="left" aria-label="Izquierda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5 7.5 12l7.5 7.5"/></svg></button><button class="tbtn steer" data-p="2" data-k="right" aria-label="Derecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg></button></div><div class="grp"><button class="tbtn sm" data-p="2" data-k="ers">ERS</button><button class="tbtn" data-p="2" data-k="brake">Freno</button><button class="tbtn" data-p="2" data-k="gas">Acel.</button></div></div></div><div id="rot2" class="glass">📱↻ Poné el celular horizontal para jugar de a dos</div>
 </div>
 
 <div id="home" class="overlay hidden">
@@ -598,6 +630,9 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
       <div class="hm-sub hidden" id="hmPlay">
         <button id="hmDaily" class="hm-daily"><b>🔥 Desafíos del día</b><small id="hmDailyS">Desafío loco, ruleta y auto escondido</small></button>
         <button data-m="0"><b>Carrera rápida</b><small>Una carrera en el circuito que elijas</small></button>
+        <button data-m="7" class="hm-2p"><b>2 jugadores</b><small>Pantalla dividida, en la compu o en el celu</small></button>
+        <button data-m="6"><b>Eliminación</b><small>En cada vuelta queda afuera el último</small></button>
+        <button id="hmEdit"><b>✏️ Crear circuito</b><small>Dibujá tu pista, corréla y compartila</small></button>
         <button data-m="2"><b>Campeonato</b><small>Todos los circuitos, con tabla de pilotos y equipos</small></button>
         <button data-m="5"><b>Modo carrera</b><small>Contratos, objetivos y reputación</small></button>
         <button data-m="3"><b>Supera tu récord</b><small>Vos contra tu mejor vuelta</small></button>
@@ -814,7 +849,8 @@ body.touch.tab #olNet{top:calc(env(safe-area-inset-top,0px) + 184px);right:calc(
 <script>
 (function(){
 'use strict';
-const $=id=>document.getElementById(id);
+var HALT=null;// v155: con HALT los ids del panel se cambian por los del jugador 2
+const $=id=>document.getElementById((HALT&&HALT[id])||id);
 if(typeof THREE==='undefined'){$('ldMsg').textContent='No se pudo cargar el motor 3D. Revisá la conexión y recargá la página.';$('loading').classList.add('err');return;}
 const isTouch=matchMedia('(pointer: coarse)').matches;
 if(isTouch)document.body.classList.add('touch');
@@ -5834,7 +5870,7 @@ const AISTY=[{n:'Agresivo',ov:24,def:0.35,err:0.010,rain:0.97,pitW:0.78,cross:0.
 const STYHINT=['Cada rival tiene su estilo: unos atacan, otros defienden, otros no se equivocan nunca.','Pasan desde lejos y se tiran mucho; también se equivocan más.','Cierran la puerta en las rectas: cuesta mucho pasarlos.','Un poco de todo: atacan y defienden con cuidado.','Casi no se equivocan y hacen todas las vueltas iguales.'];
 function aiStyleOf(c){if(sel.sty>=1&&sel.sty<=4)return AISTY[sel.sty-1];let h=0;for(const ch of String(c.id||c.driver))h=(h*31+ch.charCodeAt(0))>>>0;return AISTY[h%AISTY.length];}
 function styleSet(v){sel.sty=clamp(v|0,0,4);try{localStorage.setItem('gp3d_estilo',String(sel.sty));}catch(e){}for(const c of cars)c.sty=null;refreshMenu();}
-function aiStep(c,dt){
+function aiStep(c,dt){if(c.elimOut)return;// v152: eliminado, queda quieto y escondido
  const {N,ds}=track;const rt=raceT();const sty=c.sty||(c.sty=aiStyleOf(c));
  if(rt<c.react){c.prevLane=c.lane;placeAI(c,0);return;}
  if(!c.started){c.started=true;c.launchFx=0.45+(1.05-c.launch)*4;}
@@ -5889,8 +5925,168 @@ const keys={};
 // v142: en el teclado el ERS se prende y se apaga apretando una vez (Espacio, Shift o E); se apaga solo al frenar o sin bateria.
 // Antes habia que mantenerlo y muchos teclados no leen flecha arriba + flecha al costado + espacio a la vez: no doblaba.
 let KERS=false;
+// v153: 2 jugadores en la misma compu, con la pantalla partida (modo 7). Jugador 1: W A S D (ERS: Espacio, Shift izquierdo o E;
+// camara C). Jugador 2: flechas (ERS: Shift derecho, Enter o Ctrl derecho; camara: punto). El jugador 2 maneja el auto que larga atras
+// tuyo; se mueve con la misma fisica que el tuyo (playerStep con player cambiado un momento) y tiene su propia camara a la derecha.
+var SPLIT={on:false,p2:null,cur:1,cm2:0,cs:null};// var: showMsg lo mira y puede llamarse antes
+var KERS2=false;
+const cam2=new THREE.PerspectiveCamera(62,1,0.22,6000);
+function splitSetup(){SPLIT.on=!!sess.split&&!sess.online;SPLIT.p2=null;SPLIT.cur=1;SPLIT.cs=null;KERS2=false;document.body.classList.toggle('split',SPLIT.on);
+ hud2Build();t2Init();t2Clear();if(!SPLIT.on){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();return;}
+ // el auto que larga justo atras del jugador 1
+ const p2=cars.filter(c=>!c.isPlayer&&c.team!==player.team&&c.grid>player.grid).sort((a,b)=>a.grid-b.grid)[0]||cars.find(c=>!c.isPlayer&&c.team!==player.team)||cars.find(c=>!c.isPlayer);if(!p2){SPLIT.on=false;return;}
+ p2.human=2;p2.driver='Jugador 2';p2.code='J2';p2.preGas=false;SPLIT.p2=p2;}
+function splitEnd(){if(!SPLIT.on&&!SPLIT.p2)return;SPLIT.on=false;SPLIT.p2=null;document.body.classList.remove('split');$('p2hud').classList.add('hidden');
+ camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+function inputP1(){const t=tsIn(1);return{steer:((keys.KeyA?1:0)-(keys.KeyD?1:0))||t.steer||PAD.steer,thr:keys.KeyW||t.thr?1:PAD.thr,brk:keys.KeyS||t.brk?1:PAD.brk,ers:!!(KERS||PAD.ers||t.ers)};}
+function inputP2(){const t=tsIn(2);return{steer:((keys.ArrowLeft?1:0)-(keys.ArrowRight?1:0))||t.steer,thr:keys.ArrowUp||t.thr?1:0,brk:keys.ArrowDown||t.brk?1:0,ers:!!(KERS2||t.ers)};}
+// un paso de fisica del jugador 2: por un momento "player" es su auto
+function splitStep(h){const P1=player,P2=SPLIT.p2,k1=KERS,w1=wrongT;if(!P2)return;player=P2;KERS=KERS2;SPLIT.cur=2;
+ try{playerStep(h);}finally{KERS2=KERS;KERS=k1;wrongT=w1;player=P1;SPLIT.cur=1;}P2.s=P2.prog;P2.lane=P2.lat;}
+// la camara del jugador 2: se calcula con la misma funcion, guardando y devolviendo el estado de la camara del jugador 1
+function splitCam(dt){const P2=SPLIT.p2;if(!P2)return;
+ const s1={p:camera.position.clone(),q:camera.quaternion.clone(),fov:camera.fov,near:camera.near,cp:camPos.clone(),cl:camLook.clone(),hd:camHead,cm:camMode,sh:shake};
+ const S=SPLIT.cs;if(S){camera.position.copy(S.p);camera.quaternion.copy(S.q);camera.fov=S.fov;camera.near=S.near;camPos.copy(S.cp);camLook.copy(S.cl);camHead=S.hd;shake=S.sh;}
+ else{camPos.copy(P2.pos);camLook.copy(P2.pos);camHead=P2.head;shake=0;}
+ camMode=SPLIT.cm2;const P1=player;player=P2;try{updateCamera(dt);}finally{player=P1;}
+ cam2.position.copy(camera.position);cam2.quaternion.copy(camera.quaternion);cam2.fov=camera.fov;cam2.near=camera.near;
+ SPLIT.cs={p:camera.position.clone(),q:camera.quaternion.clone(),fov:camera.fov,near:camera.near,cp:camPos.clone(),cl:camLook.clone(),hd:camHead,sh:shake};
+ camera.position.copy(s1.p);camera.quaternion.copy(s1.q);camera.fov=s1.fov;camera.near=s1.near;camPos.copy(s1.cp);camLook.copy(s1.cl);camHead=s1.hd;camMode=s1.cm;shake=s1.sh;}
+// dibuja las dos mitades (sin el post-procesado, que es para una sola camara)
+function splitRender(){const w=innerWidth,h=innerHeight,hw=Math.floor(w/2);renderer.setRenderTarget(null);renderer.setScissorTest(true);
+ camera.aspect=hw/h;camera.updateProjectionMatrix();renderer.setViewport(0,0,hw,h);renderer.setScissor(0,0,hw,h);placeSun(player.pos);sky.position.copy(camera.position);renderer.render(scene,camera);
+ cam2.aspect=(w-hw)/h;cam2.updateProjectionMatrix();renderer.setViewport(hw,0,w-hw,h);renderer.setScissor(hw,0,w-hw,h);placeSun(SPLIT.p2.pos);sky.position.copy(cam2.position);renderer.render(scene,cam2);
+ renderer.setScissorTest(false);renderer.setViewport(0,0,w,h);sky.position.copy(camera.position);placeSun(player.pos);}
+// cartelito del jugador 2 (puesto, vuelta, velocidad) y sus mensajes
+let p2MsgT=0;
+function p2Msg(t,ms){const m=$('msg2');m.textContent=t;m.classList.add('show');clearTimeout(p2MsgT);p2MsgT=setTimeout(()=>m.classList.remove('show'),ms||1800);}
+// v155: en la pantalla dividida el jugador 2 tiene lo mismo que el 1 (posicion y tiempos, tabla y tablero), copiados del lado derecho.
+// Se arma una copia de esas partes con ids "p2_…" y sus estilos se copian solos; updateHUD dibuja la del jugador 2 con HALT (alias de ids).
+const HUD_IDS=['hPos','hPosN','hSes','hLap','hTime','hBest','tower','dash','gear','speed','rpm','rpmTxt','ers','ersTxt','ersBar','tyre','tyLbl','tyTxt','dmgRow','dmgFx','dmgTxt','dmgV','dmgG'];
+const HALT2={};for(const id of HUD_IDS)HALT2[id]='p2_'+id;HALT2.bBox='p2_bBox';
+let hud2Ok=false;
+function hud2Build(){if(hud2Ok)return;hud2Ok=true;const box=document.createElement('div');box.id='hud2';
+ for(const el of [document.querySelector('#hud .tl'),$('tower'),$('dash')]){const c=el.cloneNode(true);if(c.id)c.id='p2_'+c.id;for(const k of c.querySelectorAll('[id]'))k.id='p2_'+k.id;box.appendChild(c);}
+ const bb=document.createElement('i');bb.id='p2_bBox';bb.className='hidden';box.appendChild(bb);
+ const tag=document.createElement('b');tag.className='p2tag';tag.textContent='J2';box.querySelector('.posbox').prepend(tag);
+ const t1=document.createElement('b');t1.className='p2tag';t1.id='p1tag';t1.textContent='J1';document.querySelector('#hud .tl .posbox').prepend(t1);
+ $('hud').appendChild(box);
+ // los estilos que usan esos ids, copiados para los ids del jugador 2 (tambien adentro de los @media)
+ const rx=new RegExp('#('+HUD_IDS.join('|')+')(?![\\w-])','g');
+ const walk=sh=>{const R=[...sh.cssRules];for(const r of R){if(r.cssRules&&r.media){walk(r);continue;}if(!r.selectorText)continue;rx.lastIndex=0;if(!rx.test(r.selectorText))continue;rx.lastIndex=0;
+  const sel=r.selectorText.replace(rx,'#p2_$1');try{sh.insertRule(sel+'{'+r.style.cssText+'}',sh.cssRules.length);}catch(e){}}};
+ for(const sh of document.styleSheets){try{walk(sh);}catch(e){}}}
+let p2TowerT=0;
+function p2Hud(dt){const P2=SPLIT.p2;if(!SPLIT.on||!P2)return;hud2Build();const P1=player,tt=towerT,w=wrongT;
+ player=P2;towerT=p2TowerT;HALT=HALT2;SPLIT.cur=2;try{updateHUD(dt||0);}finally{HALT=null;SPLIT.cur=1;player=P1;p2TowerT=towerT;towerT=tt;wrongT=w;}}
+// botones tactiles para 2 jugadores en el mismo celu: cada uno tiene doblar, freno, acelerar y ERS en su mitad de la pantalla
+const TS={1:{left:false,right:false,gas:false,brake:false,ers:false},2:{left:false,right:false,gas:false,brake:false,ers:false}},t2Own=new Set();
+function t2Btns(){return [...document.querySelectorAll('#touch2 .tbtn')];}
+function t2Set(p,k,v){if(TS[p][k]!==v){TS[p][k]=v;const b=document.querySelector('#touch2 .tbtn[data-p="'+p+'"][data-k="'+k+'"]');if(b)b.classList.toggle('act',v);}}
+function t2Hit(x,y){let best=null,bd=1e9;for(const b of t2Btns()){const r=b.getBoundingClientRect();if(!r.width)continue;if(x<r.left-10||x>r.right+10||y<r.top-10||y>r.bottom+10)continue;
+ const d=Math.hypot(x-(r.left+r.right)/2,y-(r.top+r.bottom)/2);if(d<bd){bd=d;best=b;}}return best;}
+function t2Sync(e){const on={},live=new Set();for(const t of e.touches){live.add(t.identifier);if(!t2Own.has(t.identifier))continue;const b=t2Hit(t.clientX,t.clientY);if(b)on[b.dataset.p+b.dataset.k]=true;}
+ for(const id of t2Own)if(!live.has(id))t2Own.delete(id);for(const p of [1,2])for(const k in TS[p])t2Set(p,k,!!on[p+k]);}
+function t2Clear(){t2Own.clear();for(const p of [1,2])for(const k in TS[p])t2Set(p,k,false);}
+function t2Init(){const w=$('touch2');if(!w||w.dataset.ok)return;w.dataset.ok='1';
+ document.addEventListener('touchstart',e=>{let mine=false;for(const t of e.changedTouches)if(t.target&&t.target.closest&&t.target.closest('#touch2 .tbtn')){t2Own.add(t.identifier);mine=true;}
+  if(mine){e.preventDefault();if(actx&&actx.state==='suspended')actx.resume();}if(t2Own.size||mine)t2Sync(e);},{passive:false,capture:true});
+ document.addEventListener('touchmove',e=>{if(t2Own.size)t2Sync(e);},{passive:true,capture:true});
+ for(const ev of ['touchend','touchcancel'])document.addEventListener(ev,e=>{if(t2Own.size)t2Sync(e);else t2Clear();},{passive:true,capture:true});
+ for(const b of t2Btns()){const m=f=>e=>{if(e.pointerType==='mouse')f();};b.addEventListener('pointerdown',m(()=>t2Set(+b.dataset.p,b.dataset.k,true)));
+  b.addEventListener('pointerup',m(()=>t2Set(+b.dataset.p,b.dataset.k,false)));b.addEventListener('pointerleave',m(()=>t2Set(+b.dataset.p,b.dataset.k,false)));b.addEventListener('contextmenu',e=>e.preventDefault());}
+ addEventListener('blur',t2Clear);}
+// lo que aprieta cada jugador en los botones de su mitad (ERS mantenido tambien acelera, como en el celu normal)
+function tsIn(p){const s=TS[p];return {steer:(s.left?1:0)-(s.right?1:0),thr:s.gas||(s.ers&&!s.brake)?1:0,brk:s.brake?1:0,ers:s.ers};}
+// resultados: quien gano entre los dos
+function splitResult(res,pos){const i=res.findIndex(r=>r.id===SPLIT.p2.id)+1;if(!i)return;
+ const rows=$('rTable').querySelectorAll('tr');if(rows[i-1])rows[i-1].classList.add('me');
+ $('rTitle').textContent=pos<i?'¡Ganó el Jugador 1!':'¡Ganó el Jugador 2!';$('rCar').textContent='Jugador 1: '+pos+'º · Jugador 2: '+i+'º';$('rCar').className='rcar ok';}
+// v154: editor de circuitos. Dibujas la pista con el mouse o el dedo (una vuelta cerrada, en el sentido de carrera), el juego la
+// suaviza y la revisa (que no se cruce, que no haya partes pegadas ni curvas imposibles), y la corres en una carrera rapida.
+// Se guardan en este dispositivo (gp3d_mis_circuitos) y se comparten con un codigo de texto (GP1.…). Las vueltas no van al ranking.
+const ED={pts:[],raw:[],drawing:false,cv:null,M:2400,ok:false,msg:'',name:'',track:null};
+const CUST={on:false,prev:0};
+const CUST_KEY='gp3d_mis_circuitos';
+function custList(){try{const L=JSON.parse(localStorage.getItem(CUST_KEY)||'[]');return Array.isArray(L)?L.filter(custValid).slice(0,12):[];}catch(e){return [];}}
+function custSaveList(L){try{localStorage.setItem(CUST_KEY,JSON.stringify(L.slice(0,12)));return true;}catch(e){return false;}}
+function custName(s){return String(s||'').replace(/[^A-Za-z0-9 áéíóúÁÉÍÓÚñÑüÜ._-]/g,'').replace(/\s+/g,' ').trim().slice(0,20);}
+function custValid(o){return !!o&&typeof o==='object'&&typeof o.n==='string'&&o.n===custName(o.n)&&o.n.length>0&&Array.isArray(o.p)&&o.p.length>=16&&o.p.length<=240&&o.p.length%2===0&&o.p.every(v=>Number.isInteger(v)&&Math.abs(v)<=1000);}
+// codigo para compartir: GP1. + base64 (url) del nombre y los puntos en pasos de 5 m
+function custCode(o){const s=JSON.stringify({n:o.n,p:o.p});return 'GP1.'+btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function custDecode(code){try{let s=String(code||'').trim();if(!s.startsWith('GP1.'))return null;s=s.slice(4).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';
+ const o=JSON.parse(decodeURIComponent(escape(atob(s))));if(!o||typeof o!=='object')return null;const r={n:custName(o.n),p:o.p};return custValid(r)?r:null;}catch(e){return null;}}
+// de los puntos guardados (pasos de 5 m) al circuito del juego
+function custCirc(o){const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);
+ return {name:'★ '+o.n,custom:true,dif:2,ro:[0.5,0],desc:'Tu circuito',gp:'GRAN PREMIO '+o.n.toUpperCase(),sky:'day',flags:['AR','UY','BR','IT','ES','FR','DE','MX','CHK'],pts};}
+// revisa la pista: largo, curvas muy cerradas y partes de la pista que quedan pegadas (o se cruzan)
+function custCheck(pts){let T;try{T=computeTrack({pts,ro:[0.5,0]});}catch(e){return {ok:false,msg:'No se pudo armar la pista. Probá con otra forma.'};}
+ const L=T.L;if(L<1500)return {ok:false,msg:'La pista es muy corta ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más grande.',T};
+ if(L>9000)return {ok:false,msg:'La pista es muy larga ('+(L/1000).toFixed(1).replace('.',',')+' km). Dibujala más chica.',T};
+ let kmax=0;for(let i=0;i<T.N;i++)kmax=Math.max(kmax,T.kAbs[i]);if(kmax>0.07)return {ok:false,msg:'Hay una curva demasiado cerrada. Hacela un poco más abierta.',T};
+ const N=T.N,step=4,gapIdx=Math.round(160/T.ds);let dmin=1e9;
+ for(let i=0;i<N;i+=step)for(let j=i+gapIdx;j<N;j+=step){if(N-(j-i)<gapIdx)continue;const d=Math.hypot(T.P[i].x-T.P[j].x,T.P[i].z-T.P[j].z);if(d<dmin)dmin=d;}
+ if(dmin<40)return {ok:false,msg:'Hay partes de la pista que se tocan o se cruzan. Separalas un poco.',T};
+ return {ok:true,msg:'¡Pista lista! '+(L/1000).toFixed(2).replace('.',',')+' km. Ya la podés correr.',T};}
+// del dibujo (pixeles) a los puntos de control: uno cada ~70 m, empezando en la recta mas larga (asi la largada y los boxes quedan en una recta)
+function custFromStroke(raw,mpp){if(raw.length<10)return null;const P=raw.map(([x,y])=>[x*mpp,y*mpp]);P.push(P[0]);
+ let L=0;const acc=[0];for(let i=1;i<P.length;i++){L+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);acc.push(L);}
+ const n=Math.max(8,Math.min(110,Math.round(L/70)));const C=[];let k=0;
+ for(let s=0;s<n;s++){const d=s*L/n;while(k<acc.length-2&&acc[k+1]<d)k++;const t=(d-acc[k])/Math.max(1e-6,acc[k+1]-acc[k]);C.push([P[k][0]+(P[k+1][0]-P[k][0])*t,P[k][1]+(P[k+1][1]-P[k][1])*t]);}
+ // centrar
+ let cx=0,cz=0;for(const c of C){cx+=c[0];cz+=c[1];}cx/=C.length;cz/=C.length;for(const c of C){c[0]-=cx;c[1]-=cz;}
+ // la recta mas larga: puntos seguidos con poco giro
+ const m=C.length,turn=i=>{const a=C[(i-1+m)%m],b=C[i],c=C[(i+1)%m];const h1=Math.atan2(b[0]-a[0],b[1]-a[1]),h2=Math.atan2(c[0]-b[0],c[1]-b[1]);return Math.abs(wrapA(h2-h1));};
+ let best=0,bl=-1,run=0;for(let i=0;i<2*m;i++){if(turn(i%m)<0.2){run++;if(run>bl&&run<=m){bl=run;best=(i-run+1+m)%m;}}else run=0;}
+ const R=C.slice(best).concat(C.slice(0,best));return R.map(([x,z])=>[Math.round(x/5)*5,Math.round(z/5)*5]);}
+// dibuja el editor: grilla de 200 m, la pista suavizada (verde si esta bien, roja si no) y la largada
+function edDraw(){const cv=ED.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,mpp=ED.M/W;x.fillStyle='#14321c';x.fillRect(0,0,W,H);
+ x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;const g=200/mpp;for(let v=0;v<W;v+=g){x.beginPath();x.moveTo(v,0);x.lineTo(v,H);x.stroke();}for(let v=0;v<H;v+=g){x.beginPath();x.moveTo(0,v);x.lineTo(W,v);x.stroke();}
+ if(ED.drawing&&ED.raw.length>1){x.strokeStyle='#ffd400';x.lineWidth=4;x.beginPath();x.moveTo(ED.raw[0][0],ED.raw[0][1]);for(const p of ED.raw)x.lineTo(p[0],p[1]);x.stroke();return;}
+ const T=ED.track;if(!T)return;const ox=W/2,oy=H/2;
+ x.strokeStyle=ED.ok?'#3b3f47':'#7a2a2a';x.lineWidth=Math.max(3,16/mpp);x.lineJoin='round';x.beginPath();for(let i=0;i<=T.N;i++){const p=T.P[i%T.N];const X=ox+p.x/mpp,Y=oy+p.z/mpp;i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
+ x.strokeStyle=ED.ok?'#e8e8e8':'#ff6b6b';x.lineWidth=1.5;x.stroke();
+ const p0=T.P[0],p1=T.P[3];const a=Math.atan2(p1.z-p0.z,p1.x-p0.x);x.save();x.translate(ox+p0.x/mpp,oy+p0.z/mpp);x.rotate(a);x.fillStyle='#fff';x.fillRect(-2,-9,4,18);
+ x.fillStyle='#ffd400';x.beginPath();x.moveTo(14,0);x.lineTo(6,-6);x.lineTo(6,6);x.closePath();x.fill();x.restore();}
+function edSet(pts){ED.pts=pts||[];ED.track=null;ED.ok=false;ED.msg='';if(ED.pts.length>=8){const r=custCheck(ED.pts);ED.ok=r.ok;ED.msg=r.msg;ED.track=r.T||null;}
+ const m=$('edMsg');if(m){m.textContent=ED.msg||'Dibujá una vuelta entera sin levantar el dedo. Empezá donde quieras la largada y andá en el sentido de la carrera.';m.className='padmsg'+(ED.msg?(ED.ok?' ok':' bad'):'');}
+ for(const id of ['edRace','edSave','edCopy'])if($(id))$(id).disabled=!ED.ok;edDraw();}
+function edOpen(){if(state!=='menu')return;const L=custList();
+ let h='<p class="hint">Dibujá la pista con el mouse o el dedo: una vuelta cerrada, en el sentido en que se corre. Cada cuadrado son 200 metros.</p>'+
+  '<canvas id="edCv" width="720" height="480" style="width:100%;touch-action:none;border-radius:12px;cursor:crosshair;display:block"></canvas>'+
+  '<p class="padmsg" id="edMsg"></p>'+
+  '<label class="lbl">Nombre de tu circuito<input class="inp" id="edName" maxlength="20" value="'+esc(ED.name||'Mi circuito')+'"></label>'+
+  '<div class="acbtns" style="flex-wrap:wrap;margin:8px 0"><button class="btn pri" id="edRace" disabled>▶ Correr</button><button class="btn" id="edSave" disabled>Guardar</button><button class="btn" id="edCopy" disabled>Copiar código</button><button class="btn" id="edClear">Borrar dibujo</button></div>'+
+  '<div class="dl-sec"><h4>📥 Cargar el circuito de un amigo</h4><input class="inp" id="edCode" placeholder="Pegá el código (empieza con GP1.)" spellcheck="false" autocapitalize="off"><button class="btn sm" id="edLoad" style="margin-top:6px">Cargar</button></div>'+
+  '<div class="dl-sec"><h4>📁 Mis circuitos</h4>'+(L.length?L.map((o,i)=>'<div class="upg"><span><b>'+esc(o.n)+'</b></span><button class="btn sm" data-cr="'+i+'">Correr</button><button class="btn sm" data-ce="'+i+'">Editar</button><button class="btn sm" data-cd="'+i+'">Borrar</button></div>').join(''):'<p class="hint">Todavía no guardaste ninguno.</p>')+'</div>';
+ huPad('Crear circuito',h,[['Cerrar',huPadClose]]);
+ ED.cv=$('edCv');const cv=ED.cv,pos=e=>{const r=cv.getBoundingClientRect();return [(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height];};
+ cv.onpointerdown=e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);ED.drawing=true;ED.raw=[pos(e)];edDraw();};
+ cv.onpointermove=e=>{if(!ED.drawing)return;const p=pos(e),l=ED.raw[ED.raw.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])>6){ED.raw.push(p);edDraw();}};
+ cv.onpointerup=cv.onpointercancel=e=>{if(!ED.drawing)return;ED.drawing=false;const W=cv.width,H=cv.height,mpp=ED.M/W;
+  const pts=custFromStroke(ED.raw.map(([x,y])=>[x-W/2,y-H/2]),mpp);if(!pts){ED.raw=[];edSet([]);const m=$('edMsg');m.textContent='Dibujá una vuelta más larga.';m.className='padmsg bad';return;}edSet(pts);};
+ $('edName').oninput=()=>{ED.name=custName($('edName').value);};
+ const cur=()=>({n:custName($('edName').value)||'Mi circuito',p:ED.pts.flat().map(v=>Math.round(v/5))});
+ $('edClear').onclick=()=>{ED.raw=[];edSet([]);};
+ $('edRace').onclick=()=>{if(ED.ok)custRace(cur());};
+ $('edSave').onclick=()=>{if(!ED.ok)return;const o=cur(),L2=custList().filter(x=>x.n!==o.n);L2.unshift(o);const ok=custSaveList(L2);ED.name=o.n;edOpen();edSet(ED.pts);const m=$('edMsg');m.textContent=ok?'Guardado en Mis circuitos.':'No se pudo guardar en este dispositivo.';m.className='padmsg '+(ok?'ok':'bad');};
+ $('edCopy').onclick=()=>{if(!ED.ok)return;const c=custCode(cur()),m=$('edMsg');const done=t=>{m.textContent=t;m.className='padmsg ok';};
+  try{navigator.clipboard.writeText(c).then(()=>done('Código copiado: pasáselo a tus amigos por WhatsApp.'),()=>{$('edCode').value=c;done('Copiá el código de abajo y pasáselo a tus amigos.');});}catch(e){$('edCode').value=c;done('Copiá el código de abajo y pasáselo a tus amigos.');}};
+ $('edLoad').onclick=()=>{const o=custDecode($('edCode').value),m=$('edMsg');if(!o){m.textContent='Ese código no sirve. Tiene que empezar con GP1.';m.className='padmsg bad';return;}
+  const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);ED.name=o.n;$('edName').value=o.n;edSet(pts);};
+ for(const b of $('huPadB').querySelectorAll('[data-cr]'))b.onclick=()=>custRace(custList()[+b.dataset.cr]);
+ for(const b of $('huPadB').querySelectorAll('[data-ce]'))b.onclick=()=>{const o=custList()[+b.dataset.ce];if(!o)return;const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);ED.name=o.n;$('edName').value=o.n;edSet(pts);$('edCv').scrollIntoView({block:'center'});};
+ for(const b of $('huPadB').querySelectorAll('[data-cd]'))b.onclick=()=>{const L2=custList();const o=L2[+b.dataset.cd];if(!o||!confirm('¿Borrar "'+o.n+'"?'))return;L2.splice(+b.dataset.cd,1);custSaveList(L2);edOpen();edSet(ED.pts);};
+ edSet(ED.pts);}
+// correr en un circuito tuyo: se agrega al final de CIRCUITS mientras dura la carrera y se saca al volver al menu
+function custRace(o){if(!o||state!=='menu'||CUST.on)return;const pts=[];for(let i=0;i<o.p.length;i+=2)pts.push([o.p[i]*5,o.p[i+1]*5]);if(!custCheck(pts).ok)return;
+ huPadClose();CUST.prev=sel.circuit;CIRCUITS.push(custCirc(o));CUST.on=true;const ci=CIRCUITS.length-1;WK=null;CH=null;sel.mode=0;
+ loadShow(ci);setTimeout(()=>{try{buildWorld(ci);}catch(e){console.warn('[circuito] no se pudo armar',e);custEnd();loadHide();goMenu();edOpen();const m=$('edMsg');if(m){m.textContent='No se pudo armar esa pista. Probá con otra forma.';m.className='padmsg bad';}return;}
+  sess={type:'race',laps:sel.laps,grid:null};startRace();loadHide();},40);}
+// al volver al menu: se saca el circuito tuyo y se vuelve a armar el que estaba
+function custEnd(){if(!CUST.on)return;CUST.on=false;CIRCUITS.pop();const ci=Math.min(CUST.prev,CIRCUITS.length-1);sel.circuit=ci;if(curCirc>=CIRCUITS.length){try{buildWorld(ci);}catch(e){}}}
 const touchIn={left:false,right:false,gas:false,brake:false,ers:false};
-function input(){return{
+function input(){if(SPLIT.on)return SPLIT.cur===2?inputP2():inputP1();return{
  steer:(((keys.ArrowLeft||keys.KeyA||touchIn.left)?1:0)-((keys.ArrowRight||keys.KeyD||touchIn.right)?1:0))||PAD.steer,
  thr:(keys.ArrowUp||keys.KeyW||touchIn.gas||(touchIn.ers&&!touchIn.brake))?1:PAD.thr,
  brk:(keys.ArrowDown||keys.KeyS||touchIn.brake)?1:PAD.brk,
@@ -5901,7 +6097,7 @@ function playerStep(dt){
  let thr=live?inp.thr:0,brk=live?inp.brk:(c.finished?0.35:0);let steerIn=(live||c.finished)?inp.steer:0;
  // v106: con 75% de daño y mas de una vuelta por delante, a boxes si o si (no se puede cancelar); ahi te arreglan el auto
  if(live&&!c.dead&&!solo()&&c.pit===0&&!c.pitForced&&c.dmg>=0.75&&sess.laps-c.lastLaps>1){c.pitForced=true;
-  if(!c.pitReq){c.pitReq=true;const left=sess.laps-c.lastLaps;c.pitCi=WET>0.5?3:left<=3?2:left<=5?0:1;boxPanelSync();$('boxPanel').classList.remove('hidden');}
+  if(!c.pitReq){c.pitReq=true;const left=sess.laps-c.lastLaps;c.pitCi=WET>0.5?3:left<=3?2:left<=5?0:1;if(c.isPlayer){boxPanelSync();$('boxPanel').classList.remove('hidden');}}
   showMsg('Daño '+Math.round(c.dmg*100)+'% · tenés que entrar a boxes',2800);}
  // con un ala menos el auto tira para un costado
  {const D=c.m.dmg;if(live&&D&&c.pit===0&&Math.abs(c.v)>8)steerIn=clamp(steerIn+(Math.min(1,D.fr)-Math.min(1,D.fl))*0.05,-1,1);}
@@ -5938,7 +6134,7 @@ function playerStep(dt){
  // las gomas se gastan mas doblando fuerte, frenando a fondo y por fuera de la pista
  if(live&&!c.pit&&!solo())wearTyres(c,dt,1+0.5*Math.abs(c.steer)*Math.min(1,Math.abs(c.v)/50)+(inp.brk&&c.v>30?0.3:0)+(surf==='grava'||surf==='pasto'?0.6:surf==='rojo'?1.5:0));
  // limites de pista: con las 4 ruedas afuera del asfalto y los pianos mas de medio segundo, la vuelta se anula
- if(live&&!c.grass&&!c.lapBad&&(c.timing||!solo())&&a>HALF+(track.kerb[i]?1.8:0.2)+1.0){c.offT+=dt;if(c.offT>0.5){c.lapBad=true;showMsg('Vuelta anulada · límites de pista',1800);}}
+ if(live&&!c.grass&&!c.lapBad&&(c.timing||!solo())&&a>HALF+(track.kerb[i]?1.8:0.2)+1.0){c.offT+=dt;if(c.offT>0.5){c.lapBad=true;if(c.isPlayer&&state==='race'&&sess.type==='race'&&!solo()&&!sess.online)penTL(c);else showMsg('Vuelta anulada · límites de pista',1800);}}
  c.ersOn=inp.ers&&thr>0&&c.ers>0.01&&live&&!c.pit;if(KERS&&(inp.brk>0.5||c.ers<=0.01||!live||c.pit))KERS=false;
  // online: si filcman mantiene la F y vas adelante, tu auto rinde un poco menos (12% menos de velocidad maxima, 30% menos de empuje)
  const slow=c.lento||(c.slowT>0&&performance.now()<c.slowT);// lento: filcman le puso "mas lento" para esta carrera
@@ -5978,7 +6174,8 @@ function playerStep(dt){
   if(Math.abs(al)<5.0&&Math.abs(la)<1.95){const pA=5.0-Math.abs(al),pL=1.95-Math.abs(la);
    if(pL<pA){const sg=Math.sign(la)||1;c.pos.x+=rx*sg*pL;c.pos.z+=rz*sg*pL;o.lane-=sg*pL*0.4;c.v*=0.985;}
    else if(al<0){c.pos.x-=fx*pA;c.pos.z-=fz*pA;const vv=c.v;c.v=Math.min(c.v,o.v*0.95);o.v+=Math.max(0,vv-o.v)*0.25;
-    if(live&&vv-o.v>5){addDamage(c,(vv-o.v)/40*0.22,la>0?'fr':'fl');addDamage(o,(vv-o.v)/40*0.15,'rw');}}
+    if(live&&vv-o.v>5){addDamage(c,(vv-o.v)/40*0.22,la>0?'fr':'fl');addDamage(o,(vv-o.v)/40*0.15,'rw');}
+    if(live&&c.isPlayer&&vv-o.v>12&&sess.type==='race'&&!sess.online&&!o.dead&&performance.now()-(c.penT||0)>6000){c.penT=performance.now();penAdd(c,5,'chocar a '+o.driver);}}
    else{c.pos.x+=fx*pA;c.pos.z+=fz*pA;if(live&&o.v-c.v>7)addDamage(c,(o.v-c.v)/40*0.1,'rw');o.v=Math.min(o.v,c.v*0.95);}
    if(shake<0.3&&live)sndHit(0.3);shake=Math.max(shake,0.35);}}
  k=nearest(c.pos,k);let d=k-c.idx;if(d>N/2)d-=N;if(d<-N/2)d+=N;c.prog+=d;c.idx=k;c.pos.y=groundY(c);
@@ -6000,7 +6197,7 @@ function playerStep(dt){
     const txt=ok?(pb?'Mejor vuelta ':'Vuelta ')+fmt(lt)+'  ·  P'+qualiPos():'Vuelta anulada '+fmt(lt);
     if(laps>=QLAPS){c.finished=true;c.finishTime=rt;state='finished';showMsg(txt,2600);setTimeout(showResults,2600);}else showMsg(txt,2200);}}
   else if(laps>=1){const lt=rt-c.lapStart;c.lapStart=rt;c.lastLaps=laps;
-   const gs=recLapEnd(lt),ok=lapOK(c,lt),had=c.best<Infinity;let fast=false;if(ok)netLap(lt,gs);if(ok&&lt<c.best){c.best=lt;fast=had;}
+   const gs=recLapEnd(lt),ok=lapOK(c,lt),had=c.best<Infinity;let fast=false;if(ok)netLap(lt,gs);if(ok&&lt<c.best){c.best=lt;fast=had;}if(laps<sess.laps)radioLap(laps);
    if(laps>=sess.laps){c.finished=true;c.finishTime=rt;state='finished';showMsg('Bandera a cuadros',2600);setTimeout(showResults,2600);}
    else if(laps===sess.laps-1)showMsg((fast?'Vuelta rapida '+fmt(lt)+'  ·  ':'')+'Ultima vuelta',2200);
    else showMsg(fast?'Vuelta rapida '+fmt(lt):'Vuelta '+(laps+1)+'  ·  '+fmt(lt)+(ok?'':' (anulada)'),2000);}}
@@ -6044,6 +6241,49 @@ function updateCarVisual(c,dt){
  // brazos de suspension que siguen a las ruedas
  if(m.f1&&m.lod<2)suspUpdate(m);
 }
+// v152: penalizaciones, radio del ingeniero y modo Eliminacion (pedido del usuario)
+// penalizaciones (solo en carrera, no en clasificacion ni contra reloj ni online): a la tercera vuelta anulada por limites de pista
+// y por chocar fuerte de atras a otro auto, +5 s que se suman a tu tiempo final
+function penAdd(c,s,why){c.pen=(c.pen||0)+s;showMsg('⏱️ Penalización: +'+s+' segundos por '+why,2600);radio('Nos dieron '+s+' segundos de penalización por '+why+'. Hay que recuperarlos en pista.');}
+function penTL(c){c.tl=(c.tl||0)+1;const k=c.tl%3;
+ if(k===0)penAdd(c,5,'límites de pista');
+ else{showMsg('⚠️ Vuelta anulada · advertencia por límites de pista ('+k+'/3)',2000);if(k===2)radio('Cuidado con los límites de pista: una más y nos penalizan.');}}
+// radio del ingeniero: mensajes cortos durante la carrera (adelantamientos, gomas, daño, distancia con el de adelante y el de atras)
+const RAD={t:0,pos:0,pt:0,dmgW:false,twW:false,chk:0};
+function radio(t){const e=$('radio');if(!e||TUT.on)return;e.textContent='📻 '+t;e.classList.remove('hidden');clearTimeout(RAD.t);RAD.t=setTimeout(()=>e.classList.add('hidden'),4500);
+ if(!muted&&actx)sndBurst(0.07,'bandpass',2600,6,0.1);}
+function radioReset(){RAD.pos=0;RAD.pt=0;RAD.dmgW=false;RAD.twW=false;RAD.chk=2;clearTimeout(RAD.t);const e=$('radio');if(e)e.classList.add('hidden');}
+const sec=v=>v.toFixed(1).replace('.',',');
+function radioStep(dt){const c=player;if(!c||state!=='race'||solo()||c.finished||sess.type!=='race'||c.lapsSeen<0)return;RAD.chk-=dt;if(RAD.chk>0)return;RAD.chk=1;
+ const st=standings(),p=st.indexOf(c)+1,now=performance.now();
+ if(RAD.pos&&p!==RAD.pos&&now-RAD.pt>6000){RAD.pt=now;
+  if(p<RAD.pos){const o=st[p];radio('¡Bien! Pasaste a '+(o?o.driver:'uno')+'. Vas '+p+'º.');}
+  else{const o=st[p-2];radio((o?o.driver+' te pasó':'Te pasaron')+'. Vas '+p+'º: ¡a recuperar!');}}
+ RAD.pos=p;
+ if(!RAD.dmgW&&c.dmg>=0.5&&!c.dead){RAD.dmgW=true;radio('El auto está muy dañado. Entrá a boxes cuando puedas'+(isTouch?' (Box).':' (B).'));}
+ else if(!RAD.twW&&c.tw>0.75){RAD.twW=true;radio('Las gomas ya no dan más: box, box.');}}
+// al cerrar cada vuelta de carrera
+function radioLap(laps){const c=player;if(sess.type!=='race'||solo()||!c)return;const st=standings(),i=st.indexOf(c),left=sess.laps-laps;
+ if(sess.elim)return;
+ if(left===1){radio('Última vuelta. ¡Traelo a casa!');return;}
+ if(laps%2)return;
+ const gap=o=>Math.abs(o.prog-c.prog)*track.ds/Math.max(c.v,30),a=st[i-1],b=st[i+1];
+ if(a&&gap(a)<2.5)radio('Estás a '+sec(gap(a))+' s de '+a.driver+'. ¡Lo podés pasar!');
+ else if(b&&gap(b)<1.5)radio(b.driver+' viene a '+sec(gap(b))+' s atrás. Defendete.');
+ else if(i===0)radio('Vas primero. Mantené el ritmo.');
+ else if(a)radio('Estás a '+sec(gap(a))+' s de '+a.driver+'.');}
+// modo Eliminacion: cada vez que el que va adelante completa una vuelta, queda afuera el ultimo. Gana el ultimo que queda.
+const ELIM={lap:0,n:0};
+function elimReset(){ELIM.lap=0;ELIM.n=0;}
+function elimStep(){if(!sess.elim||state!=='race'||!player)return;const N=track.N,act=cars.filter(c=>!c.elimOut&&!c.dnf);if(act.length<=1)return;
+ const L=Math.max(...act.map(c=>Math.floor(c.prog/N)));if(L<1||L<=ELIM.lap)return;ELIM.lap=L;
+ const last=act.reduce((a,b)=>b.prog<a.prog?b:a);last.elimOut=true;last.elimAt=++ELIM.n;last.elimLap=L;const left=act.length-1;
+ if(last.isPlayer){last.finished=true;last.finishTime=raceT();state='finished';showMsg('❌ Quedaste afuera en la vuelta '+L+' · terminaste '+(left+1)+'º',2800);setTimeout(showResults,2800);return;}
+ last.out=true;last.m.root.visible=false;last.v=0;
+ if(left===1){player.finished=true;player.finishTime=raceT();state='finished';showMsg('🏆 ¡Ganaste la eliminación!',2800);setTimeout(showResults,2800);return;}
+ showMsg('❌ Queda afuera '+last.driver+' · quedan '+left,2000);if(left<=4)radio('Quedan '+left+'. ¡No te quedes último!');}
+function elimResults(){const alive=cars.filter(c=>!c.elimOut&&!c.dnf).sort((a,b)=>b.prog-a.prog),gone=cars.filter(c=>c.elimOut||c.dnf).sort((a,b)=>(b.elimAt||0)-(a.elimAt||0));
+ return alive.concat(gone).map((c,i)=>({id:c.id,driver:c.driver,team:c.team,isPlayer:!!c.isPlayer,t:0,gap:c.dnf&&!c.elimOut?'Abandono':c.elimOut?'Afuera en la vuelta '+c.elimLap:i===0&&alive.length===1?'Ganador':'En pista',pts:null}));}
 function standings(){
  return cars.slice().sort((a,b)=>{if(a.finished&&b.finished)return a.finishTime-b.finishTime;if(a.finished)return -1;if(b.finished)return 1;return b.prog-a.prog;});
 }
@@ -6134,7 +6374,7 @@ function updateHUD(dt){
   $('hTime').textContent=c.timing&&!c.finished?fmt(raceT()-c.lapStart):'--';$('hTime').classList.toggle('bad',c.lapBad&&!c.finished);$('hBest').textContent=fmt(c.best);
   towerT-=dt;if(towerT<=0){towerT=0.3;let html='';const pole=qb[0].t;
    qb.forEach((o,ix)=>{const gap=!isFinite(o.t)?'--':ix===0?fmt(o.t):'+'+(o.t-pole).toFixed(3);
-    html+='<div class="r'+(o.isPlayer?' me':'')+'"><span class="p">'+(ix+1)+'</span><i style="background:'+o.team.c1+';box-shadow:inset 0 -5px 0 '+o.team.c2+'"></i><span>'+o.code+'</span><span class="g">'+gap+'</span></div>';});
+    html+='<div class="r'+(o===player?' me':'')+'"><span class="p">'+(ix+1)+'</span><i style="background:'+o.team.c1+';box-shadow:inset 0 -5px 0 '+o.team.c2+'"></i><span>'+o.code+'</span><span class="g">'+gap+'</span></div>';});
    $('tower').innerHTML=html;drawMap();}
   if(wrongT>1.2)showMsg('Vas al reves',300);return;}
  const st=standings();const pos=st.indexOf(c)+1;$('hPos').textContent='P'+pos;$('hPosN').textContent='de '+cars.length;
@@ -6142,12 +6382,12 @@ function updateHUD(dt){
  $('hTime').textContent=fmt(c.finished?c.finishTime:raceT());$('hTime').classList.remove('bad');$('hBest').textContent=fmt(c.best);
  towerT-=dt;if(towerT<=0){towerT=0.3;const ds=track.ds;let html='';const lead=st[0];
   st.forEach((o,ix)=>{let gap='';if(ix===0)gap='Lider';else if(o.finished&&lead.finished)gap='+'+(o.finishTime-lead.finishTime).toFixed(1);else{const dm=(lead.prog-o.prog)*ds;const lapsB=Math.floor((lead.prog-o.prog)/track.N);gap=o.pit>=2?'BOX':lapsB>=1?'+'+lapsB+'V':'+'+(dm/Math.max(o.v,25)).toFixed(1);}
-   html+='<div class="r'+(o.isPlayer?' me':'')+'"><span class="p">'+(ix+1)+'</span><i style="background:'+o.team.c1+';box-shadow:inset 0 -5px 0 '+o.team.c2+'"></i><span>'+o.code+'</span><span class="g">'+gap+'</span></div>';});
+   html+='<div class="r'+(o===player?' me':'')+'"><span class="p">'+(ix+1)+'</span><i style="background:'+o.team.c1+';box-shadow:inset 0 -5px 0 '+o.team.c2+'"></i><span>'+o.code+'</span><span class="g">'+gap+'</span></div>';});
   $('tower').innerHTML=html;drawMap();}
  if(wrongT>1.2)showMsg('Vas al reves',300);
 }
 let msgTimer=0;
-function showMsg(t,ms){const m=$('msg');m.textContent=t;m.classList.add('show');clearTimeout(msgTimer);msgTimer=setTimeout(()=>m.classList.remove('show'),ms||1800);}
+function showMsg(t,ms){if(SPLIT.cur===2){p2Msg(t,ms);return;}const m=$('msg');m.textContent=t;m.classList.add('show');clearTimeout(msgTimer);msgTimer=setTimeout(()=>m.classList.remove('show'),ms||1800);}
 
 /* ---------------- sonido ---------------- */
 // motor V6 turbo sintetizado: tres capas (encendido, media y un tercio de la frecuencia) con distorsion suave y aspereza,
@@ -6371,7 +6611,7 @@ async function worldStart(){if(NET.busy)return;const ci=sel.circuit,name=CIRCUIT
 /* ---------------- flujo ---------------- */
 function setAccent(){document.documentElement.style.setProperty('--accent',TEAMS[sel.team].ui);}
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-function goMenu(){state="menu";setCode(false);looseClear();scReset();tutEnd();dlEnd();huntReset();WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
+function goMenu(){state="menu";setCode(false);looseClear();scReset();tutEnd();dlEnd();huntReset();splitEnd();custEnd();WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null};
  hmShow();RPL.on=false;$('rpBar').classList.add('hidden');/* v136: si te mandaban al menu mirando la repeticion quedaba la barra */$('hud').classList.add('hidden');$('pause').classList.add('hidden');$('results').classList.add('hidden');$('lights').classList.add('hidden');
  sel.circuit=curCirc;setAccent();menuWeather();applyWeather();refreshMenu();buildRace();}
 function startRace(){if(maintBlocked()){maintShow();return;}/* v128 */$('verBar').classList.add('hidden');$('olNet').classList.add('hidden');ONL.netT=0;rplReset();looseClear();scReset();
@@ -6379,7 +6619,7 @@ function startRace(){if(maintBlocked()){maintShow();return;}/* v128 */$('verBar'
  // clima de esta sesion (en "Variable" se sortea cada vez: 40% de lluvia)
  // v99: seco, nublado, lluvia, tormenta o secandose (en Variable se sortea; online y record mundial siguen con lluvia si o no)
  if(sess.online)setWetFixed(sess.online.rain);else if(sess.world)setWetFixed(sess.world.rain);else decideWeather();applyWeather();dryHint=false;dryT=0;
- giftNext();buildRace();player.cheat=CODE.on;player.assist=CODE.assist;player.grass=CODE.grass;player.lento=CODE.vel==='lento';player.turboGift=CODE.vel==='turbo';careerCar(player);if(sess.type==='tt')ttStart();$("menu").classList.add("hidden");$('home').classList.add('hidden');hmFade(false);$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
+ giftNext();buildRace();player.cheat=CODE.on;player.assist=CODE.assist;player.grass=CODE.grass;player.lento=CODE.vel==='lento';player.turboGift=CODE.vel==='turbo';careerCar(player);splitSetup();if(sess.type==='tt')ttStart();$("menu").classList.add("hidden");$('home').classList.add('hidden');hmFade(false);$("results").classList.add('hidden');$('pause').classList.add('hidden');$('hud').classList.remove('hidden');
  finishShown=false;wrongT=0;towerT=0;$("hSes").textContent=(sess.online?"Online · "+ONL.code+" · ":"")+(sess.world?'Récord mundial':SNAME[sess.type])+(CH?(CH.career?' · Fecha '+(CH.round+1)+'/'+CH.cal.length:' · F'+(CH.round+1)):'')+(STORM?' · Tormenta':DRYING?' · Secándose':RAIN?' · Lluvia':CLOUDY?' · Nublado':'');
  [...$('lights').children].forEach(i=>i.classList.remove('on'));gantryLights.forEach(m=>m.emissiveIntensity=0);
  if(solo()){state='race';raceStart=simT;$('lights').classList.add('hidden');showMsg(SNAME[sess.type]+' · vuelta de salida',2400);}
@@ -6396,7 +6636,7 @@ function startRace(){if(maintBlocked()){maintShow();return;}/* v128 */$('verBar'
  $('pEnd').classList.toggle('hidden',!solo());$('pEnd').textContent=sess.type==='tt'?'Terminar tanda':'Terminar clasificación';$('boxPanel').classList.add('hidden');
  // v99: en el modo carrera se recuerda el objetivo de esta fecha
  if(CH&&CH.career&&sess.type==='race'){const o=CH.objs[CH.round];if(o)setTimeout(()=>{if(state==='countdown'||state==='race')showMsg('Objetivo: '+o.t,2600);},2100);}
- huntStart();$('c').focus();
+ huntStart();radioReset();elimReset();$('c').focus();
 }
 // cambia de circuito solo si hace falta (con pantalla de carga)
 function withCircuit(ci,fn){if(curCirc===ci){fn();return;}sel.circuit=ci;loadShow(ci);setTimeout(()=>{buildWorld(ci);fn();loadHide();},30);}
@@ -6431,6 +6671,8 @@ function startFromMenu(){
  else if(sel.mode===3){WK=null;CH=null;sess={type:'tt',laps:0,grid:null};startRace();}
  else if(sel.mode===4)worldStart();
  else if(sel.mode===5)huCareerOpen();// v99: modo carrera
+ else if(sel.mode===6){WK=null;CH=null;sess={type:'race',laps:roster().length,grid:null,elim:true};startRace();}
+ else if(sel.mode===7){WK=null;CH=null;sess={type:'race',laps:sel.laps,grid:null,split:true};startRace();}// v153: 2 jugadores// v152: eliminacion (una vuelta por auto que queda afuera, y una de margen)
  else newChamp();}
 function newChamp(){const cal=CAL_NAMES.map(n=>CIRCUITS.findIndex(c=>c.name===n)).filter(i=>i>=0);CIRCUITS.forEach((c,i)=>{if(!cal.includes(i))cal.push(i);});
  champBad=false;
@@ -6484,9 +6726,10 @@ function validChamp(c){
 function sessionResults(){
  if(sess.type==='quali')return qualiBoard().map((q,i,a)=>({id:q.id,driver:q.driver,team:q.team,isPlayer:q.isPlayer,t:q.t,gap:!isFinite(q.t)?'Sin tiempo':i===0?fmt(q.t):'+'+(q.t-a[0].t).toFixed(3),pts:null}));
  const rt=raceT();
- const est=cars.map(c=>{if(c.dnf)return {c,t:1e9-c.prog};if(c.finished)return {c,t:c.finishTime};const remain=(sess.laps*track.N-c.prog)*track.ds;return {c,t:rt+remain/Math.max(c.v,40)};});
+ if(sess.elim)return elimResults();
+ const est=cars.map(c=>{const pn=c.pen||0;if(c.dnf)return {c,t:1e9-c.prog};if(c.finished)return {c,t:c.finishTime+pn};const remain=(sess.laps*track.N-c.prog)*track.ds;return {c,t:rt+remain/Math.max(c.v,40)+pn};});
  est.sort((a,b)=>a.t-b.t);const P=WK?PTS[sess.type]:null;
- return est.map((e,i)=>({id:e.c.id,driver:e.c.driver,team:e.c.team,isPlayer:!!e.c.isPlayer,t:e.t,gap:e.c.dnf?'Abandono':i===0?fmt(e.t):'+'+(e.t-est[0].t).toFixed(3),pts:P?(e.c.dnf?0:P[i]||0):null}));}
+ return est.map((e,i)=>({id:e.c.id,driver:e.c.driver,team:e.c.team,isPlayer:!!e.c.isPlayer,t:e.t,gap:(e.c.dnf?'Abandono':i===0?fmt(e.t):'+'+(e.t-est[0].t).toFixed(3))+(e.c.pen?' (+'+e.c.pen+' s pen.)':''),pts:P?(e.c.dnf?0:P[i]||0):null}));}
 function setBtns(B){const w=$('rBtns');w.innerHTML='';for(const [t,fn,pri] of B){const b=document.createElement('button');b.className='btn'+(pri?' pri':'');b.textContent=t;b.onclick=fn;w.appendChild(b);}}
 function showResults(){
  if(finishShown)return;finishShown=true;
@@ -6496,12 +6739,12 @@ function showResults(){
  if(sess.type==='tt'){ttResults();return;}
  const res=sessionResults();sess.res=res;const pos=res.findIndex(r=>r.isPlayer)+1;const ty=sess.type,me=res[pos-1];
  $('rPos').textContent='P'+pos;
- $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(player.dnf?'Abandonaste: auto destruido':pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');
+ $('rTitle').textContent=ty==='quali'?(pos===1?'Pole position':'Clasificación'):ty==='sprint'?(pos===1?'Ganaste el Sprint':'Sprint terminado'):(player.dnf?'Abandonaste: auto destruido':pos===1?'Ganaste el Gran Premio':pos<=3?'Al podio':'Bandera a cuadros');if(sess.elim)$('rTitle').textContent=pos===1?'¡Ganaste la eliminación!':'Quedaste afuera · '+pos+'º';
  $('rSub').textContent=CIRCUITS[curCirc].name+' · '+(ty==='quali'?'':sess.laps+' vueltas · ')+'Tu mejor vuelta: '+fmt(player.best)+(me.pts?' · +'+me.pts+' pts':'')+(CH?' · Fecha '+(CH.round+1)+'/'+CH.cal.length:'');
  let h='';res.forEach((r,i)=>{h+='<tr class="'+(r.isPlayer?'me':'')+'"><td class="p">'+(i+1)+'</td><td class="c"><i style="background:'+r.team.c1+'"></i></td><td>'+esc(r.driver)+'</td><td style="color:var(--muted)">'+r.team.name+'</td><td class="t">'+r.gap+'</td>'+(r.pts!=null?'<td class="t pts">'+(r.pts?'+'+r.pts:'')+'</td>':'')+'</tr>';});
  $('rTable').innerHTML=h;
  // v99: XP, logros y el objetivo del modo carrera (traidos del Hiperultra)
- huXPLine(huAfterSession(res,pos,ty));{const cl=careerCheck(res,pos);$('rCar').textContent=cl;$('rCar').className='rcar'+(cl?(cl[0]==='✔'?' ok':' bad'):' hidden');}if(sess.daily)dlResult(pos);
+ huXPLine(huAfterSession(res,pos,ty));{const cl=careerCheck(res,pos);$('rCar').textContent=cl;$('rCar').className='rcar'+(cl?(cl[0]==='✔'?' ok':' bad'):' hidden');}if(sess.daily)dlResult(pos);if(SPLIT.p2)splitResult(res,pos);
  const B=[];
  if(!WK)B.push(['Revancha',startRace,1],['Menú',goMenu]);
  else{const last=WK.si>=WK.sessions.length-1;
@@ -6605,7 +6848,7 @@ function huUnlock(id){if(HU.ach[id])return;const a=ACH.find(x=>x.id===id);if(!a)
 function huAfterSession(res,pos,ty){if(sess.online||!player||player.cheat||player.grass)return 0;const st=HU.st;let xp=0;
  if(ty==='quali'){xp+=15;if(pos===1&&!sess.prac){st.poles++;xp+=40;huUnlock('pole');}}
  else if(ty==='race'||ty==='sprint'){const n=sess.laps,cn=CIRCUITS[curCirc].name;st.laps+=n;st.km=Math.round((st.km+n*track.L/1000)*10)/10;
-  if(!st.circs.includes(cn))st.circs.push(cn);if(st.circs.length>=10)huUnlock('world10');
+  if(!CIRCUITS[curCirc].custom&&!st.circs.includes(cn))st.circs.push(cn);if(st.circs.length>=10)huUnlock('world10');
   xp+=([100,70,55,40,32,26,20,16,12,10][pos-1]||5)*(ty==='sprint'?0.5:1);
   if(ty==='race'){st.races++;xp+=40;if(st.races>=10)huUnlock('r10');if(st.races>=50)huUnlock('r50');if(st.races>=100)huUnlock('r100');
    if(pos===1){st.wins++;huUnlock('win1');if(RAIN){st.rainWins++;huUnlock('rain');}if(cn==='Mónaco')huUnlock('monaco');if((player.grid||1)>=8)huUnlock('comeback');}
@@ -6775,7 +7018,7 @@ function huOffers(h){const sk=careerSkills(),of=careerOffers(sk),rk=teamRanks(sk
  for(const b of $('cLen').children)b.onclick=()=>{HU.clen=+b.dataset.v;huSave();for(const x of $('cLen').children)x.classList.toggle('sel',x===b);};
  lapSegOn('ofLapS',v=>{sel.laps=v;});}
 /* ---------------- v100: pantalla de inicio (como la del Hiperultra): Jugar con los modos, online, ranking, garage, perfil, logros y configuracion ---------------- */
-const MODEN=['Carrera rápida','Fin de semana','Campeonato','Supera tu récord','Récord mundial','Modo carrera'];
+const MODEN=['Carrera rápida','Fin de semana','Campeonato','Supera tu récord','Récord mundial','Modo carrera','Eliminación','2 jugadores'];
 function hmShow(){$('home').classList.remove('hidden');$('menu').classList.add('hidden');hmPlay(false);huChip();newsPlace();dlChip();}
 function hmPlay(on){$('hmPlay').classList.toggle('hidden',!on);$('hmNav').querySelector('.hm-main').classList.toggle('on',on);}
 // de un modo de "Jugar" a la pantalla de armado de la carrera (escuderia, circuito, vueltas, clima...)
@@ -6859,6 +7102,7 @@ function hmInit(){
   else if(a==='online')olOpen();else if(a==='rank')$('rankBtn').click();else if(a==='garage')hmGarage();else if(a==='profile')huProfile();else if(a==='ach')huAch();else if(a==='cfg')hmConfig();};
  for(const b of $('hmPlay').querySelectorAll('button[data-m]'))b.onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();hmSetup(+b.dataset.m);};
  $('hmDaily').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();dailyOpen();};
+ $('hmEdit').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();edOpen();};
  $('hmChip').onclick=huProfile;$('hmBack').onclick=hmShow;$('codeBtn2').onclick=codeOpen;}
 /* ---------------- v99: repeticion (traida del Hiperultra): se graban todos los autos 10 veces por segundo durante la carrera ---------------- */
 const RPL={fr:[],rec:0,on:false,t:0,speed:1,play:true,cam:0,ci:0,prev:'finished',uiT:0};
@@ -6934,13 +7178,13 @@ function tick(rdt){
   }
   if(state==='race'||state==='finished'||state==='countdown'){
    const steps=dt>1/45?2:1,h=dt/steps;
-   if(state==="race"||state==="finished"){scStep(dt);tutStep(dt);huntStep();}// v108, v111
-   for(let s=0;s<steps;s++){playerStep(h);for(const c of cars)if(!c.isPlayer&&!c.remote&&(state==="race"||state==="finished"))aiStep(c,h);}
+   if(state==="race"||state==="finished"){scStep(dt);tutStep(dt);huntStep();elimStep();radioStep(dt);}// v108, v111
+   for(let s=0;s<steps;s++){playerStep(h);if(SPLIT.on)splitStep(h);for(const c of cars)if(!c.isPlayer&&!c.human&&!c.remote&&(state==="race"||state==="finished"))aiStep(c,h);}
    // online: los autos de los demas llegan por la conexion en vivo y el tuyo se manda
    if(sess.online){const now=performance.now();for(const c of cars)if(c.remote)olCarStep(c,now);olSend(now);olNetHud(now);}
    for(const c of cars)updateCarVisual(c,dt);updateCrew(dt);
    recFrame();rplRecord(dt);if(sess.type==='tt')ttFrame(dt);
-   updateHUD(dt);
+   updateHUD(dt);if(SPLIT.on)p2Hud(dt);
   }
   // banderas
   const p=flagGeo.attributes.position,arr=p.array;
@@ -6948,12 +7192,12 @@ function tick(rdt){
   p.needsUpdate=true;flagGeo.computeVertexNormals();
   WIND.value=simT;FX.update(dt);looseStep(dt);dryingStep(dt);if(state==='replay')rplStep(dt);T_WAVES.offset.set((simT*0.004)%1,(simT*0.0025)%1);
  }
- if(track){updateCamera(paused?0:dt);updateLOD();tunnelLight(paused?0:dt);RAINFX.mesh.visible=RAIN&&!DRYING&&TUNK<0.5;RAINFX.update(paused?0:dt);DROPS.update(paused?0:dt,RAIN&&!DRYING&&TUNK<0.5&&(camMode===1||camMode===2)&&!!player&&state!=='menu'&&state!=='loading',player?Math.abs(player.v):0);}
+ if(track){updateCamera(paused?0:dt);if(SPLIT.on&&SPLIT.p2&&state!=="menu")splitCam(paused?0:dt);updateLOD();tunnelLight(paused?0:dt);RAINFX.mesh.visible=RAIN&&!DRYING&&TUNK<0.5;RAINFX.update(paused?0:dt);DROPS.update(paused?0:dt,RAIN&&!DRYING&&TUNK<0.5&&(camMode===1||camMode===2)&&!!player&&state!=='menu'&&state!=='loading',player?Math.abs(player.v):0);}
  if(track)updateMirrors();
  sky.position.copy(camera.position);
  updateAudio();
  if(state==='menu'){hmDust(Math.min(rdt,0.05));hmMusic();}else if(MUS.g)hmMusic();// v100
- post.render();
+ if(SPLIT.on&&SPLIT.p2&&state!=="menu"&&state!=="loading")splitRender();else post.render();
 }
 
 /* ---------------- menu ---------------- */
@@ -7037,9 +7281,9 @@ function refreshMenu(){
  [...$('segFmt').children].forEach(b=>b.classList.toggle('sel',(b.dataset.v==='1')===sel.sprint));
  [...$('segW').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.weather));
  [...$('segT').children].forEach(b=>b.classList.toggle('sel',+b.dataset.v===sel.tod));
- const m=sel.mode;$('hmModeT').textContent=MODEN[m]||'';$('fmtRow').classList.toggle('hidden',m===0||m>=3);$('raceRow').classList.toggle('hidden',m>=3&&m!==5);$('styRow').classList.toggle('hidden',m>=3&&m!==5);$('circSec').classList.toggle('hidden',m===2||m===5);
+ const m=sel.mode;$('hmModeT').textContent=MODEN[m]||'';$('fmtRow').classList.toggle('hidden',m===0||m>=3);$('raceRow').classList.toggle('hidden',m>=3&&m!==5&&m!==6&&m!==7);$('styRow').classList.toggle('hidden',m>=3&&m!==5&&m!==6&&m!==7);$('segLaps').parentElement.classList.toggle('hidden',m===6);$('circSec').classList.toggle('hidden',m===2||m===5);
  const grid=sel.sprint?' La clasificación arma la grilla del Sprint y el Sprint la de la carrera.':' La clasificación arma la grilla de la carrera.';
- $('modeHint').textContent=m===5?'Temporadas de 8 carreras con un equipo que te contrata. Cada carrera tiene un objetivo: cumplirlo suma reputación y con más reputación te llaman equipos mejores (Novato, Piloto profesional, Piloto destacado y Estrella). Se guarda solo.':m===0?'Una carrera directa en el circuito que elijas.':m===3?ttHint():m===4?wrHint():m===1?'Un Gran Premio completo en un circuito: clasificación ('+QLAPS+' vueltas, vale la mejor)'+(sel.sprint?', Sprint de '+sprintLaps()+' vueltas':'')+' y carrera.'+grid
+ $('modeHint').textContent=m===7?(isTouch?'Dos jugadores en el mismo celular (ponelo horizontal): cada uno usa los botones y la mitad de pantalla de su lado.':'Dos jugadores en la misma compu, cada uno con su mitad de pantalla. Jugador 1 (izquierda): W A S D, ERS con Espacio o E, cámara con C. Jugador 2 (derecha): flechas, ERS con Shift derecho o Enter, cámara con el punto.'):m===6?'Al final de cada vuelta queda afuera el que va último. Gana el último que queda en pista. Las vueltas se ponen solas: una por cada auto.':m===5?'Arrancás en un equipo chico, mejorás tu auto con el dinero que ganás y cada carrera tiene un objetivo. Con más reputación te llaman equipos mejores. Se guarda solo.':m===0?'Una carrera directa en el circuito que elijas.':m===3?ttHint():m===4?wrHint():m===1?'Un Gran Premio completo en un circuito: clasificación ('+QLAPS+' vueltas, vale la mejor)'+(sel.sprint?', Sprint de '+sprintLaps()+' vueltas':'')+' y carrera.'+grid
   :'Los '+CIRCUITS.length+' circuitos en orden, cada uno con clasificación'+(sel.sprint?', Sprint':'')+' y carrera. Puntos de F1: carrera 25-18-15-12-10-8-6-4-2-1'+(sel.sprint?', sprint 8 al 1':'')+'. Se guarda solo.'+grid;
  $('calNote').textContent=m===2?'Calendario: '+CAL_NAMES.filter(n=>CIRCUITS.some(c=>c.name===n)).map(n=>cdn(CIRCUITS.find(c=>c.name===n))).join(' · '):'';
  $('go').textContent=m===5?'Modo carrera':m===0?'Largar':m>=3?'Salir a pista':m===1?'Ir a la clasificación':'Empezar campeonato';
@@ -7171,7 +7415,7 @@ function acctSync0(){const s=NET.sess;$('acctTxt').textContent=s?'Conectado como
 function netLoad(){try{const s=JSON.parse(localStorage.getItem('gp3d_cuenta')||'null');if(s&&typeof s.u==='string'&&/^[A-Za-z0-9_]{3,14}$/.test(s.u)&&typeof s.t==='string'&&/^[0-9a-f]{64}$/.test(s.t))NET.sess={u:s.u,t:s.t};}catch(e){}
  acctSync();if(NET.sess)rpc('gp_me',{p_token:NET.sess.t}).then(r=>{if(!NET.sess)return;if(r.error==='sesion'){NET.sess=null;netSave();acctSync();}else if(r.user){NET.sess.u=r.user;netSave();acctSync();}});}
 // cada vuelta valida (sin el codigo 1312) que mejora tu marca se manda al ranking; el servidor la vuelve a revisar
-function netLap(lt,gs){const c=player;if(!NET.sess||c.cheat||c.grass||curCirc<0)return;const name=CIRCUITS[curCirc].name,ms=Math.round(lt*1000);if(NET.best[name]&&ms>=NET.best[name])return;
+function netLap(lt,gs){const c=player;if(!NET.sess||c.cheat||c.grass||curCirc<0||SPLIT.on||(CIRCUITS[curCirc]||{}).custom)return;const name=CIRCUITS[curCirc].name,ms=Math.round(lt*1000);if(NET.best[name]&&ms>=NET.best[name])return;
  rpc('gp_submit_lap',{p_token:NET.sess.t,p_circuit:name,p_ms:ms,p_rain:!!RAIN}).then(r=>{
   if(r.error==='sesion'){NET.sess=null;netSave();acctSync();return;}
   if(r.ok){NET.best[name]=r.best;if(r.pb){setTimeout(()=>{if(state==='race'||state==='finished')showMsg('Récord online · puesto '+r.rank,2200);},2300);
@@ -7285,7 +7529,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=151;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=155;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
@@ -7731,7 +7975,9 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
  if(e.code==='Escape'&&state==='menu'&&!PE.open){if(!$('huPad').classList.contains('hidden'))huPadClose();else if(!$('menu').classList.contains('hidden')&&$('onlinePad').classList.contains('hidden'))hmShow();}
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)&&state!=='menu')e.preventDefault();
  if(e.repeat)return;
- if(['Space','ShiftLeft','ShiftRight','KeyE'].includes(e.code)&&state!=='menu')KERS=!KERS;
+ if(SPLIT.on&&['ShiftRight','Enter','NumpadEnter','ControlRight'].includes(e.code)&&state!=='menu')KERS2=!KERS2;
+ else if(['Space','ShiftLeft','ShiftRight','KeyE'].includes(e.code)&&state!=='menu')KERS=!KERS;
+ if(SPLIT.on&&e.code==='Period'&&state!=='menu')SPLIT.cm2=SPLIT.cm2?0:3;
  if(e.code==='KeyC'&&state!=='menu')nextCam();
  if(e.code==='KeyR')resetPlayer();
  if(e.code==='KeyB')boxToggle();
