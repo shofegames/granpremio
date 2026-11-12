@@ -4069,7 +4069,7 @@ function dlChip(){const e=$('hmDailyS');if(!e)return;const done=dlLoad().last===
 
 // ruleta del dia: una tirada por dia (auto al azar, a veces uno secreto, y circuito al azar); con lo que salga se corre todas las veces que quieras ese dia
 const RL_KEY='gp3d_ruleta';
-const RL_POOL=[['f1',4],['sport',3],['hyper',2],['sc4',2],['sl',2],['f6',2],['mono',2],['mono2',1],['ray',1],['pg',1],['rr',1]];
+const RL_POOL=[['f1',4],['sport',3],['hyper',2],['sc4',2],['sl',2],['f6',2],['mono',2],['mono2',1],['ray',1],['pg',1],['rr',1],['kc',1]];
 const rlName=k=>k==='f1'?'F1 de tu escudería':GIFT[k];
 function rlLoad(){try{const o=JSON.parse(localStorage.getItem(RL_KEY)||'null');if(o&&o.d===dlDay()&&Object.prototype.hasOwnProperty.call(GIFT,o.k)&&isInt(o.ci,0,CIRCUITS.length-1))return o;}catch(e){}return null;}
 function rlPick(){let t=0;for(const [,w] of RL_POOL)t+=w;let r=Math.random()*t;for(const [k,w] of RL_POOL){r-=w;if(r<0)return k;}return 'f1';}
@@ -4097,7 +4097,7 @@ function huntStart(){huntReset();if(sess.online||!track)return;const H=huntToday
  HUNT.on=true;HUNT.k=H.k;HUNT.i=i;HUNT.side=H.side;const bk=huntBig(H.k);if(bk)bigLoad(bk);}
 function huntStep(){if(!HUNT.on||!player||!carsGroup)return;const k=HUNT.k;
  if(!HUNT.m){const bk=huntBig(k);if(bk&&!BIG[bk].d)return;
-  const t=TEAMS[dlNum()%TEAMS.length],m=k==='ray'?makeRayoL(t,7,''):k==='pg'?makePaganiL(t,7,''):k==='rr'?makeRollsL(t,7,''):k==='hyper'?makeHypercar(t,7,''):k==='sc4'?makeSuper(t,7,''):k==='sl'?makeSL(t,7,''):makeF6(t,7,'');
+  const t=TEAMS[dlNum()%TEAMS.length],m=k==='ray'?makeRayoL(t,7,''):k==='pg'?makePaganiL(t,7,''):k==='rr'?makeRollsL(t,7,''):k==='kc'?makeKcxL(t,7,''):k==='hyper'?makeHypercar(t,7,''):k==='sc4'?makeSuper(t,7,''):k==='sl'?makeSL(t,7,''):makeF6(t,7,'');
   const i=HUNT.i,P=track.P[i],NL=track.NL[i],lat=(HALF+4.2)*HUNT.side;
   m.root.position.set(P.x+NL.x*lat,P.y,P.z+NL.z*lat);m.root.rotation.y=track.H[i]+0.45*HUNT.side;carsGroup.add(m.root);HUNT.m=m;HUNT.pos=m.root.position.clone();}
  if(state!=='race'||player.finished||player.pit)return;
@@ -5781,17 +5781,47 @@ function makeRolls(team,num,name){
 // GT Sport RS (las mismas fisicas que todos los autos especiales) y cuando llegan se cambia solo (swapCar). Si no bajan, queda el GT.
 // v135: los dos monopatines (350 y 265 KB) tambien se bajan aparte: mono = el monopatin, monop = el piloto (el del codigo 3131 necesita los dos).
 // bigWait es la lista de archivos que le faltan a ese auto; cuando estan todos se cambia solo.
-const BIG={ray:{f:'datos/rayo-1.json',d:null,p:null},pg:{f:'datos/pagani-1.json',d:null,p:null},rr:{f:'datos/rolls-1.json',d:null,p:null},mono:{f:'datos/mono-1.json',d:null,p:null},monop:{f:'datos/monop-1.json',d:null,p:null},pgf:{f:'datos/pagani-fino-1.json',d:null,p:null}};// v137: pgf = Pagani fino (80 mil triangulos, solo en Ultra)
+const BIG={ray:{f:'datos/rayo-1.json',d:null,p:null},pg:{f:'datos/pagani-1.json',d:null,p:null},rr:{f:'datos/rolls-1.json',d:null,p:null},kc:{f:'datos/kcx-1.json',d:null,p:null},mono:{f:'datos/mono-1.json',d:null,p:null},monop:{f:'datos/monop-1.json',d:null,p:null},pgf:{f:'datos/pagani-fino-1.json',d:null,p:null}};// v137: pgf = Pagani fino (80 mil triangulos, solo en Ultra)
 function bigLoad(k){const b=BIG[k];if(!b||b.d||b.p)return;
  b.p=fetch(b.f).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}).then(d=>{if(!d||!Array.isArray(d.parts)||(k==='mono'?!Array.isArray(d.mats):k!=='monop'&&!Array.isArray(d.tex)))throw new Error('datos');
-  b.d=d;if(k==='ray')RAYO_D=d;else if(k==='pg')PAGANI_D=d;else if(k==='rr')RR_D=d;else if(k==='mono')MONO_D=d;else if(k==='monop')MONO_P=d;
+  b.d=d;if(k==='ray')RAYO_D=d;else if(k==='pg')PAGANI_D=d;else if(k==='rr')RR_D=d;else if(k==='kc')KC_D=d;else if(k==='mono')MONO_D=d;else if(k==='monop')MONO_P=d;
   for(const c of cars)if(c.m&&c.m.bigWait&&c.m.bigWait.every(x=>BIG[x].d))swapCar(c);}).catch(()=>{}).finally(()=>{b.p=null;});}
 function bigCar(ks,make,team,num,name){const miss=ks.filter(k=>!BIG[k].d);if(!miss.length)return make(team,num,name);miss.forEach(bigLoad);const m=makeSportsCar(team,num,name);m.bigWait=ks;return m;}
 function makeRayoL(team,num,name){return bigCar(['ray'],makeRayo,team,num,name);}
 function makePaganiL(team,num,name){return sel.q===1?bigCar(['pgf'],(t,n,nm)=>makePagani(t,n,nm,BIG.pgf.d),team,num,name):bigCar(['pg'],makePagani,team,num,name);}
 function makeRollsL(team,num,name){return bigCar(['rr'],makeRolls,team,num,name);}
+// v163 (codigo 1994): "Kenigseg CCX", del modelo "2007 Koenigsegg CCX (No Roof)" de _Sheep19 en Sketchfab (CC BY 4.0):
+// https://sketchfab.com/3d-models/2007-koenigsegg-ccx-no-roof-423b64e085974b97b5cfd5a87d9dcce3 . Nombre de parodia y sin logos: se sacaron
+// las piezas del escudo, el CCX, el fantasma y las calcos, y en las texturas se taparon el escudo, el nombre de la marca, la marca de las
+// cubiertas y la de los frenos. El modelo venia girado 7 grados y con las ruedas de adelante dobladas: se enderezo. 53 mil triangulos,
+// datos/kcx-1.json (1,6 MB, se baja cuando se usa). La pintura (mats[].pt) es del color de tu escuderia. Sin techo; el piloto va a la izquierda.
+let KC_D=null,KCG=null,KCM=null;const KC_OX=0.323;
+function kcBuild(){if(KCG)return KCG;
+ const tex=KC_D.tex.map(s=>{const im=new Image(),t=new THREE.Texture(im);im.onload=()=>{t.needsUpdate=true;};im.src=s;t.flipY=false;t.encoding=THREE.sRGBEncoding;t.anisotropy=4;t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;});
+ KCM=KC_D.mats.map(a=>{const m=new THREE.MeshStandardMaterial({color:new THREE.Color('#'+a.c),metalness:a.mt,roughness:a.r,map:a.t>=0?tex[a.t]:null,transparent:!!a.tr,opacity:a.op,depthWrite:!a.tr,side:THREE.DoubleSide});m.userData.pt=!!a.pt;return m;});
+ KCG=KC_D.parts.map(p=>{const g=new THREE.BufferGeometry(),P=pgArr(p.v,Int16Array),N=pgArr(p.n,Int8Array),pos=new Float32Array(P.length),nor=new Float32Array(N.length);
+  for(let i=0;i<P.length;i++)pos[i]=P[i]/p.s;for(let i=0;i<N.length;i++)nor[i]=N[i]/127;g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  if(p.u){const U=pgArr(p.u,Int16Array),uv=new Float32Array(U.length);for(let i=0;i<U.length;i++)uv[i]=U[i]/p.us;g.setAttribute('uv',new THREE.BufferAttribute(uv,2));}
+  g.setIndex(new THREE.BufferAttribute(pgArr(p.i,Uint16Array),1));g.computeBoundingSphere();return {m:p.m,w:p.w,c0:p.c0,geo:g};});
+ return KCG;}
+function makeKcx(team,num,name){
+ const root=new THREE.Group(),body=new THREE.Group();root.rotation.order='YXZ';root.add(body);
+ const mk=(geo,m,parent,sh)=>{const o=new THREE.Mesh(geo,m);o.castShadow=sh;o.receiveShadow=true;parent.add(o);return o;};
+ const wheels=[],fronts=[];let swg=null;const geos=kcBuild();
+ // la pintura con el color de la escuderia (un material por auto); lo demas se comparte
+ const paint=KCM.map(m=>{if(!m.userData.pt)return m;const c=m.clone();c.color.set(team.c1).convertSRGBToLinear();return c;});
+ for(const p of geos){const m=paint[p.m];
+  if(!p.w){mk(p.geo,m,body,!m.transparent);continue;}
+  if(p.w==='s'){swg=new THREE.Group();swg.position.set(...p.c0);body.add(swg);mk(p.geo,m,swg,false);continue;}
+  const pv=new THREE.Group();pv.position.set(...p.c0);root.add(pv);const sp=new THREE.Group();pv.add(sp);mk(p.geo,m,sp,true);wheels.push(sp);if(p.w[0]==='f')fronts.push(pv);}
+ const lightM=new THREE.MeshStandardMaterial({color:'#300',emissive:'#ff2020',emissiveIntensity:0.6}),brakeM=new THREE.MeshStandardMaterial({color:'#444',emissive:'#ff4a12',emissiveIntensity:0});
+ const helmet=[(()=>{const g=new THREE.Group();body.add(g);return g;})()];
+ const blob=new THREE.Mesh(new THREE.PlaneGeometry(2.4,4.8),MATS.blob);blob.rotation.x=-PI/2;blob.position.y=0.03;root.add(blob);
+ return {root,body,wheels,fronts,lightM,brakeM,faces:[],spokes:[],blurs:[],covers:[],team,helmet,ci:RAIN?3:0,blur:false,detail:[],far:false,gt:true,kc:true,stock:[],wr:0.32,lock:0.5,swg,swAx:new THREE.Vector3(...(KC_D.sw||[0,0.35,-0.94]))};
+}
+function makeKcxL(team,num,name){return bigCar(['kc'],makeKcx,team,num,name);}
 function makeMonoL(team,num,name,pil){return bigCar(pil?['mono','monop']:['mono'],(t,n,nm)=>makeMono(t,n,nm,pil),team,num,name);}
-function addCockpit(car){const m=car.m;if(m.kit||m.mono||m.ray||m.pg||m.rr)return;// v117: el Pagani trae su propio interior (tablero, volante, asientos)// monopatin: sin cabina, la camara va en los ojos del piloto
+function addCockpit(car){const m=car.m;if(m.kit||m.mono||m.ray||m.pg||m.rr||m.kc)return;// v117: el Pagani trae su propio interior (tablero, volante, asientos)// monopatin: sin cabina, la camara va en los ojos del piloto
 m.kit=m.hyper?hyCockpit(m,m.team):m.sc4?sc4Cockpit(m,m.team):m.sl?slCockpit(m,m.team):m.f6?f6Cockpit(m,m.team):m.p911?p9Cockpit(m,m.team):f1Cockpit(m,m.team);m.kit.tilt.updateMatrix();for(const s of m.stock)s.visible=false;for(const g of m.glassM||[])g.visible=false;}
 // camara trasera para los espejos: arriba de la cabeza mirando para atras (cada 2 cuadros; en el celu cada 4)
 function updateMirrors(){const c=player;if(!c||!c.m.kit||!(camMode===1||camMode===2)||!(state==='race'||state==='countdown'||state==='finished'))return;
@@ -5806,7 +5836,7 @@ function updateMirrors(){const c=player;if(!c||!c.m.kit||!(camMode===1||camMode=
  renderer.shadowMap.autoUpdate=au;for(const mm of K.mirrors)mm.visible=true;}
 // el auto de cada uno: tu codigo (o el que te puso filcman) y los rivales online con el suyo
 function carName(c){return sess.online?c.driver:c.isPlayer?playerName():c.driver.split(" ").pop();}
-function carModel(c,nm){return (c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sc4)||c.scR?makeSuper(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sl)||c.slR?makeSL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.f6)||c.f6R?makeF6(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.rr)||c.rrR?makeRollsL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.pg)||c.pgR?makePaganiL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.ray)||c.rayR?makeRayoL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.mono2)||c.mono2R?makeMonoL(c.isPlayer?myLook(c.team):c.team,c.num,nm,true):(c.isPlayer&&CODE.mono)||c.monoR?makeMonoL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm,{hero:c.isPlayer});}
+function carModel(c,nm){return (c.isPlayer&&CODE.hyper)||c.hyR?makeHypercar(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sc4)||c.scR?makeSuper(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sl)||c.slR?makeSL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.f6)||c.f6R?makeF6(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.rr)||c.rrR?makeRollsL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.kc)||c.kcR?makeKcxL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.pg)||c.pgR?makePaganiL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.ray)||c.rayR?makeRayoL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.mono2)||c.mono2R?makeMonoL(c.isPlayer?myLook(c.team):c.team,c.num,nm,true):(c.isPlayer&&CODE.mono)||c.monoR?makeMonoL(c.isPlayer?myLook(c.team):c.team,c.num,nm):(c.isPlayer&&CODE.sport)||c.gtR?makeSportsCar(c.isPlayer?myLook(c.team):c.team,c.num,nm):makeCar(c.isPlayer?myLook(c.team):c.team,c.num,nm,{hero:c.isPlayer});}
 // cambia el auto en el medio de la carrera (sigue en el mismo lugar, con las mismas gomas y el mismo daño)
 function swapCar(c){const old=c.m;if(!old||!carsGroup)return;const m=carModel(c,carName(c));m.root.visible=old.root.visible;carsGroup.add(m.root);
  carsGroup.remove(old.root);disposeObj(old.root);c.m=m;setCompound(c,old.ci);if(c.isPlayer)addCockpit(c);carDamageVisual(c);updateCarVisual(c,0);}
@@ -6457,10 +6487,10 @@ function updateCamera(dt){
  if(cm===0){p=c.pos.clone().addScaledVector(f,-8.8);p.y=c.pos.y+3.1;l=c.pos.clone().addScaledVector(fc,5);l.y=hA(c,5)+1.1;kk=1-Math.exp(-dt*9);}
  // TV Pod: justo arriba de la cabeza, mirando 8 grados hacia abajo: el halo cruza la pantalla y abajo se ven el volante, los espejos y las ruedas
  // en los autos de calle: camara 1 arriba del techo y camara 2 en la butaca
- else if(cm===1){p=c.pos.clone().addScaledVector(fc,c.m.gt?-0.2:-0.1);p.y=c.pos.y+(c.m.rr?2.3:c.m.pg?1.5:c.m.mono?2.0:c.m.f6?1.68:c.m.gt?1.5:1.18);l=c.pos.clone().addScaledVector(fc,14);l.y=hA(c,14)-0.79;kk=1;}
- else if(cm===2){p=c.pos.clone().addScaledVector(fc,c.m.rr?-0.08:c.m.pg?-0.22:c.m.mono?0.12:c.m.p911?-0.45:c.m.sl?-0.62:c.m.f6?-0.12:c.m.sc4?-0.12:c.m.gt?-0.1:-0.08);p.y=c.pos.y+(c.m.rr?1.52:c.m.pg?0.95:c.m.mono?1.7:c.m.p911?1.06:c.m.sl?1.06:c.m.f6?1.15:c.m.sc4?0.95:c.m.gt?1.0:0.88);l=c.pos.clone().addScaledVector(fc,30);l.y=hA(c,30)+(c.m.pg||c.m.rr?-0.9:0.78);kk=1;
+ else if(cm===1){p=c.pos.clone().addScaledVector(fc,c.m.gt?-0.2:-0.1);p.y=c.pos.y+(c.m.kc?1.45:c.m.rr?2.3:c.m.pg?1.5:c.m.mono?2.0:c.m.f6?1.68:c.m.gt?1.5:1.18);l=c.pos.clone().addScaledVector(fc,14);l.y=hA(c,14)-0.79;kk=1;}
+ else if(cm===2){p=c.pos.clone().addScaledVector(fc,c.m.kc?-0.12:c.m.rr?-0.08:c.m.pg?-0.22:c.m.mono?0.12:c.m.p911?-0.45:c.m.sl?-0.62:c.m.f6?-0.12:c.m.sc4?-0.12:c.m.gt?-0.1:-0.08);p.y=c.pos.y+(c.m.kc?1.0:c.m.rr?1.52:c.m.pg?0.95:c.m.mono?1.7:c.m.p911?1.06:c.m.sl?1.06:c.m.f6?1.15:c.m.sc4?0.95:c.m.gt?1.0:0.88);l=c.pos.clone().addScaledVector(fc,30);l.y=hA(c,30)+(c.m.pg||c.m.rr?-0.9:0.78);kk=1;
   // en el hiperauto y en el 911 el piloto va sentado a la izquierda
-  const ox=c.m.rr?RR_OX:c.m.pg?PG_OX:c.m.hyper?HY_OX:c.m.sc4?SC_OX:c.m.sl?SL_OX:c.m.f6?F6_OX:c.m.p911?P9_OX:0;if(ox){const rx=Math.cos(c.head)*ox,rz=-Math.sin(c.head)*ox;p.x+=rx;p.z+=rz;l.x+=rx;l.z+=rz;}}
+  const ox=c.m.kc?KC_OX:c.m.rr?RR_OX:c.m.pg?PG_OX:c.m.hyper?HY_OX:c.m.sc4?SC_OX:c.m.sl?SL_OX:c.m.f6?F6_OX:c.m.p911?P9_OX:0;if(ox){const rx=Math.cos(c.head)*ox,rz=-Math.sin(c.head)*ox;p.x+=rx;p.z+=rz;l.x+=rx;l.z+=rz;}}
  else{p=c.pos.clone().addScaledVector(f,-14);p.y=c.pos.y+9.5;l=c.pos.clone().addScaledVector(fc,8);l.y=hA(c,8)+0.5;kk=1-Math.exp(-dt*6);}
  camPos.lerp(p,kk);camLook.lerp(l,onb?1:1-Math.exp(-dt*12));
  camera.position.copy(camPos);
@@ -6669,7 +6699,7 @@ function recLapEnd(lt){const c=player;let s=null;if(REC.lap===c.lapsSeen-1&&REC.
 function ghostOk(r){return !!(r&&r.s&&r.s.length>2&&Math.hypot(r.s[1]-track.P[0].x,r.s[2]-track.P[0].z)<80);}
 function ttStart(){const W=sess.world;TT.rec=ttLoad(curCirc,RAIN);TT.ref=W?W.rec:TT.rec;if(TT.ref&&!ghostOk(TT.ref))TT.ref=null;TT.laps=[];TT.newRec=false;TT.newWorld=false;TT.delta=null;if(TT.ref)ttMakeGhost();
  if(player.cheat)setTimeout(()=>{if(state==='race')showMsg("Con el modo turbo los récords no se guardan",2200);},4600);}
-function ttMakeGhost(){const r=TT.ref,t0=TEAMS[r.ti],team=paintValid(r.paint)?paintTeam(t0,r.paint):t0,m=r.hy?makeHypercar(team,r.num,r.n):r.sc?makeSuper(team,r.num,r.n):r.sl?makeSL(team,r.num,r.n):r.f6?makeF6(team,r.num,r.n):r.rr?makeRollsL(team,r.num,r.n):r.pg?makePaganiL(team,r.num,r.n):r.ray?makeRayoL(team,r.num,r.n):r.mono2?makeMonoL(team,r.num,r.n,true):r.mono?makeMonoL(team,r.num,r.n):r.gt?makeSportsCar(team,r.num,r.n):makeCar(team,r.num,r.n);const mats=new Map();
+function ttMakeGhost(){const r=TT.ref,t0=TEAMS[r.ti],team=paintValid(r.paint)?paintTeam(t0,r.paint):t0,m=r.hy?makeHypercar(team,r.num,r.n):r.sc?makeSuper(team,r.num,r.n):r.sl?makeSL(team,r.num,r.n):r.f6?makeF6(team,r.num,r.n):r.rr?makeRollsL(team,r.num,r.n):r.kc?makeKcxL(team,r.num,r.n):r.pg?makePaganiL(team,r.num,r.n):r.ray?makeRayoL(team,r.num,r.n):r.mono2?makeMonoL(team,r.num,r.n,true):r.mono?makeMonoL(team,r.num,r.n):r.gt?makeSportsCar(team,r.num,r.n):makeCar(team,r.num,r.n);const mats=new Map();
  const sw=mt=>{if(!mats.has(mt)){const g=mt.clone();g.userData={};if(mt.onBeforeCompile){g.onBeforeCompile=mt.onBeforeCompile;g.customProgramCacheKey=()=>mt.customProgramCacheKey()+'_g';}g.transparent=true;g.opacity=0.38;g.depthWrite=false;mats.set(mt,g);}return mats.get(mt);};
  m.root.traverse(o=>{o.castShadow=false;if(o.isMesh)o.material=Array.isArray(o.material)?o.material.map(sw):sw(o.material);});
  for(const mt of mats.keys())if(!mt.userData.shared)mt.dispose();
@@ -6699,7 +6729,7 @@ function ttFrame(dt){const c=player;if(state!=='race'&&state!=='finished')return
  const op=0.38*sstep(2.5,11,g.pos.distanceTo(c.pos));m.root.visible=op>0.01;
  if(Math.abs(op-g.op)>0.01){g.op=op;for(const mt of g.mats)mt.opacity=op;}}
 function ttLap(lt,ok,gs){const c=player,W=sess.world,prev=TT.rec?TT.rec.t:Infinity,lap={t:lt,ok,rec:false,wr:false};let txt;
- const valid=ok&&!c.cheat&&!c.grass&&!!gs,o=valid?{v:1,t:Math.round(lt*1000)/1000,ti:sel.team,num:isInt(c.num,0,99)?c.num:0,n:playerName().slice(0,14),gt:!!c.m.gt,hy:!!c.m.hyper,sc:!!c.m.sc4,sl:!!c.m.sl,f6:!!c.m.f6,mono:!!c.m.mono,mono2:!!c.m.mono2,ray:!!c.m.ray,pg:!!c.m.pg,rr:!!c.m.rr,paint:PAINT.on?Object.assign({},PAINT):undefined,date:Date.now(),s:gs}:null;
+ const valid=ok&&!c.cheat&&!c.grass&&!!gs,o=valid?{v:1,t:Math.round(lt*1000)/1000,ti:sel.team,num:isInt(c.num,0,99)?c.num:0,n:playerName().slice(0,14),gt:!!c.m.gt,hy:!!c.m.hyper,sc:!!c.m.sc4,sl:!!c.m.sl,f6:!!c.m.f6,mono:!!c.m.mono,mono2:!!c.m.mono2,ray:!!c.m.ray,pg:!!c.m.pg,rr:!!c.m.rr,kc:!!c.m.kc,paint:PAINT.on?Object.assign({},PAINT):undefined,date:Date.now(),s:gs}:null;
  let saved=true;if(valid&&lt<prev){saved=ttSave(curCirc,RAIN,o);TT.rec=o;TT.newRec=true;lap.rec=true;if(isFinite(prev)){huUnlock('record');huAddXP(20);huSave();}}
  const nosave=saved?'':' (no se pudo guardar)';
  if(W){const ref=wrT();
@@ -6765,7 +6795,7 @@ function startRace(){if(maintBlocked()){maintShow();return;}/* v128 */$('verBar'
  // al largar: el auto especial se anuncia solo con su nombre y el 1312 como "modo turbo" (sin los numeros, asi nadie los ve en tu pantalla)
  // si te lo puso filcman y eligio que se sepa: "✦ filcman te puso el Superauto y el modo turbo ✦" (el "mas lento" sin firmar no avisa nada)
  if(player.cheat||player.m.gt||player.assist||player.grass||CODE.de||CODE.velDe)setTimeout(()=>{if(state!=="countdown"&&state!=="race")return;
-  let car=player.m.hyper?"Hiperauto Vento 300+":player.m.sc4?"Superauto":player.m.sl?"R107 SL":player.m.f6?"Fitito":player.m.rr?"Rols Roise Culinan":player.m.pg?"Pagani Imola":player.m.ray?"Rayo McQueen":player.m.mono2?"Monopatín con piloto":player.m.mono?"Monopatín":player.m.gt?"GT Sport RS":"";
+  let car=player.m.hyper?"Hiperauto Vento 300+":player.m.sc4?"Superauto":player.m.sl?"R107 SL":player.m.f6?"Fitito":player.m.rr?"Rols Roise Culinan":player.m.kc?"Kenigseg CCX":player.m.pg?"Pagani Imola":player.m.ray?"Rayo McQueen":player.m.mono2?"Monopatín con piloto":player.m.mono?"Monopatín":player.m.gt?"GT Sport RS":"";
   const by=CODE.de||CODE.velDe,gifts=[];
   if(CODE.de){gifts.push('el '+(car||'F1'));car='';}
   if(CODE.velDe)gifts.push(CODE.vel==='lento'?'el modo lento':'el modo turbo');
@@ -7182,6 +7212,7 @@ const LICS=[
  ['Rayo McQueen (código 9595)','Modelo "Rayo McQueen Modernizado" de Daniel Pachon en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego (texturas y medidas). El personaje es de Disney·Pixar; este es un modelo hecho por un fan.','https://sketchfab.com/3d-models/rayo-mcqueen-modernizado-f0f84510ec89420abf6a4aa4a293879b'],
  ['Pagani Imola (código 2021)','Modelo "2021 Pagani Imola" de ddiaz-design en Sketchfab. Licencia CC BY-NC-SA 4.0 (sin fines de lucro). Adaptado para el juego: con menos triángulos y sin las partes que no se ven (en calidad Ultra, una versión más detallada).','https://sketchfab.com/3d-models/2021-pagani-imola-41d59a9e413944ba82e4a230db4c170c'],
  ['Rols Roise Culinan (código 1904)','Modelo "Rolls Royce Cullinan" de NewViStudios en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: sin los logos ni la estatuita del capó.','https://sketchfab.com/3d-models/rolls-royce-cullinan-61f16a1d5be2403abcdd8fa552f730f7'],
+ ['Kenigseg CCX (código 1994)','Modelo "2007 Koenigsegg CCX (No Roof)" de _Sheep19 en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: nombre cambiado, sin logos ni nombres de marca, enderezado y pintado con el color de tu escudería.','https://sketchfab.com/3d-models/2007-koenigsegg-ccx-no-roof-423b64e085974b97b5cfd5a87d9dcce3'],
  ['Trazados de los circuitos','Base de datos "f1-circuits" de Tomislav Bacinger. Licencia MIT.','https://github.com/bacinger/f1-circuits'],
  ['Edificios, agua, bosques y ciudades','© colaboradores de OpenStreetMap. Licencia ODbL.','https://www.openstreetmap.org/copyright'],
  ['Motor 3D','three.js (r128). Licencia MIT.','https://github.com/mrdoob/three.js'],
@@ -7492,9 +7523,9 @@ peSync();
 // 2009: corres con el hiperauto (Chiron Super Sport 300+); anda igual que el F1, asi que las vueltas cuentan
 // 4888: corres con el superauto rojo de franjas (diseño propio); anda igual que el F1
 // duran solo la proxima carrera y se pueden usar juntos
-const CODE={on:false,sport:false,assist:false,grass:false,hyper:false,sc4:false,sl:false,f6:false,mono:false,mono2:false,ray:false,pg:false,rr:false,de:'',vel:'',velDe:'',buf:'',t:0};
-function setCode(k,v){if(v&&BIG[k])bigLoad(k==='pg'&&sel.q===1?'pgf':k);if(v&&k==='mono2'){bigLoad('mono');bigLoad('monop');}if(k===false||['sport','hyper','sc4','sl','f6','mono','mono2','ray','pg','rr'].includes(k))CODE.de='';// de: quien te puso el auto (si quiso que se sepa)
- if(k===false){CODE.on=CODE.sport=CODE.assist=CODE.grass=CODE.hyper=CODE.sc4=CODE.sl=CODE.f6=CODE.mono=CODE.mono2=CODE.ray=CODE.pg=CODE.rr=false;CODE.vel=CODE.velDe='';}else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist||CODE.grass||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6||CODE.mono||CODE.mono2||CODE.ray||CODE.pg||CODE.rr;
+const CODE={on:false,sport:false,assist:false,grass:false,hyper:false,sc4:false,sl:false,f6:false,mono:false,mono2:false,ray:false,pg:false,rr:false,kc:false,de:'',vel:'',velDe:'',buf:'',t:0};
+function setCode(k,v){if(v&&BIG[k])bigLoad(k==='pg'&&sel.q===1?'pgf':k);if(v&&k==='mono2'){bigLoad('mono');bigLoad('monop');}if(k===false||['sport','hyper','sc4','sl','f6','mono','mono2','ray','pg','rr','kc'].includes(k))CODE.de='';// de: quien te puso el auto (si quiso que se sepa)
+ if(k===false){CODE.on=CODE.sport=CODE.assist=CODE.grass=CODE.hyper=CODE.sc4=CODE.sl=CODE.f6=CODE.mono=CODE.mono2=CODE.ray=CODE.pg=CODE.rr=CODE.kc=false;CODE.vel=CODE.velDe='';}else CODE[k]=v;const any=CODE.on||CODE.sport||CODE.assist||CODE.grass||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6||CODE.mono||CODE.mono2||CODE.ray||CODE.pg||CODE.rr;
  $('codeBtn').classList.toggle('on',any);$('codeBtn2').classList.toggle('on',any);}
 // v127: con un boton de nombre (CODE.hide) los cuadritos quedan vacios, asi no se ve el codigo
 function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textContent=CODE.hide?'':(CODE.buf[i]||'');s.classList.toggle('f',!CODE.hide&&i<CODE.buf.length);});
@@ -7502,7 +7533,7 @@ function codeSync(msg,cls){[...$('codeSlots').children].forEach((s,i)=>{s.textCo
 // v125: filcman tambien tiene los autos por el nombre (como en el ojito): tocar uno es como poner su codigo
 // v149: el usuario saco los codigos 0800 (pasto como asfalto) y 0900 (ayudas) y el modo Fin de semana del menu
 const CODE_NAMES=[['1312','Turbo (1312)'],['1705','GT Sport RS'],['2009','Hiperauto Vento 300+'],['4888','Superauto'],['4103','R107 SL'],
- ['1955','Fitito'],['3030','Monopatín'],['3131','Monopatín con piloto'],['9595','Rayo McQueen'],['2021','Pagani Imola'],['1904','Rols Roise Culinan']];
+ ['1955','Fitito'],['3030','Monopatín'],['3131','Monopatín con piloto'],['9595','Rayo McQueen'],['2021','Pagani Imola'],['1904','Rols Roise Culinan'],['1994','Kenigseg CCX']];
 // v126: la cuenta benja tiene solo el Rayo McQueen y el Rols Roise Culinan
 const CODE_USERS={benja:['9595','1904']};
 function codeList(){if(visMine())return CODE_NAMES;const u=NET.sess&&String(NET.sess.u||'').toLowerCase(),L=u&&Object.prototype.hasOwnProperty.call(CODE_USERS,u)?CODE_USERS[u]:null;return L?CODE_NAMES.filter(([c])=>L.includes(c)):null;}
@@ -7523,6 +7554,7 @@ function codeCheck(){if(CODE.buf.length<4){codeSync('Faltan números','bad');ret
  if(CODE.buf==='3131'){setCode('mono2',true);if(state==='menu')buildRace();codeSync('¡Monopatín con piloto para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v97 (v122: era 2222)
  if(CODE.buf==='9595'){setCode('ray',true);if(state==='menu')buildRace();codeSync('¡Rayo McQueen para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v116
  if(CODE.buf==='2021'){setCode('pg',true);if(state==='menu')buildRace();codeSync('¡Pagani Imola para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v117
+ if(CODE.buf==='1994'){setCode('kc',true);if(state==='menu')buildRace();codeSync('¡Kenigseg CCX para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v163
  if(CODE.buf==='1904'){setCode('rr',true);if(state==='menu')buildRace();codeSync('¡Rols Roise Culinan para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v124
  if(CODE.buf==='1955'){setCode('f6',true);if(state==='menu')buildRace();codeSync('¡Fitito para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}// v122: era 0600
  if(CODE.buf==='2009'){setCode('hyper',true);if(state==='menu')buildRace();codeSync('¡Hiperauto Vento 300+ para la próxima carrera!','ok');CODE.t=setTimeout(codeClose,1400);return;}
@@ -7669,7 +7701,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=162;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=163;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
@@ -7780,9 +7812,9 @@ for(const [id,yes] of [['invYes',true],['invNo',false]]){const el=$(id),fn=()=>i
 // sale al largar); si esta corriendo, el auto se cambia en el momento (online tambien lo ven los demas). Dura esa carrera, como los codigos.
 // Con "Para su proxima carrera offline" no cambia nada ahora: queda guardado (aunque recargue la pagina) y se lo pone cuando larga
 // su proxima carrera contra la compu (rapida, fin de semana, campeonato, supera tu record o record mundial; las online no cuentan).
-const GIFT={f1:'F1',sport:'GT Sport RS',hyper:'Hiperauto Vento 300+',sc4:'Superauto',sl:'R107 SL',f6:'Fitito',mono:'Monopatín',mono2:'Monopatín con piloto',ray:'Rayo McQueen',pg:'Pagani Imola',rr:'Rols Roise Culinan'};
-function giftFlags(o,k){o.sport=k==='sport';o.hyper=k==='hyper';o.sc4=k==='sc4';o.sl=k==='sl';o.f6=k==='f6';o.mono=k==='mono';o.mono2=k==='mono2';o.ray=k==='ray';o.pg=k==='pg';o.rr=k==='rr';}
-function remoteFlags(o,k){o.gtR=k!=='f1';o.hyR=k==='hyper';o.scR=k==='sc4';o.slR=k==='sl';o.f6R=k==='f6';o.monoR=k==='mono';o.mono2R=k==='mono2';o.rayR=k==='ray';o.pgR=k==='pg';o.rrR=k==='rr';}
+const GIFT={f1:'F1',sport:'GT Sport RS',hyper:'Hiperauto Vento 300+',sc4:'Superauto',sl:'R107 SL',f6:'Fitito',mono:'Monopatín',mono2:'Monopatín con piloto',ray:'Rayo McQueen',pg:'Pagani Imola',rr:'Rols Roise Culinan',kc:'Kenigseg CCX'};
+function giftFlags(o,k){o.sport=k==='sport';o.hyper=k==='hyper';o.sc4=k==='sc4';o.sl=k==='sl';o.f6=k==='f6';o.mono=k==='mono';o.mono2=k==='mono2';o.ray=k==='ray';o.pg=k==='pg';o.rr=k==='rr';o.kc=k==='kc';}
+function remoteFlags(o,k){o.gtR=k!=='f1';o.hyR=k==='hyper';o.scR=k==='sc4';o.slR=k==='sl';o.f6R=k==='f6';o.monoR=k==='mono';o.mono2R=k==='mono2';o.rayR=k==='ray';o.pgR=k==='pg';o.rrR=k==='rr';o.kcR=k==='kc';}
 // velocidad para la proxima carrera offline (v56): turbo = el modo turbo del 1312; lento = 12% menos de punta y 30% menos de empuje
 const VEL={turbo:'Turbo',lento:'Más lento'};
 // en el momento (v71): ademas "Normal", que le saca el turbo o el lento que le hayas puesto
@@ -7940,7 +7972,7 @@ const isNum=v=>typeof v==='number'&&isFinite(v);
 function olMsg(t,cls){const m=$('olMsg');m.textContent=t||'';m.className='padmsg'+(cls?' '+cls:'');}
 function olView(v){if(v==='home')setTimeout(vipCheck,0);$('olNoAcc').classList.toggle('hidden',v!=='noacc');$('olHome').classList.toggle('hidden',v!=='home');$('olLobby').classList.toggle('hidden',v!=='lobby');
  $('olClose').textContent=v==='lobby'?'Salir de la sala':'Cerrar';}
-function myInfo(){return {d:[...P2P.peers.keys()].filter(p2pOk),u:NET.sess.u,ti:sel.team,num:playerNum(),gt:!!(CODE.sport||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6||CODE.mono||CODE.mono2||CODE.ray||CODE.pg||CODE.rr),hy:!!CODE.hyper,sc:!!CODE.sc4,sl:!!CODE.sl,f6:!!CODE.f6,mono:!!CODE.mono,mono2:!!CODE.mono2,ray:!!CODE.ray,pg:!!CODE.pg,rr:!!CODE.rr,host:ONL.host,cfg:ONL.host?ONL.cfg:undefined};}
+function myInfo(){return {d:[...P2P.peers.keys()].filter(p2pOk),u:NET.sess.u,ti:sel.team,num:playerNum(),gt:!!(CODE.sport||CODE.hyper||CODE.sc4||CODE.sl||CODE.f6||CODE.mono||CODE.mono2||CODE.ray||CODE.pg||CODE.rr||CODE.kc),hy:!!CODE.hyper,sc:!!CODE.sc4,sl:!!CODE.sl,f6:!!CODE.f6,mono:!!CODE.mono,mono2:!!CODE.mono2,ray:!!CODE.ray,pg:!!CODE.pg,rr:!!CODE.rr,host:ONL.host,cfg:ONL.host?ONL.cfg:undefined};}
 async function olOpen(){$('onlinePad').classList.remove('hidden');olMsg('');
  if(ONL.code){olView('lobby');olRender();return;}
  if(!NET.sess){olView('noacc');return;}
@@ -7980,7 +8012,7 @@ function olBye(){if(!ONL.host)return;const now=performance.now(),back=ONL.took&&
 // jugadores que se escucharon en los ultimos 12 s (y vos)
 function olPresent(){const now=performance.now(),L=[{...myInfo(),me:true}];for(const p of ONL.players.values())if(now-p.last<12000)L.push(p);return L;}
 function olRender(){if(!ONL.code)return;$('olRoom').textContent=ONL.code;
- const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+((p.me?ONL.host:p.u===ONL.hostName)?'líder':'')+(p.hy?' · hiperauto':p.sc?' · superauto':p.sl?' · R107 SL':p.f6?' · Fitito':p.rr?' · Rols Roise Culinan':p.pg?' · Pagani Imola':p.ray?' · Rayo McQueen':p.mono2?' · monopatín con piloto':p.mono?' · monopatín':p.gt?' · GT Sport':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
+ const L=olPresent();$('olPlayers').innerHTML=L.map(p=>'<div><i style="background:'+TEAMS[p.ti].c1+'"></i>'+esc(p.u)+(p.me?' (vos)':'')+'<small>'+((p.me?ONL.host:p.u===ONL.hostName)?'líder':'')+(p.hy?' · hiperauto':p.sc?' · superauto':p.sl?' · R107 SL':p.f6?' · Fitito':p.rr?' · Rols Roise Culinan':p.kc?' · Kenigseg CCX':p.pg?' · Pagani Imola':p.ray?' · Rayo McQueen':p.mono2?' · monopatín con piloto':p.mono?' · monopatín':p.gt?' · GT Sport':'')+'</small>'+(p.me?'':(s=>'<span class="net '+s+'">'+NETTXT[s]+'</span>')(p2pState(p.u)))+'</div>').join('');
  // v161: hasta 8 por sala; mientras mas jugadores, mas conexiones directas tiene cada uno y peor anda
  const mn=$('olMany'),many=L.length>=5;mn.textContent=many?'⚠️ Son '+L.length+' jugadores: puede andar más lento o a tirones, sobre todo en celulares o con internet lenta.':'Hasta 8 jugadores por sala. Mientras más jugadores, peor anda (cada uno se conecta con todos los demás).';mn.style.color=many?'#ffb84d':'';
 $('olNetHint').classList.toggle('hidden',!L.some(p=>!p.me&&p2pState(p.u)==='sb'));$('olHostCfg').classList.toggle('hidden',!ONL.host);
@@ -8010,7 +8042,7 @@ function olOnMsg(ev,p,direct){if((ev==="p"||ev==="z")&&!direct)return;
  if(!p||typeof p!=='object')return;
  if(ev==='hola'){if(!OK_NAME.test(p.u)||!NET.sess||p.u===NET.sess.u)return;if(!ONL.players.has(p.u)&&ONL.players.size>=8)return;
   const isNew=!ONL.players.has(p.u),ti=Number.isInteger(p.ti)&&p.ti>=0&&p.ti<TEAMS.length?p.ti:0;
-  ONL.players.set(p.u,{u:p.u,ti,seen:isNew?performance.now():ONL.players.get(p.u).seen,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,sc:p.sc===true,sl:p.sl===true,f6:p.f6===true,mono:p.mono===true,mono2:p.mono2===true,ray:p.ray===true,pg:p.pg===true,rr:p.rr===true,d:Array.isArray(p.d)?p.d.filter(u=>typeof u==='string'&&OK_NAME.test(u)).slice(0,8):[],host:p.host===true,last:performance.now()});
+  ONL.players.set(p.u,{u:p.u,ti,seen:isNew?performance.now():ONL.players.get(p.u).seen,num:Number.isInteger(p.num)&&p.num>=0&&p.num<=99?p.num:1,gt:p.gt===true,hy:p.hy===true,sc:p.sc===true,sl:p.sl===true,f6:p.f6===true,mono:p.mono===true,mono2:p.mono2===true,ray:p.ray===true,pg:p.pg===true,rr:p.rr===true,kc:p.kc===true,d:Array.isArray(p.d)?p.d.filter(u=>typeof u==='string'&&OK_NAME.test(u)).slice(0,8):[],host:p.host===true,last:performance.now()});
   // v103: solo se le cree al lider de ahora (el que lo era antes puede seguir diciendo que es lider unos segundos);
   // filcman, al quedarse con la sala, sigue con el circuito, vueltas y clima que habia elegido el anterior
   const okCfg=c=>c&&typeof c==='object'&&Number.isInteger(c.ci)&&c.ci>=0&&c.ci<CIRCUITS.length&&[3,5,8].includes(c.laps)&&(c.rain===0||c.rain===1);
@@ -8049,7 +8081,7 @@ function olOnMsg(ev,p,direct){if((ev==="p"||ev==="z")&&!direct)return;
 // grilla online: solo los jugadores de la sala, en el orden sorteado (vos con tu escuderia, los demas con la suya)
 function olRoster(){const me=NET.sess?NET.sess.u:"";return sess.online.order.map((u,i)=>{const code=u.slice(0,3).toUpperCase();
  if(u===me)return {id:"ME",ti:sel.team,driver:u,num:playerNum(),isPlayer:true,team:TEAMS[sel.team],code};
- const p=ONL.players.get(u)||{ti:0,num:1,gt:false};return {id:"R"+i,ti:p.ti,driver:u,num:p.num,remote:true,gtR:!!p.gt,hyR:!!p.hy,scR:!!p.sc,slR:!!p.sl,f6R:!!p.f6,monoR:!!p.mono,mono2R:!!p.mono2,rayR:!!p.ray,pgR:!!p.pg,rrR:!!p.rr,team:TEAMS[p.ti],code};});}
+ const p=ONL.players.get(u)||{ti:0,num:1,gt:false};return {id:"R"+i,ti:p.ti,driver:u,num:p.num,remote:true,gtR:!!p.gt,hyR:!!p.hy,scR:!!p.sc,slR:!!p.sl,f6R:!!p.f6,monoR:!!p.mono,mono2R:!!p.mono2,rayR:!!p.ray,pgR:!!p.pg,rrR:!!p.rr,kcR:!!p.kc,team:TEAMS[p.ti],code};});}
 // largada: todos arrancan el semaforo al mismo tiempo (3,5 s despues de que el anfitrion toca Largar)
 function olGo(g){const t0=performance.now();ONL.inRace=true;ONL.finSent=false;ONL.lostT=0;for(const q of P2P.peers.values())q.heard=t0;$('onlinePad').classList.add('hidden');olMsg('');
  sess={type:'race',laps:g.laps,grid:null,online:{race:g.race,order:g.order.slice(),rain:!!g.rain}};
