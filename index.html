@@ -1629,6 +1629,21 @@ function raceLine(P,NL,N,lim){const o=new Float32Array(N),X=new Float32Array(N),
  const r=smoothArr(o,2,N);for(let i=0;i<N;i++)r[i]=clamp(r[i],-lim,lim);return r;}
 // la linea en un punto cualquiera de la vuelta (entre dos puntos de la pista)
 function lineAt(s){const {line,N}=track,x=((s%N)+N)%N,i=Math.floor(x),f=x-i;return line[i]+(line[(i+1)%N]-line[i])*f;}
+// v171 (usuario): el Burj Khalifa en el horizonte de Abu Dabi, hacia donde queda Dubai de verdad (al noreste; en la vida real esta a
+// 130 km y no se ve: aca esta a 1,4 km para que se vea grande). Modelo "( FREE ) Burj Khalifa Dubai" de SDC PERFORMANCE en Sketchfab
+// (CC BY 4.0): https://sketchfab.com/3d-models/free-burj-khalifa-dubai-c1d6f5884c9c4a56b8d8f9c5555f1902 . Achicado con Blender de
+// 661 mil a 20 mil triangulos (autos/herramientas/burj.py + burj.js), 828 m de alto; datos/burj-1.json (450 KB) se baja solo cuando
+// se arma Abu Dabi. Caras planas (flatShading, sin normales guardadas), media niebla y de noche se prende (BURJM).
+let BURJ_D=null;const BURJM=[];
+function burjAdd(){const g=new THREE.Group(),bx=(track.minX+track.maxX)/2,bz=(track.minZ+track.maxZ)/2;g.position.set(bx+0.65*1400,-25,bz-0.76*1400);world.add(g);
+ const fill=()=>{if(!g.parent||!BURJ_D||g.children.length)return;BURJM.length=0;
+  const M=BURJ_D.mats.map(a=>{const gl=a.k==='Vitres';const m=new THREE.MeshStandardMaterial({color:gl?'#3d5466':'#c6cbd2',metalness:gl?0.6:0.7,roughness:gl?0.15:0.32,flatShading:true,emissive:'#9db8e6',emissiveIntensity:isNight()?0.4:0});
+   // solo la mitad de la niebla: se ve lejos pero no desaparece (con la niebla entera quedaba del color del cielo)
+   m.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <fog_fragment>',THREE.ShaderChunk.fog_fragment.replace('smoothstep( fogNear, fogFar, fogDepth )','smoothstep( fogNear, fogFar, fogDepth )*0.5'));};return m;});
+  for(const p of BURJ_D.parts){const P=pgArr(p.v,Int16Array),pos=new Float32Array(P.length);for(let i=0;i<P.length;i++)pos[i]=P[i]/p.s;
+   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setIndex(new THREE.BufferAttribute(pgArr(p.i,Uint16Array),1));geo.computeBoundingSphere();g.add(new THREE.Mesh(geo,M[p.m]));}
+  BURJM.push(...M);};
+ if(BURJ_D)fill();else{bigLoad('burj');const t=setInterval(()=>{if(BURJ_D){clearInterval(t);fill();}else if(!BIG.burj.p)clearInterval(t);},250);}}
 function computeTrack(circ){
  const pts=circ.pts.map(p=>new V3(p[0],0,p[1]));
  const curve=new THREE.CatmullRomCurve3(pts,true,'centripetal');
@@ -1834,7 +1849,7 @@ function buildNightLights(){const T=track,{P,NL,H,N,ds,L}=T,pp=T.pit,step=Math.m
  const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));rg.setAttribute('color',new THREE.Float32BufferAttribute(col,3));rg.setIndex(idx);
  const rib=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
  rib.renderOrder=2;G.add(rib);world.add(G);return G;}
-function nightLights(on){for(const m of STREETM)m.emissiveIntensity=on?0.75:0;// ventanas de los edificios (v74)
+function nightLights(on){for(const m of STREETM)m.emissiveIntensity=on?0.75:0;for(const m of BURJM)m.emissiveIntensity=on?0.4:0;// ventanas de los edificios (v74)
  if(!track||!track.pit||!world)return;if(on&&!track.nl)track.nl=buildNightLights();if(track.nl)track.nl.visible=on;}
 const flagMatCache={};
 function flagMat(code){if(!flagMatCache[code])flagMatCache[code]=new THREE.MeshLambertMaterial({map:flagTex(code),side:THREE.DoubleSide});return flagMatCache[code];}
@@ -3116,6 +3131,7 @@ function buildWorld(ci){
    const s=new THREE.Sprite(cm);SKYO.clouds.push(s);const a=rnd(0,PI*2),r=rnd(300,ext+1000);s.position.set(cx+Math.cos(a)*r,rnd(170,420),cz+Math.sin(a)*r);const sz=rnd(200,440);s.scale.set(sz,sz*0.5,1);world.add(s);}
   const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:T_GLOW,color:sk.sun,transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,opacity:sk.glow}));
   glow.position.set(cx,0,cz).addScaledVector(sunDir,2200);glow.scale.set(sk.glowS,sk.glowS,1);world.add(glow);SKYO.glow=glow;}
+ if(circ.name==='Abu Dabi')burjAdd();// v171
  skyTint(isNight(),sel.tod===1);nightLights(isNight());
  prepMap();
 }
@@ -5818,10 +5834,10 @@ function makeRolls(team,num,name){
 // GT Sport RS (las mismas fisicas que todos los autos especiales) y cuando llegan se cambia solo (swapCar). Si no bajan, queda el GT.
 // v135: los dos monopatines (350 y 265 KB) tambien se bajan aparte: mono = el monopatin, monop = el piloto (el del codigo 3131 necesita los dos).
 // bigWait es la lista de archivos que le faltan a ese auto; cuando estan todos se cambia solo.
-const BIG={ray:{f:'datos/rayo-1.json',d:null,p:null},pg:{f:'datos/pagani-1.json',d:null,p:null},rr:{f:'datos/rolls-1.json',d:null,p:null},kc:{f:'datos/kcx-1.json',d:null,p:null},sn:{f:'datos/sian-1.json',d:null,p:null},bc:{f:'datos/chiron-1.json',d:null,p:null},mono:{f:'datos/mono-1.json',d:null,p:null},monop:{f:'datos/monop-1.json',d:null,p:null},pgf:{f:'datos/pagani-fino-1.json',d:null,p:null}};// v137: pgf = Pagani fino (80 mil triangulos, solo en Ultra)
+const BIG={ray:{f:'datos/rayo-1.json',d:null,p:null},pg:{f:'datos/pagani-1.json',d:null,p:null},rr:{f:'datos/rolls-1.json',d:null,p:null},kc:{f:'datos/kcx-1.json',d:null,p:null},sn:{f:'datos/sian-1.json',d:null,p:null},bc:{f:'datos/chiron-1.json',d:null,p:null},mono:{f:'datos/mono-1.json',d:null,p:null},monop:{f:'datos/monop-1.json',d:null,p:null},pgf:{f:'datos/pagani-fino-1.json',d:null,p:null},burj:{f:'datos/burj-1.json',d:null,p:null}};// v137: pgf = Pagani fino (80 mil triangulos, solo en Ultra)
 function bigLoad(k){const b=BIG[k];if(!b||b.d||b.p)return;
- b.p=fetch(b.f).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}).then(d=>{if(!d||!Array.isArray(d.parts)||(k==='mono'?!Array.isArray(d.mats):k!=='monop'&&!Array.isArray(d.tex)))throw new Error('datos');
-  b.d=d;if(k==='ray')RAYO_D=d;else if(k==='pg')PAGANI_D=d;else if(k==='rr')RR_D=d;else if(k==='kc')KC_D=d;else if(k==='sn')SN_D=d;else if(k==='bc')BC_D=d;else if(k==='mono')MONO_D=d;else if(k==='monop')MONO_P=d;
+ b.p=fetch(b.f).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}).then(d=>{if(!d||!Array.isArray(d.parts)||(k==='mono'?!Array.isArray(d.mats):k!=='monop'&&k!=='burj'&&!Array.isArray(d.tex)))throw new Error('datos');
+  b.d=d;if(k==='ray')RAYO_D=d;else if(k==='pg')PAGANI_D=d;else if(k==='rr')RR_D=d;else if(k==='kc')KC_D=d;else if(k==='sn')SN_D=d;else if(k==='bc')BC_D=d;else if(k==='mono')MONO_D=d;else if(k==='monop')MONO_P=d;else if(k==='burj')BURJ_D=d;
   for(const c of cars)if(c.m&&c.m.bigWait&&c.m.bigWait.every(x=>BIG[x].d))swapCar(c);}).catch(()=>{}).finally(()=>{b.p=null;});}
 function bigCar(ks,make,team,num,name){const miss=ks.filter(k=>!BIG[k].d);if(!miss.length)return make(team,num,name);miss.forEach(bigLoad);const m=makeSportsCar(team,num,name);m.bigWait=ks;return m;}
 function makeRayoL(team,num,name){return bigCar(['ray'],makeRayo,team,num,name);}
@@ -7313,6 +7329,7 @@ const LICS=[
  ['Rols Roise Culinan (código 1904)','Modelo "Rolls Royce Cullinan" de NewViStudios en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: sin los logos ni la estatuita del capó.','https://sketchfab.com/3d-models/rolls-royce-cullinan-61f16a1d5be2403abcdd8fa552f730f7'],
  ['Kenigseg CCX (código 1994)','Modelo "2007 Koenigsegg CCX (No Roof)" de _Sheep19 en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: nombre cambiado, sin logos ni nombres de marca, enderezado y pintado con el color de tu escudería.','https://sketchfab.com/3d-models/2007-koenigsegg-ccx-no-roof-423b64e085974b97b5cfd5a87d9dcce3'],
  ['Lamborgini Sian (código 3737)','Modelo "2020 Lamborghini Sián FKP 37" de Hari Prasath R (Haris3D) en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: nombre cambiado, sin logos ni nombres de marca, achicado y pintado con el color de tu escudería.','https://sketchfab.com/3d-models/2020-lamborghini-sian-fkp-37-texture-reupload-f59fafa2f66841988cd35a089c3067ca'],
+ ['Burj Khalifa (Abu Dabi)','Modelo "( FREE ) Burj Khalifa Dubai" de SDC PERFORMANCE en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: achicado de 661 mil a 20 mil triángulos y puesto de fondo en Abu Dabi.','https://sketchfab.com/3d-models/free-burj-khalifa-dubai-c1d6f5884c9c4a56b8d8f9c5555f1902'],
  ['Bugati Chiron (código 1500)','Modelo "Free Bugatti Chiron" de ALIEEEN en Sketchfab. Licencia CC BY 4.0. Adaptado para el juego: nombre cambiado, sin logos, tablero y faros redibujados, achicado y pintado con el color de tu escudería.','https://sketchfab.com/3d-models/free-bugatti-chiron-374890e62c5a44e9a739ca638b6e0a18'],
  ['Trazados de los circuitos','Base de datos "f1-circuits" de Tomislav Bacinger. Licencia MIT.','https://github.com/bacinger/f1-circuits'],
  ['Edificios, agua, bosques y ciudades','© colaboradores de OpenStreetMap. Licencia ODbL.','https://www.openstreetmap.org/copyright'],
@@ -8123,7 +8140,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=170;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=171;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
