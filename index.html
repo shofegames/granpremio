@@ -7622,9 +7622,13 @@ function megaExit(){huPadClose();for(const r of MR.cars)if(r.m){MR.g.remove(r.m.
  if(world)world.visible=true;if(carsGroup)carsGroup.visible=true;document.body.classList.remove('mega');$('mgHud').classList.add('hidden');goMenu();}
 // pone el auto en la pista segun s (metros) y l (metros a la izquierda del centro)
 function mrPlace(r){const q=mrAt(r.s),lx=Math.cos(q.h),lz=-Math.sin(q.h);r.pos.set(q.x+lx*r.l,q.y,q.z+lz*r.l);r.P=q.p;r.R=0;}
-function mrToAir(r,q){const c=Math.cos(q.p),lx=Math.cos(q.h),lz=-Math.sin(q.h),f=r.u;
- r.vel.set(Math.sin(r.ch)*c*f+lx*r.vl,Math.sin(q.p)*f,Math.cos(r.ch)*c*f+lz*r.vl);r.air=true;r.sg=r.s;r.wp=0;}
-function mrRespawn(r){const cs=MRC.cps[r.cp]||0;r.s=cs+(r.cp?6:30);r.l=rnd(-3,3);r.u=r.cp?12:0;r.vl=0;r.air=false;r.dead=0;r.ch=mrAt(r.s).h;mrPlace(r);if(r.isMe){MR.snap=true;showMsg('De vuelta al checkpoint',1100);}}
+// v169 (usuario: "que de vueltas como en la vida real, se cae muy recto"): vuelco = giro de costado (wR), de trompa (wP) y sobre si mismo (wY)
+function mrTumble(r,wR,wP,wY){r.tumble=true;r.wR=wR;r.wP=wP;r.wY=wY;}
+function mrToAir(r,q,edge){const c=Math.cos(q.p),lx=Math.cos(q.h),lz=-Math.sin(q.h),f=r.u;
+ r.vel.set(Math.sin(r.ch)*c*f+lx*r.vl,Math.sin(q.p)*f,Math.cos(r.ch)*c*f+lz*r.vl);r.air=true;r.sg=r.s;r.wp=0;r.tumble=false;
+ // por el borde: se va para afuera y se da vuelta hacia ese lado (el lado de afuera baja primero), con algo de trompa y de giro
+ if(edge){const sd=Math.sign(r.l)||1;r.vel.x+=lx*sd*2.5;r.vel.z+=lz*sd*2.5;r.vel.y-=1;mrTumble(r,-sd*rnd(2.2,3.6),rnd(-1.6,0.4),rnd(-1.2,1.2));}}
+function mrRespawn(r){const cs=MRC.cps[r.cp]||0;r.s=cs+(r.cp?6:30);r.l=rnd(-3,3);r.u=r.cp?12:0;r.vl=0;r.air=false;r.dead=0;r.tumble=false;r.ch=mrAt(r.s).h;mrPlace(r);r.dR=0;r.dP=r.P;if(r.isMe){MR.snap=true;showMsg('De vuelta al checkpoint',1100);}}
 function mrInputAI(r){const q=mrAt(r.s),look=r.s+clamp(r.u*0.7,8,34),qL=mrAt(look),wl=Math.min(qL.w,q.w);
  const tl=clamp(r.lane*(wl/2-2.6),-(wl/2-2),wl/2-2),des=qL.h+Math.atan2(tl-r.l,look-r.s);
  if(r.errT>0)r.errT-=1/60;else if(Math.random()<r.err/60){r.errT=rnd(0.3,0.8);r.errS=rnd(-1,1);}
@@ -7632,7 +7636,7 @@ function mrInputAI(r){const q=mrAt(r.s),look=r.s+clamp(r.u*0.7,8,34),qL=mrAt(loo
  let vT=999;const G=MRPH[r.key][2]*r.sk;for(let d=0;d<100;d+=6){const k=Math.abs(mrAt(r.s+d).k);if(k>1e-4)vT=Math.min(vT,Math.sqrt(G*0.82/k)+d*0.25);}
  return {steer:clamp(steer,-1,1),thr:r.u<vT-1?1:0,brk:r.u>vT+3?1:0};}
 function mrStep(r,h,inp){const K=MRK,g=K.g;if(r.fin&&!r.isMe)inp={steer:inp.steer,thr:0,brk:1};
- if(r.dead){r.dead-=h;r.vel.y-=g*h;r.pos.addScaledVector(r.vel,h);if(r.dead<=0)mrRespawn(r);return;}
+ if(r.dead){r.dead-=h;r.vel.y-=g*h;r.pos.addScaledVector(r.vel,h);if(r.tumble){r.P+=r.wP*h;r.R+=r.wR*h;r.ch+=r.wY*h;}if(r.dead<=0)mrRespawn(r);return;}
  const ph=MRPH[r.key]||MRPH.f1;
  if(!r.air){let q=mrAt(r.s);if(!q.floor){mrToAir(r,q);return;}
   const v=r.u;let acc=-g*Math.sin(q.p)-K.kd*v*Math.abs(v)-0.2*Math.sign(v);if(inp.thr)acc+=ph[0]*r.sk*Math.max(0,1-v/ph[1]);if(inp.brk&&v>0.5)acc-=14;
@@ -7641,7 +7645,7 @@ function mrStep(r,h,inp){const K=MRK,g=K.g;if(r.fin&&!r.isMe)inp={steer:inp.stee
   r.s+=r.u*Math.cos(a)*h;r.l+=(r.u*Math.sin(a)+r.vl)*h;r.vl*=1-Math.min(1,h*3);
   q=mrAt(r.s);const half=q.w/2;
   if(q.wall&&Math.abs(r.l)>half-1.1){r.l=Math.sign(r.l)*(half-1.1);r.ch=q.h-wrapA(r.ch-q.h)*0.3;r.u*=0.93;r.vl=0;if(r.isMe&&MR.t>MR.railT){MR.railT=MR.t+0.4;sndHit(0.4);MR.shake=0.5;}}
-  else if(!q.wall&&Math.abs(r.l)>half+0.4){mrToAir(r,q);return;}
+  else if(!q.wall&&Math.abs(r.l)>half+0.4){mrToAir(r,q,true);return;}
   // arriba de una loma rapida: despega
   const dp=mrDp(r.s);if(dp<0&&r.u*r.u*(-dp)>g*Math.cos(q.p)*1.05&&r.u>15){mrToAir(r,q);r.pos.y+=0.05;return;}
   mrPlace(r);
@@ -7651,22 +7655,28 @@ function mrStep(r,h,inp){const K=MRK,g=K.g;if(r.fin&&!r.isMe)inp={steer:inp.stee
  // en el aire
  const V=r.vel,sp=V.length();V.y-=g*h;V.multiplyScalar(1-K.kAir*sp*h);const y0=r.pos.y;r.pos.addScaledVector(V,h);
  const va=Math.atan2(V.y,Math.hypot(V.x,V.z));
+ if(r.tumble){r.P+=r.wP*h;r.R+=r.wR*h;r.ch+=r.wY*h;}else{
  if(r.isMe&&(inp.steer)){const da=inp.steer*0.5*h,c=Math.cos(da),s=Math.sin(da),vx=V.x;V.x=vx*c+V.z*s;V.z=-vx*s+V.z*c;r.ch+=da;}
- const tp=r.isMe?(inp.brk?1:0)-(inp.thr?1:0):0;r.wp=lerp(r.wp,tp?tp*3:clamp(wrapA(0.5*va-r.P)*1.8,-2.6,2.6),Math.min(1,h*5));r.P+=r.wp*h;r.R=lerp(r.R,0,Math.min(1,h*3));
+ const tp=r.isMe?(inp.brk?1:0)-(inp.thr?1:0):0;r.wp=lerp(r.wp,tp?tp*3:clamp(wrapA(0.5*va-r.P)*1.8,-2.6,2.6),Math.min(1,h*5));r.P+=r.wp*h;r.R=lerp(r.R,0,Math.min(1,h*3));}
  // donde va a caer: busca la muestra de la pista mas cerca (alrededor de sg)
  const S=MRC.S,DS=MRC.DS;r.sg+=Math.hypot(V.x,V.z)*h;let best=null,bd=1e9;
  const i0=Math.max(0,Math.floor(r.sg/DS)-25),i1=Math.min(S.length-2,Math.floor(r.sg/DS)+40);
  for(let i=i0;i<=i1;i++){const q=S[i],dx=r.pos.x-q.x,dz=r.pos.z-q.z,d=dx*dx+dz*dz;if(d<bd){bd=d;best=i;}}
  if(best!=null){const q=S[best],dx=r.pos.x-q.x,dz=r.pos.z-q.z,al=dx*Math.sin(q.h)+dz*Math.cos(q.h),lat=dx*Math.cos(q.h)-dz*Math.sin(q.h);r.sg=best*DS+al;
   const fq=mrAt(best*DS+al);if(fq.floor&&Math.abs(lat)<fq.w/2&&r.pos.y<=fq.y&&y0>=fq.y-2.5){// cae arriba de la pista
-   const c=Math.cos(fq.p),fx=Math.sin(fq.h)*c,fy=Math.sin(fq.p),fz=Math.cos(fq.h)*c;let u=V.x*fx+V.y*fy+V.z*fz;const e=Math.abs(wrapA(r.P-fq.p));if(e>0.7)u*=0.6;
+   const c=Math.cos(fq.p),fx=Math.sin(fq.h)*c,fy=Math.sin(fq.p),fz=Math.cos(fq.h)*c;let u=V.x*fx+V.y*fy+V.z*fz;const e=Math.abs(wrapA(r.P-fq.p)),er=Math.abs(wrapA(r.R));
+   // v169: cayo torcido (o dando vueltas) y fuerte: pega, rebota con vuelco y pierde velocidad; despacio ya se queda
+   if((r.tumble||e>0.75||er>0.7)&&-V.y>4){r.pos.y=fq.y+0.05;V.y=Math.abs(V.y)*0.32;V.x*=0.65;V.z*=0.65;mrTumble(r,rnd(2.5,5.5)*(Math.random()<0.5?-1:1),rnd(-4,4),rnd(-2.5,2.5));
+    mrDust(r.pos,r.isMe?14:6);if(r.isMe){sndHit(1);MR.shake=1.1;}return;}
+   if(e>0.7||er>0.6||r.tumble)u*=0.5;r.tumble=false;
    r.air=false;r.s=best*DS+al;r.l=lat;r.u=Math.max(0,u);r.ch=Math.atan2(V.x,V.z);r.vl=0;mrPlace(r);mrDust(r.pos,r.isMe?10:5);
    if(r.isMe){sndHit(Math.min(1,0.3+Math.abs(V.y)/30));MR.shake=Math.min(1,Math.abs(V.y)/25);}return;}
   // volando bajo arriba de un tramo con paredes: las paredes lo frenan (como los tubos de las mega rampas)
   if(fq.floor&&fq.wall&&r.pos.y<fq.y+5&&r.pos.y>fq.y-1.5&&Math.abs(lat)>fq.w/2-1.1){const sd=Math.sign(lat),ex=Math.abs(lat)-(fq.w/2-1.1),lx=Math.cos(q.h),lz=-Math.sin(q.h);
    r.pos.x-=lx*sd*ex;r.pos.z-=lz*sd*ex;const vlat=V.x*lx+V.z*lz;if(vlat*sd>0){V.x-=lx*vlat*1.3;V.z-=lz*vlat*1.3;}}
   // los rivales en el aire corrigen un poco hacia la pista (vos lo haces con izquierda/derecha)
-  if(!r.isMe){const da=clamp(wrapA(q.h-Math.atan2(V.x,V.z)+clamp(-lat/60,-0.3,0.3)),-0.35*h,0.35*h),c=Math.cos(da),s=Math.sin(da),vx=V.x;V.x=vx*c+V.z*s;V.z=-vx*s+V.z*c;r.ch+=da;}
+  if(!r.tumble&&r.pos.y<q.y-4)mrTumble(r,rnd(1.8,3.2)*(Math.random()<0.5?-1:1),rnd(-1.5,1.5),rnd(-1,1));// v169
+  if(!r.isMe&&!r.tumble){const da=clamp(wrapA(q.h-Math.atan2(V.x,V.z)+clamp(-lat/60,-0.3,0.3)),-0.35*h,0.35*h),c=Math.cos(da),s=Math.sin(da),vx=V.x;V.x=vx*c+V.z*s;V.z=-vx*s+V.z*c;r.ch+=da;}
   if(r.pos.y<q.y-28||r.pos.y<6){r.dead=1.3;if(r.isMe){showMsg('¡Te caíste!',1200);}}}}
 // choques entre autos (solo los que estan en la pista): se empujan de costado y el de atras le pasa velocidad al de adelante
 function mrBump(){const L=MR.cars;for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=L[i],b=L[j];if(a.air||b.air||a.dead||b.dead)continue;
@@ -7681,7 +7691,10 @@ function mrDustStep(dt){for(const d of MR.dust){if(!d.visible)continue;const u=d
   d.position.addScaledVector(u.v,dt);u.v.multiplyScalar(1-Math.min(1,dt*1.5));const k=u.t/u.life;d.scale.setScalar(u.s*(1+k*2));d.material.opacity=0.7*(1-k);}}
 function mrVisual(r,dt){const m=r.m;if(!m)return;
  if(m.bigWait&&m.bigWait.every(k=>BIG[k].d))mrModel(r,r.key);// el auto grande termino de bajar: se cambia
- const o=r.m.root;o.position.copy(r.pos);o.rotation.set(-r.P,r.ch,r.R);
+ const o=r.m.root,tb=r.tumble||r.dead;if(r.dR==null||tb){r.dR=r.R;r.dP=r.P;}else{const k=Math.min(1,dt*7);r.dR+=wrapA(r.R-r.dR)*k;r.dP+=wrapA(r.P-r.dP)*k;}
+ o.rotation.set(-r.dP,r.ch,r.dR);o.position.copy(r.pos);
+ // v169: dando vueltas gira alrededor del medio del auto (a 0,55 m del piso), no de las ruedas
+ if(r.air||r.dead||Math.abs(wrapA(r.dR))>0.05){_mgW.set(0,0.55,0).applyQuaternion(o.quaternion);o.position.y+=0.55;o.position.sub(_mgW);}
  const on=!r.air&&!r.dead;r.wv=on?r.u:r.wv*(1-Math.min(1,dt*0.4));for(const w of m.wheels)w.rotation.x+=r.wv*dt/(m.wr||0.354);
  for(const f of m.fronts)f.rotation.y=r.steer*(m.lock||0.42)*0.6;if(m.swg)m.swg.quaternion.setFromAxisAngle(m.swAx,r.steer*1.8);}
 // camara atras de tu auto (en el aire mira hacia donde vuela; si te caes se queda mirando) o "cine" de costado
@@ -8058,7 +8071,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=168;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=169;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
