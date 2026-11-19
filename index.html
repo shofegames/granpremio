@@ -573,6 +573,7 @@ body.touch #mgHint{font-size:11px;bottom:calc(env(safe-area-inset-bottom,0px) + 
 body.mega #hud>:not(#touch):not(#msg):not(#mgHud){display:none!important}body.mega #tErs{display:none!important}
 .mg-big{font-size:58px;font-weight:900;color:var(--accent);text-align:center;line-height:1;margin:6px 0 4px}
 .mg-rec{color:#ffd21f;font-weight:800;text-align:center;font-size:18px}.mg-c{text-align:center}
+.mg-modes{display:grid;gap:10px;margin-top:6px}.mg-modes .btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:12px 14px;height:auto;width:100%}.mg-modes small{font-weight:400;opacity:.8;font-size:13px}
 .mg-tab{width:100%;border-collapse:collapse;margin:8px 0}.mg-tab td{padding:5px 6px;border-bottom:1px solid var(--line)}.mg-tab tr.me{background:rgba(255,255,255,.1);font-weight:800}
 .mg-tab i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}.mg-tab td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 </style>
@@ -7375,8 +7376,8 @@ function hmInit(){
   else if(a==='online')olOpen();else if(a==='rank')$('rankBtn').click();else if(a==='garage')hmGarage();else if(a==='profile')huProfile();else if(a==='ach')huAch();else if(a==='cfg')hmConfig();};
  for(const b of $('hmPlay').querySelectorAll('button[data-m]'))b.onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();hmSetup(+b.dataset.m);};
  $('hmDaily').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();dailyOpen();};
- $('hmMega').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();megaStart();};// v167
- $('mgExit').onclick=megaExit;$('mgCam').onclick=()=>{MR.cam=1-MR.cam;};
+ $('hmMega').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();mgModeOpen();};// v167, v170: primero se elige el modo
+ $('mgExit').onclick=megaExit;$('mgCam').onclick=mgCamNext;
  $('hmEdit').onclick=()=>{initAudio();if(actx&&actx.state==='suspended')actx.resume();edOpen();};
  $('hmChip').onclick=huProfile;$('hmBack').onclick=hmShow;$('codeBtn2').onclick=codeOpen;}
 /* ---------------- v99: repeticion (traida del Hiperultra): se graban todos los autos 10 veces por segundo durante la carrera ---------------- */
@@ -7596,16 +7597,18 @@ function mrBuild(){if(MR.g)return;const g=new THREE.Group();MR.g=g;scene.add(g);
  MR.dtex=mgTex(64,64,(x,w,h)=>{const r=x.createRadialGradient(w/2,h/2,2,w/2,h/2,w/2);r.addColorStop(0,'rgba(255,255,255,0.9)');r.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=r;x.fillRect(0,0,w,h);});MR.dtex.encoding=THREE.LinearEncoding;}
 // autos: todos son "remotos" para carModel (asi el auto sale de la clave: f1, sport, hyper...)
 function mrModel(r,k){if(r.m){MR.g.remove(r.m.root);disposeObj(r.m.root);}const o={isPlayer:false,team:r.team,num:r.num,driver:r.name};remoteFlags(o,k);
- const m=carModel(o,r.isMe?playerName():r.name.split(' ').pop());m.root.rotation.order='YXZ';MR.g.add(m.root);r.m=m;r.key=k;r.mk=k;}
+ const m=carModel(o,r.isMe?playerName():r.name.split(' ').pop());m.root.rotation.order='YXZ';MR.g.add(m.root);r.m=m;r.key=k;r.mk=k;
+ if(r.isMe){addCockpit({m});if(m.kit)for(const mm of m.kit.mirrors)mm.visible=false;}}
 function mrSetCar(r,k){if(r.key===k&&r.m)return;mrModel(r,k);mrDust(r.pos,10);}
-function megaStart(){if(maintBlocked()){maintShow();return;}
- initAudio();if(actx&&actx.state==='suspended')actx.resume();hmFade(false);mrBuild();
+function mgCamNext(){MR.cam=(MR.cam+1)%3;MR.snap=true;showMsg(['Cámara de atrás','Cámara de costado','Primera persona'][MR.cam],900);}
+function megaStart(mode){if(maintBlocked()){maintShow();return;}MR.mode=mode||MR.mode||'normal';
+ initAudio();if(actx&&actx.state==='suspended')actx.resume();hmFade(false);mrBuild();mrObsBuild();MR.obsG.visible=MR.mode==='obst';
  if(world)world.visible=false;if(carsGroup)carsGroup.visible=false;MR.g.visible=true;
  RAINFX.mesh.visible=false;DROPS.update(0,false,0);STARS.visible=false;
  applySky('day');scene.fog=new THREE.Fog(new THREE.Color('#bcd2ea'),1300,7000);
  for(const id of ['home','menu','results','pause','verBar','rpBar'])$(id).classList.add('hidden');huPadClose();
  document.body.classList.add('mega');$('hud').classList.remove('hidden');$('mgHud').classList.remove('hidden');
- try{MR.best=+(JSON.parse(localStorage.getItem('gp3d_megarrampa')||'{}').best)||0;}catch(e){MR.best=0;}
+ try{MR.best=+(JSON.parse(localStorage.getItem('gp3d_megarrampa')||'{}')[MR.mode==='obst'?'bestO':'best'])||0;}catch(e){MR.best=0;}
  megaReset();state='mega';}
 // arma la carrera: 6 autos en la plataforma de largada (vos en el medio), el auto de cada checkpoint se sortea
 function megaReset(){huPadClose();for(const r of MR.cars)if(r.m){MR.g.remove(r.m.root);disposeObj(r.m.root);}MR.cars=[];for(const d of MR.dust)d.visible=false;
@@ -7618,7 +7621,7 @@ function megaReset(){huPadClose();for(const r of MR.cars)if(r.m){MR.g.remove(r.m
    sk:me?1:rnd(0.9,1),lane:rnd(-0.55,0.55),err:rnd(0.04,0.14),errT:0,errS:0,m:null,key:'f1'};
   r.ch=mrAt(r.s).h;mrModel(r,'f1');mrPlace(r);MR.cars.push(r);}
  MR.me=MR.cars[3];Object.assign(MR,{st:'count',t:0,t0:0,snap:true,shake:0,doneT:0,shown:false,hh:'',cdn:-1});}
-function megaExit(){huPadClose();for(const r of MR.cars)if(r.m){MR.g.remove(r.m.root);disposeObj(r.m.root);r.m=null;}MR.cars=[];if(MR.g)MR.g.visible=false;
+function megaExit(){huPadClose();camera.up.set(0,1,0);for(const r of MR.cars)if(r.m){MR.g.remove(r.m.root);disposeObj(r.m.root);r.m=null;}MR.cars=[];if(MR.g)MR.g.visible=false;
  if(world)world.visible=true;if(carsGroup)carsGroup.visible=true;document.body.classList.remove('mega');$('mgHud').classList.add('hidden');goMenu();}
 // pone el auto en la pista segun s (metros) y l (metros a la izquierda del centro)
 function mrPlace(r){const q=mrAt(r.s),lx=Math.cos(q.h),lz=-Math.sin(q.h);r.pos.set(q.x+lx*r.l,q.y,q.z+lz*r.l);r.P=q.p;r.R=0;}
@@ -7628,7 +7631,7 @@ function mrToAir(r,q,edge){const c=Math.cos(q.p),lx=Math.cos(q.h),lz=-Math.sin(q
  r.vel.set(Math.sin(r.ch)*c*f+lx*r.vl,Math.sin(q.p)*f,Math.cos(r.ch)*c*f+lz*r.vl);r.air=true;r.sg=r.s;r.wp=0;r.tumble=false;
  // por el borde: se va para afuera y se da vuelta hacia ese lado (el lado de afuera baja primero), con algo de trompa y de giro
  if(edge){const sd=Math.sign(r.l)||1;r.vel.x+=lx*sd*2.5;r.vel.z+=lz*sd*2.5;r.vel.y-=1;mrTumble(r,-sd*rnd(2.2,3.6),rnd(-1.6,0.4),rnd(-1.2,1.2));}}
-function mrRespawn(r){const cs=MRC.cps[r.cp]||0;r.s=cs+(r.cp?6:30);r.l=rnd(-3,3);r.u=r.cp?12:0;r.vl=0;r.air=false;r.dead=0;r.tumble=false;r.ch=mrAt(r.s).h;mrPlace(r);r.dR=0;r.dP=r.P;if(r.isMe){MR.snap=true;showMsg('De vuelta al checkpoint',1100);}}
+function mrRespawn(r){const cs=MRC.cps[r.cp]||0;r.s=cs+(r.cp?6:30);r.l=rnd(-3,3);r.u=r.cp?12:0;r.vl=0;r.air=false;r.dead=0;r.tumble=false;r.ch=mrAt(r.s).h;mrPlace(r);r.dR=0;r.dP=r.P;r.safeT=MR.t+4;/* v170: 4 s sin que le peguen los obstaculos al volver al checkpoint */if(r.isMe){MR.snap=true;showMsg('De vuelta al checkpoint',1100);}}
 function mrInputAI(r){const q=mrAt(r.s),look=r.s+clamp(r.u*0.7,8,34),qL=mrAt(look),wl=Math.min(qL.w,q.w);
  const tl=clamp(r.lane*(wl/2-2.6),-(wl/2-2),wl/2-2),des=qL.h+Math.atan2(tl-r.l,look-r.s);
  if(r.errT>0)r.errT-=1/60;else if(Math.random()<r.err/60){r.errT=rnd(0.3,0.8);r.errS=rnd(-1,1);}
@@ -7696,17 +7699,24 @@ function mrVisual(r,dt){const m=r.m;if(!m)return;
  // v169: dando vueltas gira alrededor del medio del auto (a 0,55 m del piso), no de las ruedas
  if(r.air||r.dead||Math.abs(wrapA(r.dR))>0.05){_mgW.set(0,0.55,0).applyQuaternion(o.quaternion);o.position.y+=0.55;o.position.sub(_mgW);}
  const on=!r.air&&!r.dead;r.wv=on?r.u:r.wv*(1-Math.min(1,dt*0.4));for(const w of m.wheels)w.rotation.x+=r.wv*dt/(m.wr||0.354);
- for(const f of m.fronts)f.rotation.y=r.steer*(m.lock||0.42)*0.6;if(m.swg)m.swg.quaternion.setFromAxisAngle(m.swAx,r.steer*1.8);}
+ for(const f of m.fronts)f.rotation.y=r.steer*(m.lock||0.42)*0.6;if(m.swg)m.swg.quaternion.setFromAxisAngle(m.swAx,r.steer*1.8);
+ // v170: en primera persona no se ve el casco propio, y el volante y la pantalla de la cabina andan
+ if(r.isMe){const fp=MR.cam===2;if(m.helmet&&m.helmet[0]&&m.helmet[0].visible===fp)for(const hh of m.helmet)hh.visible=!fp;
+  if(m.kit){const K=m.kit;K.spin.rotation.z=-r.steer*K.lock;ckArmsUpdate(K);if(fp){K.t-=dt;if(K.t<=0){K.t=0.1;const sp=r.air?r.vel.length():Math.abs(r.u),px={v:sp,rpm:rpmFor(Math.min(sp,92)),gear:Math.min(8,1+Math.floor(sp/12)),steer:r.steer,ers:0.5,ersOn:false};
+   const S0=standings;standings=()=>mrOrder().map(c=>c===r?px:c);try{drawLCD(K.lcd,px,'wheel');if(K.dash)(K.dashFn||drawLCD)(K.dash,px,'dash');}catch(e){}standings=S0;}}}}}
 // camara atras de tu auto (en el aire mira hacia donde vuela; si te caes se queda mirando) o "cine" de costado
-function mrCamera(dt){const r=MR.me,p=r.pos,want=_mgV,look=_mgU;let fov,k;
+function mrCamera(dt){const r=MR.me,p=r.pos,want=_mgV,look=_mgU;let fov,k;camera.up.set(0,1,0);
  if(r.dead){look.copy(p);want.copy(MR.camP);fov=camera.fov;k=0;}
  else if(MR.cam===1){const lx=Math.cos(r.ch),lz=-Math.sin(r.ch);want.set(p.x+lx*28,p.y+10,p.z+lz*28).addScaledVector(_mgW.set(Math.sin(r.ch),0,Math.cos(r.ch)),14);look.copy(p);fov=45;k=1-Math.exp(-dt*3);}
- else{let fx,fz;if(r.air){const hl=Math.hypot(r.vel.x,r.vel.z);fx=hl>1?r.vel.x/hl:Math.sin(r.ch);fz=hl>1?r.vel.z/hl:Math.cos(r.ch);}else{fx=Math.sin(r.ch);fz=Math.cos(r.ch);}
+ else if(MR.cam===2){const o=r.m.root,e=mrEye(r.m);o.updateMatrixWorld(true);want.set(e[0],e[1],e[2]);o.localToWorld(want);look.set(e[0],e[1]-0.1,e[2]+25);o.localToWorld(look);
+  // la camara gira con el auto (si da vueltas, das vueltas vos tambien)
+  camera.up.set(0,1,0).applyQuaternion(o.quaternion);fov=76+Math.min(10,(r.air?r.vel.length():Math.abs(r.u))*0.08);k=1;MR.snap=true;}
+ else{ let fx,fz;if(r.air){const hl=Math.hypot(r.vel.x,r.vel.z);fx=hl>1?r.vel.x/hl:Math.sin(r.ch);fz=hl>1?r.vel.z/hl:Math.cos(r.ch);}else{fx=Math.sin(r.ch);fz=Math.cos(r.ch);}
   const sp=r.air?r.vel.length():Math.abs(r.u),back=9.5+Math.min(4,sp*0.04);want.set(p.x-fx*back,p.y+3.3+(r.air?1.5:Math.max(0,-Math.sin(r.P))*back*0.8),p.z-fz*back);
   look.set(p.x+fx*7,p.y+1,p.z+fz*7);k=1-Math.exp(-dt*(r.air?5:8));fov=62+Math.min(14,sp*0.13);}
  if(MR.snap){MR.camP.copy(want);MR.camL.copy(look);camera.fov=fov;MR.snap=false;}else{MR.camP.lerp(want,k);MR.camL.lerp(look,Math.min(1,dt*9));}
  camera.position.copy(MR.camP);if(MR.shake>0){MR.shake=Math.max(0,MR.shake-dt*1.8);const s=MR.shake*0.3;camera.position.x+=rnd(-s,s);camera.position.y+=rnd(-s,s);}
- camera.lookAt(MR.camL);camera.near=0.25;camera.fov=lerp(camera.fov,fov,Math.min(1,dt*3));camera.updateProjectionMatrix();}
+ camera.near=MR.cam===2&&!r.dead?0.05:0.25;camera.lookAt(MR.camL);camera.fov=lerp(camera.fov,fov,Math.min(1,dt*3));camera.updateProjectionMatrix();}
 const _mgV=new V3(),_mgU=new V3(),_mgW=new V3();
 function mrOrder(){return MR.cars.slice().sort((a,b)=>a.fin!==b.fin?(a.fin?-1:1):a.fin?a.finT-b.finT:(b.air?b.sg:b.s)-(a.air?a.sg:a.s));}
 const mrTime=t=>{const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1);};
@@ -7727,15 +7737,57 @@ function mrAudio(inp){if(!actx||!SND)return;const S=SND,t=actx.currentTime,r=MR.
  for(const k of ['turbo','ers','grav','rain','sq','crowd','kerb'])if(S[k]&&S[k].g)S[k].g.gain.setTargetAtTime(0,t,0.1);for(const a of S.ai)a.v.g.gain.setTargetAtTime(0,t,0.1);}
 function mrFinish(){const r=MR.me,pos=mrOrder().indexOf(r)+1;showMsg(pos===1?'¡GANASTE!':'¡Llegaste '+pos+'º!',2500);MR.doneT=MR.t+4;sndBurst(0.5,'bandpass',1200,1,0.5);}
 function mrResult(){MR.shown=true;const r=MR.me,o=mrOrder(),pos=o.indexOf(r)+1,rec=r.fin&&(!MR.best||r.finT<MR.best);
- if(rec){MR.best=r.finT;try{localStorage.setItem('gp3d_megarrampa',JSON.stringify({best:r.finT}));}catch(e){}}
+ if(rec){MR.best=r.finT;try{const o=JSON.parse(localStorage.getItem('gp3d_megarrampa')||'{}');o[MR.mode==='obst'?'bestO':'best']=r.finT;localStorage.setItem('gp3d_megarrampa',JSON.stringify(o));}catch(e){}}
  let h='<div class="mg-big">'+(r.fin?pos+'º':'—')+'</div>'+(rec?'<p class="mg-rec">🏆 ¡Tu mejor tiempo!</p>':'')+'<table class="mg-tab">';
  o.forEach((c,i)=>{h+='<tr'+(c.isMe?' class="me"':'')+'><td>'+(i+1)+'</td><td><i style="background:'+c.team.c1+'"></i>'+esc(c.name)+'</td><td>'+(c.fin?mrTime(c.finT):'No llegó')+'</td></tr>';});
  h+='</table><p class="hint mg-c">Tu mejor tiempo: '+(MR.best?mrTime(MR.best):'—')+'</p>';
- huPad('Megarrampa',h,[['Otra vez',megaReset,1],['Menú',megaExit]]);}
-function megaTick(rdt){const dt=Math.min(rdt,0.05);MR.t+=dt;simT+=dt;const me=MR.me;
+ huPad('Megarrampa · '+(MR.mode==='obst'?'Con obstáculos':'Normal'),h,[['Otra vez',megaReset,1],['Menú',megaExit]]);}
+// v170 (usuario: "modos como el de DaniRep, con obstaculos, y camara de 1era persona")
+// --- modos: al entrar se elige Normal o Con obstaculos (cada uno con su mejor tiempo) ---
+function mgModeOpen(){let h='<p>Elegí cómo querés correr:</p><div class="mg-modes">'+
+ '<button class="btn" data-m="normal"><b>Normal</b><small>La carrera en el aire, con saltos y caídas</small></button>'+
+ '<button class="btn" data-m="obst"><b>🔨 Con obstáculos</b><small>Martillos que se balancean, bloques que se mueven y barras que giran: si te pegan, salís volando</small></button></div>';
+ huPad('Megarrampa',h,[['Cancelar',huPadClose]]);for(const b of $('huPadB').querySelectorAll('[data-m]'))b.onclick=()=>{huPadClose();megaStart(b.dataset.m);};}
+// --- obstaculos: cada uno en una pieza del recorrido (indice de MRP y en que parte de la pieza) ---
+// ham = martillo que se balancea de costado (cuelga de un arco), blk = bloque que va y viene de un lado al otro, bar = barra que gira al ras
+const MRO=[[1,0.62,'ham'],[5,0.35,'blk'],[5,0.7,'blk'],[8,0.75,'bar'],[9,0.5,'ham'],[11,0.5,'ham'],[15,0.4,'bar'],[15,0.75,'blk'],[24,0.3,'ham'],[24,0.7,'ham'],[28,0.45,'bar'],[28,0.75,'blk']];
+function mrPieceS(i){let s=0;for(let k=0;k<i;k++)s+=Math.max(1,Math.round(MRP[k][1]/MRC.DS))*MRC.DS;return s;}
+function mrObsBuild(){if(MR.obsG)return;const g=new THREE.Group();MR.obsG=g;MR.g.add(g);MR.obs=[];
+ const stripe=(a,b)=>mgTex(64,64,(x,w,h)=>{x.fillStyle=a;x.fillRect(0,0,w,h);x.fillStyle=b;for(let i=-2;i<4;i++){x.beginPath();x.moveTo(i*32,0);x.lineTo(i*32+16,0);x.lineTo(i*32+16+h,h);x.lineTo(i*32+h,h);x.closePath();x.fill();}});
+ const tY=stripe('#ffc61a','#16171b');tY.repeat.set(2,1);const tR=stripe('#e8322b','#f4f4f4');tR.repeat.set(6,1);
+ const M={steel:new THREE.MeshStandardMaterial({color:'#5d6470',roughness:0.5,metalness:0.6}),head:new THREE.MeshStandardMaterial({map:tR,roughness:0.4,metalness:0.2}),
+  blk:new THREE.MeshStandardMaterial({map:tY,roughness:0.6}),bar:new THREE.MeshStandardMaterial({map:tR,roughness:0.45})};
+ const box=(w,h,d,m,x,y,z,p)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;(p||g).add(o);return o;};
+ for(const [pi,f,t] of MRO){const s=mrPieceS(pi)+MRP[pi][1]*f,q=mrAt(s),w=q.w,o=new THREE.Group();o.rotation.order='YXZ';o.position.set(q.x,q.y,q.z);o.rotation.set(-q.p,q.h,0);g.add(o);
+  const ob={t,s,w,o,ph:rnd(0,6.28),ang:0,x:0,a:0};
+  if(t==='ham'){for(const sd of [1,-1])box(0.8,17,0.8,M.steel,sd*(w/2+1.4),6.5,0,o);box(w+3.6,0.9,0.9,M.steel,0,15,0,o);
+   const pv=new THREE.Group();pv.position.y=14.4;o.add(pv);box(0.35,11.5,0.35,M.steel,0,-5.75,0,pv);
+   const hd=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,4.5,20),M.head);hd.rotation.x=PI/2;hd.position.y=-11.5;hd.castShadow=true;pv.add(hd);ob.piv=pv;ob.L=11.5;ob.top=14.4;}
+  else if(t==='blk'){ob.box=box(5,2.6,4,M.blk,0,1.3,0,o);ob.amp=w/2-3.2;}
+  else{const post=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.6,1.6,14),M.steel);post.position.y=0.8;o.add(post);const rg=new THREE.Group();rg.position.y=0.85;o.add(rg);
+   box(w-0.6,0.55,0.6,M.bar,0,0,0,rg);ob.bar=rg;}
+  o.updateMatrixWorld(true);ob.inv=new THREE.Matrix4().copy(o.matrixWorld).invert();MR.obs.push(ob);}}
+function mrObsAnim(){const T=MR.t;for(const ob of MR.obs){if(ob.t==='ham'){ob.ang=1.05*Math.sin(1.5*T+ob.ph);ob.piv.rotation.z=ob.ang;}
+  else if(ob.t==='blk'){ob.x=ob.amp*Math.sin(1.25*T+ob.ph);ob.box.position.x=ob.x;}else{ob.a=1.3*T+ob.ph;ob.bar.rotation.y=ob.a;}}}
+// choque con un obstaculo: sale volando para el costado (pl, m/s a la izquierda de la pista), para arriba (pu) y pierde velocidad (fk), dando vueltas
+function mrHit(r,pl,pu,fk,t){const q=mrAt(r.air?r.sg:r.s);if(!r.air)mrToAir(r,q);const lx=Math.cos(q.h),lz=-Math.sin(q.h);
+ r.vel.x*=fk;r.vel.z*=fk;r.vel.x+=lx*pl;r.vel.z+=lz*pl;r.vel.y=Math.max(r.vel.y,0)+pu;r.pos.y+=0.2;
+ mrTumble(r,(pl>0?-1:1)*rnd(3,6),rnd(-3,3),rnd(-2,2));r.hitT=MR.t;mrDust(r.pos,10);
+ if(r.isMe){sndHit(1);MR.shake=1.3;showMsg({ham:'¡Te pegó el martillo!',blk:'¡Chocaste un bloque!',bar:'¡Te barrió la barra!'}[t],1300);}}
+function mrObsStep(){for(const r of MR.cars){if(r.dead||MR.t<(r.safeT||0)||MR.t-(r.hitT==null?-9:r.hitT)<0.7)continue;const rs=r.air?r.sg:r.s;
+ for(const ob of MR.obs){if(Math.abs(rs-ob.s)>16)continue;_mgV.set(r.pos.x,r.pos.y+0.6,r.pos.z).applyMatrix4(ob.inv);const l=_mgV.x,y=_mgV.y,z=_mgV.z;let hit=null;
+  if(ob.t==='ham'){const hx=ob.L*Math.sin(ob.ang),hy=ob.top-ob.L*Math.cos(ob.ang);if(Math.abs(z)<4.4&&Math.hypot(l-hx,y-hy)<2.6){const sw=Math.cos(1.5*MR.t+ob.ph);hit=[(sw>=0?1:-1)*18,9,0.45];}}
+  else if(ob.t==='blk'){if(Math.abs(z)<4.2&&Math.abs(l-ob.x)<3.5&&y<3){const mv=Math.cos(1.25*MR.t+ob.ph);hit=[(l>=ob.x?1:-1)*6+(mv>=0?1:-1)*8,7,0.3];}}
+  else{const ca=Math.cos(ob.a),sa=Math.sin(ob.a),proj=l*ca-z*sa,perp=Math.abs(-l*sa-z*ca);if(y<1.8&&perp<1.4&&Math.abs(proj)<ob.w/2-0.3){const vl=1.3*(-proj*sa);hit=[clamp(vl*1.8,-16,16)+(vl>=0?5:-5),6,0.55];}}
+  if(hit){mrHit(r,hit[0],hit[1],hit[2],ob.t);break;}}}}
+// --- primera persona: los ojos del piloto (los mismos de la camara de cabina de las carreras): [costado, alto, adelante] ---
+function mrEye(m){const fo=m.bc?-0.1:m.sn?-0.3:m.kc?-0.12:m.rr?-0.08:m.pg?-0.22:m.mono?0.12:m.p911?-0.45:m.sl?-0.62:m.f6?-0.12:m.sc4?-0.12:m.gt?-0.1:-0.08;
+ const y=m.bc?0.98:m.sn?0.9:m.kc?1.0:m.rr?1.52:m.pg?0.95:m.mono?1.7:m.p911?1.06:m.sl?1.06:m.f6?1.15:m.sc4?0.95:m.ray?1.35:m.gt?1.0:0.88;
+ const ox=m.bc?BC_OX:m.sn?SN_OX:m.kc?KC_OX:m.rr?RR_OX:m.pg?PG_OX:m.hyper?HY_OX:m.sc4?SC_OX:m.sl?SL_OX:m.f6?F6_OX:m.p911?P9_OX:0;return [ox,y,fo];}
+function megaTick(rdt){const dt=Math.min(rdt,0.05);MR.t+=dt;simT+=dt;const me=MR.me;if(MR.mode==='obst'&&MR.obs)mrObsAnim();
  const pin=$('huPad').classList.contains('hidden')?input():{steer:0,thr:0,brk:0};
  if(MR.st==='count'){const c=3-Math.floor(MR.t/0.9);if(c!==MR.cdn){MR.cdn=c;if(c>0){showMsg(String(c),700);sndBurst(0.12,'bandpass',900,3,0.35);}else{showMsg('¡YA!',900);sndBurst(0.3,'bandpass',1500,3,0.5);MR.st='race';MR.t0=MR.t;}}}
- if(MR.st!=='count'){const n=3,h=dt/n;for(let k=0;k<n;k++){for(const r of MR.cars){const inp=r.isMe?(r.fin?{steer:0,thr:0,brk:1}:pin):(!r.air&&!r.dead?mrInputAI(r):{steer:0,thr:0,brk:0});r.steer=lerp(r.steer,inp.steer,0.2);mrStep(r,h,inp);}mrBump();}}
+ if(MR.st!=='count'){const n=3,h=dt/n;for(let k=0;k<n;k++){for(const r of MR.cars){const inp=r.isMe?(r.fin?{steer:0,thr:0,brk:1}:pin):(!r.air&&!r.dead?mrInputAI(r):{steer:0,thr:0,brk:0});r.steer=lerp(r.steer,inp.steer,0.2);mrStep(r,h,inp);}mrBump();if(MR.mode==='obst'&&MR.obs)mrObsStep();}}
  if(me.fin&&!MR.shown&&(MR.t>MR.doneT||MR.cars.every(c=>c.fin)))mrResult();
  for(const r of MR.cars)mrVisual(r,dt);mrCamera(dt);mrDustStep(dt);mrHud();mrAudio(pin);
  placeSun(me.pos);sky.position.copy(camera.position);if(MUS.g)hmMusic();post.render();}
@@ -8071,7 +8123,7 @@ function reqShow(P){const box=$('reqBox'),key=P.map(p=>p.u+'@'+p.t).join('|');
 function visLoop(){clearTimeout(VIS.t);timEnsure();dlTick();if(!document.hidden)visPing();if(!document.hidden){maintCheck();reqCheck();if(Date.now()-VER.t>60000){VER.t=Date.now();verCheck();}else verShow();}VIS.t=setTimeout(visLoop,15000);}
 // v134: aviso de version nueva: en el sitio esta version.json con el numero de la ultima ({"v":134}); si es mas nueva que este juego aparece
 // un cartelito abajo (solo en la pantalla de inicio sin ventanas abiertas, nunca en carrera). Actualizar recarga con ?v=N para que no use la copia guardada.
-const GAME_V=169;var VER={n:0,hide:0,t:-1e9};
+const GAME_V=170;var VER={n:0,hide:0,t:-1e9};
 async function verCheck(){if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&Number.isInteger(j.v)&&j.v>GAME_V)VER.n=j.v;}}catch(e){}verShow();}
 function verShow(){$('verBar').classList.toggle('hidden',!(VER.n>GAME_V&&VER.n!==VER.hide&&state==='menu'&&!$('home').classList.contains('hidden')&&!document.querySelector('.modalwrap:not(.hidden)')));}
 $('verYes').onclick=()=>{location.href=location.pathname+'?v='+VER.n;};
@@ -8516,7 +8568,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;
  if(!$('codePad').classList.contains('hidden')){const d=/^(Digit|Numpad)([0-9])$/.exec(e.code);if(d)codeKey(d[2]);else if(e.code==='Backspace')codeKey('del');else if(e.code==='Enter'||e.code==='NumpadEnter')codeKey('ok');else if(e.code==='Escape')codeClose();e.preventDefault();return;}
  keys[e.code]=true;
  // v167: en la Megarrampa: Escape sale, C cambia la camara, R o Enter otra vez (con los resultados abiertos)
- if(state==='mega'){if(e.code==='Escape')megaExit();else if(!e.repeat&&e.code==='KeyC')MR.cam=1-MR.cam;else if(!e.repeat&&(e.code==='KeyR'||e.code==='Enter')&&MR.shown)megaReset();else if(e.code==='KeyM')toggleSound();if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();return;}
+ if(state==='mega'){if(e.code==='Escape')megaExit();else if(!e.repeat&&e.code==='KeyC')mgCamNext();else if(!e.repeat&&(e.code==='KeyR'||e.code==='Enter')&&MR.shown)megaReset();else if(e.code==='KeyM')toggleSound();if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();return;}
  // v100: Escape cierra la ventana abierta del inicio o vuelve de la pantalla de armado al inicio
  if(e.code==='Escape'&&state==='menu'&&!PE.open){if(!$('huPad').classList.contains('hidden'))huPadClose();else if(!$('menu').classList.contains('hidden')&&$('onlinePad').classList.contains('hidden'))hmShow();}
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)&&state!=='menu')e.preventDefault();
